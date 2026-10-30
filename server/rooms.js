@@ -59,9 +59,44 @@ export class RoomManager {
 
   leave(code, playerId) {
     const room = this.getRoom(code);
-    if (!room) return;
+    if (room) this.#removePlayer(room, playerId);
+  }
+
+  // Socket dropped: keep the seat for a grace period so the player can rejoin.
+  disconnect(code, playerId) {
+    const player = this.getRoom(code)?.players.get(playerId);
+    if (!player) return;
+    const room = this.getRoom(code);
+    player.connected = false;
+    player.graceUntil = this.now() + (room.state === 'lobby' ? ROOM.LOBBY_GRACE_MS : ROOM.MATCH_GRACE_MS);
+  }
+
+  // Removes players whose grace ran out. Returns rooms that changed and still exist.
+  sweep() {
+    const t = this.now();
+    const changed = [];
+    for (const room of [...this.rooms.values()]) {
+      const expired = [...room.players.values()].filter((p) => p.graceUntil !== null && p.graceUntil <= t);
+      if (!expired.length) continue;
+      expired.forEach((p) => this.#removePlayer(room, p.id));
+      if (this.rooms.has(room.code)) changed.push(room);
+    }
+    return changed;
+  }
+
+  #removePlayer(room, playerId) {
     room.players.delete(playerId);
-    if (room.players.size === 0) this.rooms.delete(room.code);
+    if (room.players.size === 0) {
+      this.rooms.delete(room.code);
+      return;
+    }
+    if (room.hostId === playerId) {
+      // Earliest joiner wins; connected players beat ones currently in grace.
+      const [next] = [...room.players.values()].sort(
+        (a, b) => (b.connected - a.connected) || (a.joinOrder - b.joinOrder),
+      );
+      room.hostId = next.id;
+    }
   }
 
   addOption(code, playerId, text) {

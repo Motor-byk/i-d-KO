@@ -47,3 +47,29 @@ test('lobby actions broadcast and reject non-members', async (t) => {
   const stranger = await client();
   assert.equal((await call(stranger, 'option:add', { name: 'x' })).error, 'ROOM_NOT_FOUND');
 });
+
+test('disconnect then rejoin with token restores the seat', async (t) => {
+  const { client } = await startServer(t);
+  const a = await client();
+  const created = await call(a, 'room:create', { nickname: 'Ana' });
+  a.disconnect();
+  const a2 = await client();
+  const back = await call(a2, 'room:rejoin', { code: created.room.code, token: created.token });
+  assert.equal(back.playerId, created.playerId);
+  assert.equal(back.room.players[0].connected, true);
+});
+
+test('rejoining from a second socket kicks the first', async (t) => {
+  const { client } = await startServer(t);
+  const a = await client();
+  const created = await call(a, 'room:create', { nickname: 'Ana' });
+  const kicked = nextEvent(a, 'room:kicked');
+  const a2 = await client();
+  await call(a2, 'room:rejoin', { code: created.room.code, token: created.token });
+  assert.equal((await kicked).reason, 'REJOINED_ELSEWHERE');
+  // The kicked socket's disconnect must not mark the player disconnected.
+  await new Promise((r) => setTimeout(r, 30));
+  const update = nextEvent(a2, 'room:update');
+  await call(a2, 'option:add', { name: 'x' });
+  assert.equal((await update).players[0].connected, true);
+});

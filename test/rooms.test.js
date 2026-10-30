@@ -104,3 +104,57 @@ test('startMatch needs two populated teams, drops empty options, locks room', ()
   assert.equal(room.state, 'match');
   assert.equal(rm.addOption(room.code, host.id, 'late').error, 'ROOM_LOCKED');
 });
+
+test('disconnect keeps the seat during grace; sweep removes it after', () => {
+  let t = 0;
+  const rm = new RoomManager({ now: () => t });
+  const { room, player: host } = rm.createRoom('Host');
+  const { player: guest } = rm.joinRoom(room.code, 'Guest');
+  rm.disconnect(room.code, guest.id);
+  assert.equal(guest.connected, false);
+  t = ROOM.LOBBY_GRACE_MS - 1;
+  assert.deepEqual(rm.sweep(), []);
+  assert.ok(rm.rejoin(room.code, guest.token).player);
+  rm.disconnect(room.code, guest.id);
+  t += ROOM.LOBBY_GRACE_MS;
+  assert.deepEqual(rm.sweep(), [room]);
+  assert.equal(room.players.has(guest.id), false);
+  assert.equal(room.hostId, host.id);
+});
+
+test('match grace is shorter than lobby grace', () => {
+  let t = 0;
+  const rm = new RoomManager({ now: () => t });
+  const { room, player } = rm.createRoom('Host');
+  room.state = 'match';
+  rm.disconnect(room.code, player.id);
+  assert.equal(player.graceUntil, ROOM.MATCH_GRACE_MS);
+});
+
+test('host migrates to earliest connected joiner only when host is removed', () => {
+  let t = 0;
+  const rm = new RoomManager({ now: () => t });
+  const { room, player: host } = rm.createRoom('Host');
+  const { player: second } = rm.joinRoom(room.code, 'Second');
+  const { player: third } = rm.joinRoom(room.code, 'Third');
+  rm.disconnect(room.code, host.id);
+  assert.equal(room.hostId, host.id, 'socket blip keeps host');
+  rm.disconnect(room.code, second.id);
+  t = ROOM.LOBBY_GRACE_MS + 1;
+  rm.rejoin(room.code, second.token); // second is back before the sweep runs
+  rm.sweep();
+  assert.equal(room.hostId, second.id);
+  rm.leave(room.code, second.id);
+  assert.equal(room.hostId, third.id);
+});
+
+test('room survives while everyone is in grace, deleted when last grace ends', () => {
+  let t = 0;
+  const rm = new RoomManager({ now: () => t });
+  const { room, player } = rm.createRoom('Host');
+  rm.disconnect(room.code, player.id);
+  assert.ok(rm.getRoom(room.code));
+  t = ROOM.LOBBY_GRACE_MS;
+  rm.sweep();
+  assert.equal(rm.getRoom(room.code), undefined);
+});

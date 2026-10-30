@@ -28,6 +28,20 @@ export function attachSocketHandlers(io, rooms) {
   const allowJoin = createRateLimiter(ROOM.JOIN_ATTEMPTS_PER_MINUTE, 60_000);
 
   const broadcastRoom = (room) => io.to(room.code).emit('room:update', publicRoom(room));
+  // One live socket per player; a rejoin from a new tab/socket replaces the old one.
+  const socketByPlayer = new Map();
+
+  const detach = (socket) => {
+    const { code, playerId } = socket.data;
+    if (!code) return null;
+    socket.leave(code);
+    socket.data.code = socket.data.playerId = undefined;
+    if (socketByPlayer.get(playerId) === socket) socketByPlayer.delete(playerId);
+    return { code, playerId };
+  };
+
+  const sweepTimer = setInterval(() => rooms.sweep().forEach(broadcastRoom), 1000);
+  sweepTimer.unref();
 
   io.on('connection', (socket) => {
     const ip = clientIp(socket);
@@ -46,6 +60,13 @@ export function attachSocketHandlers(io, rooms) {
     };
 
     const enter = (room, player, reply) => {
+      const previous = socketByPlayer.get(player.id);
+      if (previous && previous !== socket) {
+        detach(previous);
+        previous.emit('room:kicked', { reason: 'REJOINED_ELSEWHERE' });
+        previous.disconnect(true);
+      }
+      socketByPlayer.set(player.id, socket);
       socket.data.code = room.code;
       socket.data.playerId = player.id;
       socket.join(room.code);
@@ -93,21 +114,21 @@ export function attachSocketHandlers(io, rooms) {
     lobbyAction('team:pick', (code, id, { optionId = null }) => rooms.pickTeam(code, id, optionId));
     lobbyAction('match:start', (code, id) => rooms.startMatch(code, id));
 
-    const leave = () => {
-      const { code, playerId } = socket.data;
-      if (!code) return;
-      socket.leave(code);
-      socket.data.code = socket.data.playerId = undefined;
-      rooms.leave(code, playerId);
-      const room = rooms.getRoom(code);
+    // Explicit leave frees the seat now; a dropped socket keeps it for the grace period.
+    const exit = (explicit) => {
+      const seat = detach(socket);
+      if (!seat) return;
+      if (explicit) rooms.leave(seat.code, seat.playerId);
+      else rooms.disconnect(seat.code, seat.playerId);
+      const room = rooms.getRoom(seat.code);
       if (room) broadcastRoom(room);
     };
 
     on('room:leave', (_payload, reply) => {
-      leave();
+      exit(true);
       reply({ ok: true });
     });
 
-    socket.on('disconnect', leave);
+    socket.on('disconnect', () => exit(false));
   });
 }

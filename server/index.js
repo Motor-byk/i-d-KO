@@ -28,22 +28,19 @@ const STATIC_MOUNTS = [
 ];
 
 async function serveStatic(req, res) {
-  const url = new URL(req.url, 'http://localhost');
-  for (const [prefix, dir] of STATIC_MOUNTS) {
-    if (!url.pathname.startsWith(prefix)) continue;
-    let rel = decodeURIComponent(url.pathname.slice(prefix.length)) || 'index.html';
-    const file = normalize(join(dir, rel));
-    if (!file.startsWith(dir + sep)) break;
-    try {
-      const body = await readFile(file);
-      res.writeHead(200, { 'Content-Type': MIME[extname(file)] || 'application/octet-stream' });
-      res.end(body);
-      return true;
-    } catch {
-      break;
-    }
+  try {
+    const { pathname } = new URL(req.url, 'http://localhost');
+    const [prefix, dir] = STATIC_MOUNTS.find(([p]) => pathname.startsWith(p));
+    const file = normalize(join(dir, decodeURIComponent(pathname.slice(prefix.length)) || 'index.html'));
+    if (!file.startsWith(dir + sep)) return false;
+    const body = await readFile(file);
+    res.writeHead(200, { 'Content-Type': MIME[extname(file)] || 'application/octet-stream' });
+    res.end(body);
+    return true;
+  } catch {
+    // Missing file or malformed URL (bad percent-encoding): fall through to 404.
+    return false;
   }
-  return false;
 }
 
 export function createAppServer() {

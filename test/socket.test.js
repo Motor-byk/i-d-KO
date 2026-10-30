@@ -36,3 +36,14 @@ test('rate limiter allows limit per window', () => {
   t = 1000;
   assert.equal(allow('ip'), true);
 });
+
+test('lobby actions broadcast and reject non-members', async (t) => {
+  const { client } = await startServer(t);
+  const a = await client();
+  const { room } = await call(a, 'room:create', { nickname: 'Ana' });
+  const update = nextEvent(a, 'room:update');
+  assert.deepEqual(await call(a, 'option:add', { name: 'Tacos' }), { ok: true });
+  assert.equal((await update).options[0].name, 'Tacos');
+  const stranger = await client();
+  assert.equal((await call(stranger, 'option:add', { name: 'x' })).error, 'ROOM_NOT_FOUND');
+});

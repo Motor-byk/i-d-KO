@@ -80,6 +80,19 @@ export function attachSocketHandlers(io, rooms) {
       enter(res.room, res.player, reply);
     });
 
+    // Lobby actions: result.room present => broadcast, then ack.
+    const lobbyAction = (event, fn) => on(event, (payload, reply) => {
+      const res = fn(socket.data.code, socket.data.playerId, payload);
+      if (res.error) return reply({ error: res.error });
+      broadcastRoom(res.room);
+      reply({ ok: true });
+    });
+
+    lobbyAction('option:add', (code, id, { name }) => rooms.addOption(code, id, name));
+    lobbyAction('option:remove', (code, id, { optionId }) => rooms.removeOption(code, id, optionId));
+    lobbyAction('team:pick', (code, id, { optionId = null }) => rooms.pickTeam(code, id, optionId));
+    lobbyAction('match:start', (code, id) => rooms.startMatch(code, id));
+
     const leave = () => {
       const { code, playerId } = socket.data;
       if (!code) return;

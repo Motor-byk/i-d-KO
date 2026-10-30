@@ -14,6 +14,8 @@ export function cleanText(value, maxLength) {
   return Array.from(graphemes.segment(text), (g) => g.segment).slice(0, maxLength).join('');
 }
 
+const players = (room) => [...room.players.values()];
+
 export class RoomManager {
   constructor({ now = Date.now } = {}) {
     this.now = now;
@@ -47,7 +49,7 @@ export class RoomManager {
     if (room.players.size >= ROOM.MAX_PLAYERS) return { error: 'ROOM_FULL' };
     const name = cleanText(nickname, ROOM.MAX_NICKNAME_LENGTH);
     if (!name) return { error: 'BAD_NICKNAME' };
-    const taken = [...room.players.values()].some((p) => p.nickname.toLowerCase() === name.toLowerCase());
+    const taken = players(room).some((p) => p.nickname.toLowerCase() === name.toLowerCase());
     if (taken) return { error: 'NICKNAME_TAKEN' };
     return { room, player: this.#addPlayer(room, name) };
   }
@@ -56,7 +58,7 @@ export class RoomManager {
   rejoin(code, token) {
     const room = this.getRoom(code);
     if (!room) return { error: 'ROOM_NOT_FOUND' };
-    const player = [...room.players.values()].find((p) => p.token === token);
+    const player = players(room).find((p) => p.token === token);
     if (!player) return { error: 'BAD_TOKEN' };
     player.connected = true;
     player.graceUntil = null;
@@ -70,9 +72,9 @@ export class RoomManager {
 
   // Socket dropped: keep the seat for a grace period so the player can rejoin.
   disconnect(code, playerId) {
-    const player = this.getRoom(code)?.players.get(playerId);
-    if (!player) return;
     const room = this.getRoom(code);
+    const player = room?.players.get(playerId);
+    if (!player) return;
     player.connected = false;
     player.graceUntil = this.now() + (room.state === 'lobby' ? ROOM.LOBBY_GRACE_MS : ROOM.MATCH_GRACE_MS);
   }
@@ -81,8 +83,8 @@ export class RoomManager {
   sweep() {
     const t = this.now();
     const changed = [];
-    for (const room of [...this.rooms.values()]) {
-      const expired = [...room.players.values()].filter((p) => p.graceUntil !== null && p.graceUntil <= t);
+    for (const room of this.rooms.values()) {
+      const expired = players(room).filter((p) => p.graceUntil !== null && p.graceUntil <= t);
       if (!expired.length) continue;
       expired.forEach((p) => this.#removePlayer(room, p.id));
       if (this.rooms.has(room.code)) changed.push(room);
@@ -98,7 +100,7 @@ export class RoomManager {
     }
     if (room.hostId === playerId) {
       // Earliest joiner wins; connected players beat ones currently in grace.
-      const [next] = [...room.players.values()].sort(
+      const [next] = players(room).sort(
         (a, b) => (b.connected - a.connected) || (a.joinOrder - b.joinOrder),
       );
       room.hostId = next.id;
@@ -138,9 +140,10 @@ export class RoomManager {
   pickTeam(code, playerId, optionId) {
     const ctx = this.#lobbyContext(code, playerId);
     if (ctx.error) return ctx;
-    if (optionId !== null && !ctx.room.options.some((o) => o.id === optionId)) return { error: 'OPTION_NOT_FOUND' };
-    ctx.player.teamId = optionId;
-    return { room: ctx.room };
+    const { room, player } = ctx;
+    if (optionId !== null && !room.options.some((o) => o.id === optionId)) return { error: 'OPTION_NOT_FOUND' };
+    player.teamId = optionId;
+    return { room };
   }
 
   // Locks the room, drops options nobody picked. Returns the populated teams.
@@ -148,7 +151,7 @@ export class RoomManager {
     const ctx = this.#lobbyContext(code, playerId, { hostOnly: true });
     if (ctx.error) return ctx;
     const { room } = ctx;
-    const picked = new Set([...room.players.values()].map((p) => p.teamId));
+    const picked = new Set(players(room).map((p) => p.teamId));
     const teams = room.options.filter((o) => picked.has(o.id));
     if (teams.length < ROOM.MIN_OPTIONS) return { error: 'NEED_TWO_TEAMS' };
     room.options = teams;
@@ -205,7 +208,7 @@ export function publicRoom(room) {
     state: room.state,
     hostId: room.hostId,
     options: room.options,
-    players: [...room.players.values()].map(({ id, nickname, teamId, connected }) => ({
+    players: players(room).map(({ id, nickname, teamId, connected }) => ({
       id, nickname, teamId, connected,
     })),
   };

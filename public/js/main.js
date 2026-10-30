@@ -1,5 +1,5 @@
 import { connect, call, wakeServer, keepAwake, session } from './connection.js';
-import { h, errorText } from './ui/dom.js';
+import { h, errorText, logo } from './ui/dom.js';
 import { homeScreen } from './ui/home.js';
 import { lobbyScreen } from './ui/lobby.js';
 
@@ -120,7 +120,7 @@ function showMovedTab() {
 async function boot() {
   const waking = h('p.muted');
   const retry = h('button', { hidden: true, onclick: () => location.reload() }, 'Try again');
-  show({ el: h('main.screen.waking', {}, h('h1.logo', {}, 'i-d-', h('span', {}, 'KO')), h('div.spinner'), waking, retry) });
+  show({ el: h('main.screen.waking', {}, logo(), h('div.spinner'), waking, retry) });
   const awake = await wakeServer((n) => {
     waking.textContent = n === 1 ? 'Connecting…' : 'Waking the server up (free hosting naps). This can take up to a minute…';
   });

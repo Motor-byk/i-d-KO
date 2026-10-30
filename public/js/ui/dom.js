@@ -15,6 +15,8 @@ export function h(tag, props = {}, ...children) {
   return el;
 }
 
+export const logo = () => h('h1.logo', {}, 'i-d-', h('span', {}, 'KO'));
+
 const ERRORS = {
   ROOM_NOT_FOUND: 'No room with that code.',
   ROOM_LOCKED: 'That match already started.',

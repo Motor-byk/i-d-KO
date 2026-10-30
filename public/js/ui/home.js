@@ -1,5 +1,5 @@
 import { ROOM } from '../../shared/constants.js';
-import { h } from './dom.js';
+import { h, logo } from './dom.js';
 
 // onSubmit({ nickname, code }) returns a promise; code null means create a new room.
 export function homeScreen({ onSubmit, initialCode = '', error = '' }) {
@@ -38,7 +38,7 @@ export function homeScreen({ onSubmit, initialCode = '', error = '' }) {
   return {
     kind: 'home',
     el: h('main.screen.home', {},
-      h('h1.logo', {}, 'i-d-', h('span', {}, 'KO')),
+      logo(),
       h('p.tagline', {}, "Can't decide? Fight about it."),
       nickname,
       createBtn,

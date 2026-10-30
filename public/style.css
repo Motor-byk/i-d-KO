@@ -92,4 +92,3 @@ button.ghost { background: transparent; color: var(--muted); }
   background: var(--danger); color: #fff; text-align: center;
   padding: 8px; font-weight: 600; z-index: 10;
 }
-.banner[hidden] { display: none; }

@@ -86,32 +86,21 @@ export function attachSocketHandlers(io, rooms) {
       broadcastRoom(room);
     };
 
-    const guardJoin = (reply, allow = allowJoin) => {
-      if (socket.data.code) return reply({ error: 'ALREADY_IN_ROOM' }), false;
-      if (!allow(ip)) return reply({ error: 'RATE_LIMITED' }), false;
-      return true;
+    // Seat-taking events: [rate limiter, room call].
+    const seatEvents = {
+      'room:create': [allowJoin, (p) => rooms.createRoom(p.nickname)],
+      'room:join': [allowJoin, (p) => rooms.joinRoom(p.code, p.nickname)],
+      'room:rejoin': [allowRejoin, (p) => rooms.rejoin(p.code, p.token)],
     };
-
-    on('room:create', ({ nickname }, reply) => {
-      if (!guardJoin(reply)) return;
-      const res = rooms.createRoom(nickname);
-      if (res.error) return reply(res);
-      enter(res.room, res.player, reply);
-    });
-
-    on('room:join', ({ code, nickname }, reply) => {
-      if (!guardJoin(reply)) return;
-      const res = rooms.joinRoom(code, nickname);
-      if (res.error) return reply(res);
-      enter(res.room, res.player, reply);
-    });
-
-    on('room:rejoin', ({ code, token }, reply) => {
-      if (!guardJoin(reply, allowRejoin)) return;
-      const res = rooms.rejoin(code, token);
-      if (res.error) return reply(res);
-      enter(res.room, res.player, reply);
-    });
+    for (const [event, [allow, take]] of Object.entries(seatEvents)) {
+      on(event, (payload, reply) => {
+        if (socket.data.code) return reply({ error: 'ALREADY_IN_ROOM' });
+        if (!allow(ip)) return reply({ error: 'RATE_LIMITED' });
+        const res = take(payload);
+        if (res.error) return reply(res);
+        enter(res.room, res.player, reply);
+      });
+    }
 
     // Lobby actions: result.room present => broadcast, then ack.
     const lobbyAction = (event, fn) => on(event, (payload, reply) => {
@@ -127,20 +116,19 @@ export function attachSocketHandlers(io, rooms) {
     lobbyAction('match:start', (code, id) => rooms.startMatch(code, id));
 
     // Explicit leave frees the seat now; a dropped socket keeps it for the grace period.
-    const exit = (explicit) => {
+    const exit = (release) => {
       const seat = detach(socket);
       if (!seat) return;
-      if (explicit) rooms.leave(seat.code, seat.playerId);
-      else rooms.disconnect(seat.code, seat.playerId);
+      release.call(rooms, seat.code, seat.playerId);
       const room = rooms.getRoom(seat.code);
       if (room) broadcastRoom(room);
     };
 
     on('room:leave', (_payload, reply) => {
-      exit(true);
+      exit(rooms.leave);
       reply({ ok: true });
     });
 
-    socket.on('disconnect', () => exit(false));
+    socket.on('disconnect', () => exit(rooms.disconnect));
   });
 }

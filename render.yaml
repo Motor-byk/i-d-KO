@@ -8,9 +8,13 @@ services:
     region: oregon # pick the region closest to your friends
     buildCommand: npm ci --omit=dev
     startCommand: npm start
+    # Health checks don't count as traffic, so they don't keep the free instance awake;
+    # open clients ping /health for that (public/js/connection.js keepAwake).
     healthCheckPath: /health
     autoDeploy: false
     envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
       - key: NODE_ENV
         value: production
       - key: CLIENT_ORIGIN
@@ -19,9 +23,11 @@ services:
   - type: web
     name: idko-client
     runtime: static
-    buildCommand: node scripts/build-static.js
+    buildCommand: npm ci && node scripts/build-static.js
     staticPublishPath: dist
     autoDeploy: false
     envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
       - key: GAME_SERVER_URL
         sync: false # e.g. https://idko-server.onrender.com

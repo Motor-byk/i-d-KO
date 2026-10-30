@@ -1,4 +1,5 @@
-import { io } from 'https://cdn.jsdelivr.net/npm/socket.io-client@4.8.1/dist/socket.io.esm.min.js';
+// Served from our own origin (copied from node_modules at build) so it always matches the server version.
+import { io } from '../vendor/socket.io.esm.min.js';
 import { NET } from '../shared/constants.js';
 
 const SERVER = window.GAME_SERVER_URL || window.location.origin;

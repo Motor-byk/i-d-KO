@@ -24,6 +24,7 @@ const MIME = {
 // Static mounts for local dev: URL prefix -> directory.
 const STATIC_MOUNTS = [
   ['/shared/', join(ROOT, 'shared')],
+  ['/vendor/', join(ROOT, 'node_modules', 'socket.io-client', 'dist')],
   ['/', join(ROOT, 'public')],
 ];
 

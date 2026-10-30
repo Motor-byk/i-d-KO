@@ -158,3 +158,24 @@ test('room survives while everyone is in grace, deleted when last grace ends', (
   rm.sweep();
   assert.equal(rm.getRoom(room.code), undefined);
 });
+
+test('cleanText keeps emoji sequences whole', () => {
+  assert.equal(cleanText('👨‍👩‍👧 Fam', 20), '👨‍👩‍👧 Fam');
+  assert.equal(cleanText('🍕🍕🍕', 2), '🍕🍕');
+  assert.equal(cleanText('a‮b', 5), 'ab', 'bidi override stripped');
+});
+
+test('starting a match shortens grace for players already away', () => {
+  let t = 0;
+  const rm = new RoomManager({ now: () => t });
+  const { room, player: host } = rm.createRoom('Host');
+  const { player: guest } = rm.joinRoom(room.code, 'Guest');
+  const a = rm.addOption(room.code, host.id, 'A').option;
+  const b = rm.addOption(room.code, host.id, 'B').option;
+  rm.pickTeam(room.code, host.id, a.id);
+  rm.pickTeam(room.code, guest.id, b.id);
+  rm.disconnect(room.code, guest.id);
+  t = 1000;
+  rm.startMatch(room.code, host.id);
+  assert.equal(guest.graceUntil, 1000 + ROOM.MATCH_GRACE_MS);
+});

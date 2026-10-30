@@ -4,9 +4,14 @@ import { ROOM, TEAM_COLORS } from '../shared/constants.js';
 // Pure room/lobby state. No sockets here; server/socket.js wires events to these calls.
 // Methods return { error } with a stable code on failure.
 
+const graphemes = new Intl.Segmenter('en', { granularity: 'grapheme' });
+
+// Strips control/format chars (keeping the zero-width joiner emoji need), collapses whitespace,
+// and truncates by grapheme so emoji and accented letters are never cut in half.
 export function cleanText(value, maxLength) {
   if (typeof value !== 'string') return '';
-  return value.replace(/[\p{C}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, maxLength);
+  const text = value.slice(0, maxLength * 8).replace(/(?!\u200D)\p{C}/gu, '').replace(/\s+/g, ' ').trim();
+  return Array.from(graphemes.segment(text), (g) => g.segment).slice(0, maxLength).join('');
 }
 
 export class RoomManager {
@@ -148,6 +153,11 @@ export class RoomManager {
     if (teams.length < ROOM.MIN_OPTIONS) return { error: 'NEED_TWO_TEAMS' };
     room.options = teams;
     room.state = 'match';
+    // Anyone already away gets the shorter match grace, not what's left of the lobby's 60s.
+    const matchDeadline = this.now() + ROOM.MATCH_GRACE_MS;
+    for (const p of room.players.values()) {
+      if (p.graceUntil !== null) p.graceUntil = Math.min(p.graceUntil, matchDeadline);
+    }
     return { room, teams };
   }
 

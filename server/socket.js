@@ -1,22 +1,29 @@
 import { ROOM } from '../shared/constants.js';
 import { publicRoom } from './rooms.js';
 
-function clientIp(socket) {
-  const fwd = socket.handshake.headers['x-forwarded-for'];
-  return (typeof fwd === 'string' && fwd.split(',')[0].trim()) || socket.handshake.address;
+// Render sits behind Cloudflare, which overwrites CF-Connecting-IP with the real client address.
+// The leftmost X-Forwarded-For entry is client-controlled, so it's only a local-dev fallback.
+export function clientIp(handshake) {
+  const { headers } = handshake;
+  const trusted = headers['cf-connecting-ip'] || headers['true-client-ip'];
+  if (typeof trusted === 'string' && trusted) return trusted.trim();
+  const fwd = headers['x-forwarded-for'];
+  return (typeof fwd === 'string' && fwd.split(',')[0].trim()) || handshake.address;
 }
 
-// Fixed-window counter per key; old windows are dropped lazily.
+// Fixed-window counter per key. Expired windows are swept at most once per window.
 export function createRateLimiter(limit, windowMs, now = Date.now) {
   const hits = new Map();
+  let lastSweep = now();
   return (key) => {
     const t = now();
+    if (t - lastSweep >= windowMs) {
+      for (const [k, e] of hits) if (t - e.start >= windowMs) hits.delete(k);
+      lastSweep = t;
+    }
     const entry = hits.get(key);
     if (!entry || t - entry.start >= windowMs) {
       hits.set(key, { start: t, count: 1 });
-      if (hits.size > 10_000) {
-        for (const [k, e] of hits) if (t - e.start >= windowMs) hits.delete(k);
-      }
       return true;
     }
     entry.count++;
@@ -26,6 +33,9 @@ export function createRateLimiter(limit, windowMs, now = Date.now) {
 
 export function attachSocketHandlers(io, rooms) {
   const allowJoin = createRateLimiter(ROOM.JOIN_ATTEMPTS_PER_MINUTE, 60_000);
+  // Rejoins get their own, larger budget: a whole friend group on one wifi may reconnect at once,
+  // and a 128-bit token can't be brute-forced anyway.
+  const allowRejoin = createRateLimiter(ROOM.REJOIN_ATTEMPTS_PER_MINUTE, 60_000);
 
   const broadcastRoom = (room) => io.to(room.code).emit('room:update', publicRoom(room));
   // One live socket per player; a rejoin from a new tab/socket replaces the old one.
@@ -44,12 +54,14 @@ export function attachSocketHandlers(io, rooms) {
   sweepTimer.unref();
 
   io.on('connection', (socket) => {
-    const ip = clientIp(socket);
+    const ip = clientIp(socket.handshake);
+    const allowEvent = createRateLimiter(ROOM.EVENTS_PER_SECOND, 1000);
 
     // Every handler takes (payload, ack). Bad payloads or missing acks never throw.
     const on = (event, handler) => {
       socket.on(event, (payload, ack) => {
         const reply = typeof ack === 'function' ? ack : () => {};
+        if (!allowEvent('all')) return reply({ error: 'RATE_LIMITED' });
         try {
           handler(payload && typeof payload === 'object' ? payload : {}, reply);
         } catch (err) {
@@ -74,9 +86,9 @@ export function attachSocketHandlers(io, rooms) {
       broadcastRoom(room);
     };
 
-    const guardJoin = (reply) => {
+    const guardJoin = (reply, allow = allowJoin) => {
       if (socket.data.code) return reply({ error: 'ALREADY_IN_ROOM' }), false;
-      if (!allowJoin(ip)) return reply({ error: 'RATE_LIMITED' }), false;
+      if (!allow(ip)) return reply({ error: 'RATE_LIMITED' }), false;
       return true;
     };
 
@@ -95,7 +107,7 @@ export function attachSocketHandlers(io, rooms) {
     });
 
     on('room:rejoin', ({ code, token }, reply) => {
-      if (!guardJoin(reply)) return;
+      if (!guardJoin(reply, allowRejoin)) return;
       const res = rooms.rejoin(code, token);
       if (res.error) return reply(res);
       enter(res.room, res.player, reply);

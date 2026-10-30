@@ -17,6 +17,9 @@ export const ROOM = {
   LOBBY_GRACE_MS: 60_000,
   MATCH_GRACE_MS: 20_000,
   JOIN_ATTEMPTS_PER_MINUTE: 20,
+  REJOIN_ATTEMPTS_PER_MINUTE: 60,
+  EVENTS_PER_SECOND: 20, // lobby events per socket; match inputs have their own limit
+  MAX_ROOMS: 300,
 };
 
 export const TEAM_COLORS = [

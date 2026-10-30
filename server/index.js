@@ -10,7 +10,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
 // In production the client is a separate Render Static Site. Locally we serve it ourselves.
 const SERVE_STATIC = process.env.NODE_ENV !== 'production';
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || '*';
+const CLIENT_ORIGIN = (process.env.CLIENT_ORIGIN || '*').replace(/\/+$/, '');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -43,12 +43,12 @@ async function serveStatic(req, res) {
   }
 }
 
-export function createAppServer() {
+export function createAppServer({ clientOrigin = CLIENT_ORIGIN } = {}) {
   const httpServer = createServer(async (req, res) => {
     if (req.url === '/health') {
       res.writeHead(200, {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': CLIENT_ORIGIN,
+        'Access-Control-Allow-Origin': clientOrigin,
         'Cache-Control': 'no-store',
       });
       res.end(JSON.stringify({ ok: true }));
@@ -62,7 +62,13 @@ export function createAppServer() {
   const io = new Server(httpServer, {
     transports: ['websocket'],
     perMessageDeflate: false,
-    cors: { origin: CLIENT_ORIGIN },
+    maxHttpBufferSize: 8 * 1024,
+    // Detect dead mobile connections well inside the 20s match grace (default is ~45s).
+    pingInterval: 10_000,
+    pingTimeout: 5_000,
+    cors: { origin: clientOrigin },
+    // CORS doesn't apply to websocket upgrades, so check the Origin header ourselves.
+    allowRequest: (req, cb) => cb(null, clientOrigin === '*' || req.headers.origin === clientOrigin),
   });
   const rooms = new RoomManager();
   attachSocketHandlers(io, rooms);
@@ -71,6 +77,10 @@ export function createAppServer() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (!SERVE_STATIC && CLIENT_ORIGIN === '*') {
+    console.error('CLIENT_ORIGIN must be set in production (the static site URL).');
+    process.exit(1);
+  }
   const { httpServer } = createAppServer();
   httpServer.listen(PORT, () => console.log(`i-d-KO server listening on :${PORT}`));
 }

@@ -19,6 +19,7 @@ export class RoomManager {
   createRoom(nickname) {
     const name = cleanText(nickname, ROOM.MAX_NICKNAME_LENGTH);
     if (!name) return { error: 'BAD_NICKNAME' };
+    if (this.rooms.size >= ROOM.MAX_ROOMS) return { error: 'SERVER_FULL' };
     const room = {
       code: this.#newCode(),
       state: 'lobby',

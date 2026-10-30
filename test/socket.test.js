@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, call, nextEvent } from './helpers.js';
-import { createRateLimiter } from '../server/socket.js';
+import { createRateLimiter, clientIp } from '../server/socket.js';
 
 test('create and join over sockets broadcast room updates', async (t) => {
   const { client } = await startServer(t);
@@ -72,4 +72,25 @@ test('rejoining from a second socket kicks the first', async (t) => {
   const update = nextEvent(a2, 'room:update');
   await call(a2, 'option:add', { name: 'x' });
   assert.equal((await update).players[0].connected, true);
+});
+
+test('clientIp prefers the proxy-set header over client-controlled X-Forwarded-For', () => {
+  const hs = (headers) => ({ headers, address: '10.0.0.1' });
+  assert.equal(clientIp(hs({ 'cf-connecting-ip': '1.2.3.4', 'x-forwarded-for': '6.6.6.6' })), '1.2.3.4');
+  assert.equal(clientIp(hs({ 'x-forwarded-for': '5.5.5.5, 9.9.9.9' })), '5.5.5.5');
+  assert.equal(clientIp(hs({})), '10.0.0.1');
+});
+
+test('websocket connections from other origins are refused', async (t) => {
+  const { client } = await startServer(t, { clientOrigin: 'https://good.example' });
+  await assert.rejects(client({ extraHeaders: { origin: 'https://evil.example' } }));
+  assert.ok(await client({ extraHeaders: { origin: 'https://good.example' } }));
+});
+
+test('lobby event flood gets rate limited', async (t) => {
+  const { client } = await startServer(t);
+  const a = await client();
+  await call(a, 'room:create', { nickname: 'Ana' });
+  const results = await Promise.all(Array.from({ length: 30 }, (_, i) => call(a, 'option:add', { name: `o${i}` })));
+  assert.ok(results.some((r) => r.error === 'RATE_LIMITED'));
 });

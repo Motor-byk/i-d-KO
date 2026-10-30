@@ -28,6 +28,8 @@ const ERRORS = {
   NEED_TWO_TEAMS: 'Need players on at least two options.',
   NOT_HOST: 'Only the host can do that.',
   TIMEOUT: 'Server did not answer. Check your connection.',
+  OFFLINE: 'You are offline. Reconnecting…',
+  SERVER_FULL: 'Server is busy. Try again in a bit.',
 };
 
 export const errorText = (code) => ERRORS[code] || `Something went wrong (${code}).`;

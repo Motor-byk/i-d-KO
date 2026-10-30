@@ -1,7 +1,7 @@
 import { ROOM } from '../../shared/constants.js';
 import { h } from './dom.js';
 
-// onSubmit({ nickname, code }) — code null means create a new room.
+// onSubmit({ nickname, code }) returns a promise; code null means create a new room.
 export function homeScreen({ onSubmit, initialCode = '', error = '' }) {
   const nickname = h('input', {
     placeholder: 'Your nickname',
@@ -18,20 +18,32 @@ export function homeScreen({ onSubmit, initialCode = '', error = '' }) {
     oninput: (e) => { e.target.value = e.target.value.toUpperCase(); },
   });
   const status = h('p.error', {}, error);
+  const createBtn = h('button.primary', { onclick: () => submit(false) }, 'Create room');
+  const joinBtn = h('button', { onclick: () => submit(true) }, 'Join');
 
-  const submit = (withCode) => {
+  async function submit(join) {
+    if (join && !code.value.trim()) {
+      status.textContent = 'Enter a room code.';
+      return;
+    }
     localStorageSet('idko-nickname', nickname.value.trim());
-    onSubmit({ nickname: nickname.value, code: withCode ? code.value.trim() : null });
-  };
+    createBtn.disabled = joinBtn.disabled = true;
+    try {
+      await onSubmit({ nickname: nickname.value, code: join ? code.value.trim() : null });
+    } finally {
+      createBtn.disabled = joinBtn.disabled = false;
+    }
+  }
 
   return {
+    kind: 'home',
     el: h('main.screen.home', {},
       h('h1.logo', {}, 'i-d-', h('span', {}, 'KO')),
       h('p.tagline', {}, "Can't decide? Fight about it."),
       nickname,
-      h('button.primary', { onclick: () => submit(false) }, 'Create room'),
+      createBtn,
       h('div.or', {}, 'or join one'),
-      h('div.row', {}, code, h('button', { onclick: () => submit(true) }, 'Join')),
+      h('div.row', {}, code, joinBtn),
       status,
     ),
     setError: (msg) => { status.textContent = msg; },

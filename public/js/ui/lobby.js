@@ -72,7 +72,7 @@ export function lobbyScreen({ playerId, actions }) {
     hostNote.textContent = isHost ? 'Players who have not picked will spectate.' : `Waiting for ${host?.nickname ?? 'host'} to start…`;
   }
 
-  return { el, update, setError: (msg) => { status.textContent = msg; } };
+  return { kind: 'lobby', el, update, setError: (msg) => { status.textContent = msg; } };
 }
 
 function playerChip(p, room, playerId) {

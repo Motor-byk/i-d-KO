@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
+import { RoomManager } from './rooms.js';
+import { attachSocketHandlers } from './socket.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -65,8 +67,10 @@ export function createAppServer() {
     perMessageDeflate: false,
     cors: { origin: CLIENT_ORIGIN },
   });
+  const rooms = new RoomManager();
+  attachSocketHandlers(io, rooms);
 
-  return { httpServer, io };
+  return { httpServer, io, rooms };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

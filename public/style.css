@@ -1,0 +1,21 @@
+:root {
+  --bg: #15161c;
+  --panel: #20222b;
+  --text: #f2f2f5;
+  --muted: #9a9cab;
+  --accent: #ffb703;
+  --danger: #ef476f;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#app { min-height: 100%; }

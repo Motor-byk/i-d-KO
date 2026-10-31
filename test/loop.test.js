@@ -11,7 +11,7 @@ function manualLoop(opts) {
   return { loop, advance: (ms) => { t += ms; return loop.update(); } };
 }
 
-const counter = () => ({ ticks: 0, tick() { this.ticks++; } });
+const counter = () => ({ ticks: 0, step() { this.ticks++; } });
 
 test('runs one tick per elapsed tick interval and keeps the remainder', (t) => {
   const { loop, advance } = manualLoop();
@@ -41,7 +41,7 @@ test('a throwing room is removed and reported; other rooms keep ticking', (t) =>
   const failures = [];
   const { loop, advance } = manualLoop({ onError: (entity, err) => failures.push([entity, err.message]) });
   t.after(() => loop.stop());
-  const bad = { tick() { throw new Error('boom'); } };
+  const bad = { step() { throw new Error('boom'); } };
   const good = counter();
   loop.add(bad);
   loop.add(good);

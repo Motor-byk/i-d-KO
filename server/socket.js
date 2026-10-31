@@ -1,5 +1,7 @@
-import { ROOM } from '../shared/constants.js';
+import { ROOM, NET } from '../shared/constants.js';
 import { publicRoom } from './rooms.js';
+import { GameLoop } from './loop.js';
+import { Match } from './game/match.js';
 
 // Render sits behind Cloudflare, which overwrites CF-Connecting-IP with the real client address.
 // The leftmost X-Forwarded-For entry is client-controlled, so it's only a local-dev fallback.
@@ -53,9 +55,30 @@ export function attachSocketHandlers(io, rooms) {
   const sweepTimer = setInterval(() => rooms.sweep().forEach(broadcastRoom), 1000);
   sweepTimer.unref();
 
+  // A crashed match sends its room back to the lobby instead of taking the server down.
+  const loop = new GameLoop({
+    onError: (match, err) => {
+      console.error(`match in room ${match.room.code} failed, ending it`, err);
+      const res = rooms.endMatch(match.room.code);
+      if (!res.error) broadcastRoom(res.room);
+    },
+  });
+
+  const startMatch = (room) => {
+    const target = io.to(room.code);
+    const match = new Match({
+      room,
+      emit: (event, payload, { volatile = false } = {}) => (volatile ? target.volatile : target).emit(event, payload),
+      onEmpty: () => loop.remove(match),
+    });
+    room.match = match;
+    loop.add(match);
+  };
+
   io.on('connection', (socket) => {
     const ip = clientIp(socket.handshake);
     const allowEvent = createRateLimiter(ROOM.EVENTS_PER_SECOND, 1000);
+    const allowInput = createRateLimiter(NET.MAX_INPUTS_PER_SECOND, 1000);
 
     // Every handler takes (payload, ack). Bad payloads or missing acks never throw.
     const on = (event, handler) => {
@@ -113,7 +136,17 @@ export function attachSocketHandlers(io, rooms) {
     lobbyAction('option:add', (code, id, { name }) => rooms.addOption(code, id, name));
     lobbyAction('option:remove', (code, id, { optionId }) => rooms.removeOption(code, id, optionId));
     lobbyAction('team:pick', (code, id, { optionId = null }) => rooms.pickTeam(code, id, optionId));
-    lobbyAction('match:start', (code, id) => rooms.startMatch(code, id));
+    lobbyAction('match:start', (code, id) => {
+      const res = rooms.startMatch(code, id);
+      if (!res.error) startMatch(res.room);
+      return res;
+    });
+
+    // Inputs are fire-and-forget at ~30/s: no ack, their own rate limit, invalid ones dropped.
+    socket.on('match:input', (payload) => {
+      if (!allowInput('all')) return;
+      rooms.getRoom(socket.data.code)?.match?.input(socket.data.playerId, payload);
+    });
 
     // Explicit leave frees the seat now; a dropped socket keeps it for the grace period.
     const exit = (release) => {
@@ -131,4 +164,6 @@ export function attachSocketHandlers(io, rooms) {
 
     socket.on('disconnect', () => exit(rooms.disconnect));
   });
+
+  return { loop };
 }

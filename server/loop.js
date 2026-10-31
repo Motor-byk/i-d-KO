@@ -4,7 +4,7 @@ import { TICK_RATE, MAX_CATCHUP_TICKS } from '../shared/constants.js';
 const TICK_MS = 1000 / TICK_RATE;
 const AVG_WEIGHT = 0.05; // EMA weight for per-room tick time
 
-// One fixed-step loop for every running match. Entities implement tick().
+// One fixed-step loop for every running match. Entities implement step().
 // A throwing entity is removed and handed to onError; it never takes down the loop or other rooms.
 // The timer only runs while there is something to tick, so an idle server stays idle.
 export class GameLoop {
@@ -64,7 +64,7 @@ export class GameLoop {
     for (const [entity, stats] of this.entities) {
       const start = performance.now();
       try {
-        entity.tick();
+        entity.step();
       } catch (err) {
         this.entities.delete(entity);
         this.onError(entity, err);

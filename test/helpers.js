@@ -9,6 +9,7 @@ export async function startServer(t, options) {
   const clients = [];
   t.after(() => {
     clients.forEach((c) => c.disconnect());
+    app.loop.stop();
     app.io.close();
   });
   const client = async (opts = {}) => {

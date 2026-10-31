@@ -38,6 +38,10 @@ export const ARENA = {
     { x: 340, y: 650, w: 120, h: 120 },
     { x: 1140, y: 650, w: 120, h: 120 },
   ],
+  // Teams spawn spread around an ellipse this far in from the walls, members side by side.
+  SPAWN_INSET_X: 140,
+  SPAWN_INSET_Y: 120,
+  SPAWN_SPACING: 70,
 };
 
 export const PLAYER = {
@@ -118,6 +122,15 @@ export const BALANCE = {
   HP_CAP: 0.40,
   DMG_CAP: 0.20,
 };
+
+// Input button bits (held state; the server derives presses from changes).
+export const BUTTONS = {
+  JAB: 1,
+  HEAVY: 2,
+  DASH: 4,
+  PARRY: 8,
+};
+export const BUTTON_MASK = 15;
 
 export const NET = {
   MAX_INPUTS_PER_SECOND: 60,

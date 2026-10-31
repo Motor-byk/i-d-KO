@@ -35,6 +35,7 @@ export class RoomManager {
       options: [],
       nextOptionId: 1,
       joinCounter: 0,
+      match: null, // the running Match (server/game/match.js), set by socket.js
     };
     this.rooms.set(room.code, room);
     const player = this.#addPlayer(room, name);
@@ -162,6 +163,15 @@ export class RoomManager {
       if (p.graceUntil !== null) p.graceUntil = Math.min(p.graceUntil, matchDeadline);
     }
     return { room, teams };
+  }
+
+  // Unlocks the room after a match ends (or crashes) so the group can go again.
+  endMatch(code) {
+    const room = this.getRoom(code);
+    if (!room) return { error: 'ROOM_NOT_FOUND' };
+    room.state = 'lobby';
+    room.match = null;
+    return { room };
   }
 
   getRoom(code) {

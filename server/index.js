@@ -72,9 +72,9 @@ export function createAppServer({ clientOrigin = CLIENT_ORIGIN } = {}) {
     allowRequest: (req, cb) => cb(null, clientOrigin === '*' || req.headers.origin === clientOrigin),
   });
   const rooms = new RoomManager();
-  attachSocketHandlers(io, rooms);
+  const { loop } = attachSocketHandlers(io, rooms);
 
-  return { httpServer, io, rooms };
+  return { httpServer, io, rooms, loop };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -2,7 +2,10 @@
 
 ## Progress
 - **Milestone A (steps 1–7): done.** Review pass done. Fixes are in the commits after `chore: render deployment config`.
-- **Milestone B in progress.** Steps 8–10 done. **Next: step 11** (`feat: match loop, input validation, snapshots`).
+- **Milestone B in progress.** Steps 8–11 done. **Next: step 12** (`feat: canvas renderer`).
+  - Position history for lag comp moves to step 24 (nothing reads it before then).
+  - Inputs send held `buttons`; the server derives presses on arrival, so merging/dropping inputs can't lose a press.
+  - A crashed match sends its room back to the lobby (`rooms.endMatch`).
   - Deviation: the arena lives in `shared/arena.js` (not `server/game/`), because client prediction collides with pillars too.
 - Known open items:
   - SIGTERM handling is step 31.
@@ -77,7 +80,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] server/rooms.js          pure room state: codes, tokens, nicknames, options/teams, grace, host migration, lock
 [x] server/socket.js         socket event wiring, per-IP join limits, per-socket event limit, one socket per player
 [x] server/loop.js           global accumulator loop, per-room try/catch + tick timing
-[ ] server/game/match.js     input queue/validation, sim step, 20 Hz snapshot encode+broadcast, position history
+[x] server/game/match.js     input queue/validation, spawns, sim step, 20 Hz snapshot broadcast
 [ ] server/game/combat.js    hit detection + resolution (uses shared/combat-state.js), friendly knockback
 [ ] server/game/lagcomp.js   position rewind rules
 [x] shared/arena.js         walls, pillars, swept collision, wall-bounce reflection (shared: prediction needs it)
@@ -115,7 +118,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 8. [x] `feat: global fixed-tick loop` — loop.js + tests.
 9. [x] `feat: arena with walls and pillars` — shared/arena.js, swept collision + tests.
 10. [x] `feat: shared movement physics` — shared/physics.js + tests.
-11. `feat: match loop, input validation, snapshots` — match.js (20 Hz, encode once, acks map).
+11. [x] `feat: match loop, input validation, snapshots` — match.js (20 Hz, encode once, acks map).
 12. `feat: canvas renderer` — render.js.
 13. `feat: desktop input`.
 14. `feat: touch controls` — joystick + drag-aim, landscape prompt.

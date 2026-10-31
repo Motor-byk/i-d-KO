@@ -39,10 +39,18 @@ async function enterRoom({ nickname, code }) {
   onEntered(res);
 }
 
+// Updates ?room= without dropping other params (like ?debug).
+function setRoomParam(code) {
+  const url = new URL(location.href);
+  if (code) url.searchParams.set('room', code);
+  else url.searchParams.delete('room');
+  history.replaceState(null, '', url);
+}
+
 function onEntered({ playerId, token, room }) {
   me = { playerId, code: room.code };
   session.save(room.code, token);
-  history.replaceState(null, '', `?room=${room.code}`);
+  setRoomParam(room.code);
   onRoom(room);
 }
 
@@ -54,7 +62,7 @@ const act = async (event, payload) => {
 async function leaveRoom() {
   // Forget the seat first so a reconnect mid-leave can't silently rejoin it.
   session.clear();
-  history.replaceState(null, '', location.pathname);
+  setRoomParam(null);
   showHome();
   await call(socket, 'room:leave');
 }

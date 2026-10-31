@@ -7,7 +7,7 @@
   - Position history for lag comp moves to step 24 (nothing reads it before then).
   - Inputs send held `buttons`; the server derives presses on arrival, so merging/dropping inputs can't lose a press. After `NET.INPUT_STARVE_TICKS` with no input, a fighter stops walking; disconnect and rejoin reset the input stream.
   - A crashed match (or one that fails to start) sends its room back to the lobby (`rooms.endMatch`).
-  - Not yet checked in a real browser (Chrome extension wasn't connected). Socket smoke test passes.
+  - Checked in Chrome against a bot: rendering, WASD, mouse aim, debug overlay, reload-rejoin mid-match and leave all work. Touch controls are still untested on a real phone.
 - **Next: step 16** (`feat: shared combat state machine`), the start of Milestone C.
 - Review notes to handle in later steps:
   - Step 16–18: derive the *release* edge at input arrival too (a merged quick tap gives `pressed` with `buttons=0`), and store the applied input's `buttons` on the fighter for charged heavy.

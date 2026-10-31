@@ -140,7 +140,14 @@ export function attachSocketHandlers(io, rooms) {
     lobbyAction('team:pick', (code, id, { optionId = null }) => rooms.pickTeam(code, id, optionId));
     lobbyAction('match:start', (code, id) => {
       const res = rooms.startMatch(code, id);
-      if (!res.error) startMatch(res.room);
+      if (res.error) return res;
+      try {
+        startMatch(res.room);
+      } catch (err) {
+        // The room is already locked; unlock it or the group is stuck with no match running.
+        rooms.endMatch(code);
+        throw err;
+      }
       return res;
     });
 

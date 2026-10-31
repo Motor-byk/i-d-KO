@@ -201,3 +201,21 @@ test('a fighter whose inputs stop arriving stops walking', () => {
   assert.deepEqual(f.move, { x: 0, y: 0 });
   assert.equal(f.held, 0);
 });
+
+test('if the match cannot be started, the room unlocks', async (t) => {
+  const { client, rooms, loop } = await startServer(t);
+  const a = await client();
+  const b = await client();
+  const { room } = await call(a, 'room:create', { nickname: 'Ana' });
+  await call(b, 'room:join', { code: room.code, nickname: 'Ben' });
+  await call(a, 'option:add', { name: 'Tacos' });
+  await call(a, 'option:add', { name: 'Sushi' });
+  const { options } = rooms.getRoom(room.code);
+  await call(a, 'team:pick', { optionId: options[0].id });
+  await call(b, 'team:pick', { optionId: options[1].id });
+  t.mock.method(loop, 'add', () => { throw new Error('boom'); });
+  t.mock.method(console, 'error', () => {});
+  assert.equal((await call(a, 'match:start')).error, 'SERVER_ERROR');
+  assert.equal(rooms.getRoom(room.code).state, 'lobby');
+  assert.equal(rooms.getRoom(room.code).match, null);
+});

@@ -23,10 +23,10 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   const renderer = createRenderer(canvas);
   let room = null;
   let snap = null;
+  let options = new Map(); // id -> option, rebuilt when the room changes
+  let players = new Map(); // id -> player
 
   function view() {
-    const options = new Map(room.options.map((o) => [o.id, o]));
-    const players = new Map(room.players.map((p) => [p.id, p]));
     return {
       meId: playerId,
       followId: playerId,
@@ -80,7 +80,11 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   return {
     kind: 'match',
     el,
-    update: (next) => { room = next; },
+    update: (next) => {
+      room = next;
+      options = new Map(room.options.map((o) => [o.id, o]));
+      players = new Map(room.players.map((p) => [p.id, p]));
+    },
     onSnapshot: (next) => {
       snap = next;
       debug.onSnapshot(next);

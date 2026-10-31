@@ -4,17 +4,18 @@ const COLORS = {
   void: '#0d0e12',
   floor: '#1d1f27',
   grid: '#252833',
-  wall: '#3a3e4d',
-  pillar: '#3a3e4d',
+  wall: '#3a3e4d',  // outer walls and pillar edges
   pillarTop: '#4a4f62',
   hpBack: 'rgba(0, 0, 0, 0.55)',
   hp: '#06d6a0',
   hpLow: '#ef476f',
   name: '#f2f2f5',
   me: '#ffffff',
+  outline: 'rgba(0, 0, 0, 0.5)',
 };
 
 const GRID = 100;
+const labelFont = (size) => `700 ${size}px system-ui, sans-serif`;
 const HP_BAR = { w: PLAYER.RADIUS * 2, h: 6, gap: 10 };
 
 // Dark text on light team colors, light text on dark ones.
@@ -65,10 +66,10 @@ export function createRenderer(canvas) {
     if (fit) return fit;
     const maxW = PLAYER.RADIUS * 1.8;
     let size = RENDER.LABEL_FONT;
-    ctx.font = `700 ${size}px system-ui, sans-serif`;
+    ctx.font = labelFont(size);
     while (size > RENDER.LABEL_FONT_MIN && ctx.measureText(label).width > maxW) {
       size--;
-      ctx.font = `700 ${size}px system-ui, sans-serif`;
+      ctx.font = labelFont(size);
     }
     let text = label;
     while (text.length > 1 && ctx.measureText(text).width > maxW) text = text.slice(0, -2) + '…';
@@ -90,7 +91,7 @@ export function createRenderer(canvas) {
     ctx.lineWidth = 12;
     ctx.strokeRect(-6, -6, ARENA.WIDTH + 12, ARENA.HEIGHT + 12);
     for (const p of ARENA.PILLARS) {
-      ctx.fillStyle = COLORS.pillar;
+      ctx.fillStyle = COLORS.wall;
       ctx.fillRect(p.x, p.y, p.w, p.h);
       ctx.fillStyle = COLORS.pillarTop;
       ctx.fillRect(p.x + 8, p.y + 8, p.w - 16, p.h - 16);
@@ -101,7 +102,7 @@ export function createRenderer(canvas) {
     const r = PLAYER.RADIUS;
     // Fists first so the body overlaps them.
     ctx.fillStyle = f.color;
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.strokeStyle = COLORS.outline;
     ctx.lineWidth = 3;
     for (const side of [-1, 1]) {
       const a = f.aim + side * RENDER.FIST_SPREAD;
@@ -115,12 +116,12 @@ export function createRenderer(canvas) {
     ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.lineWidth = isMe ? 4 : 3;
-    ctx.strokeStyle = isMe ? COLORS.me : 'rgba(0, 0, 0, 0.5)';
+    ctx.strokeStyle = isMe ? COLORS.me : COLORS.outline;
     ctx.stroke();
 
     const { size, text } = fitLabel(f.label);
     ctx.fillStyle = textColorFor(f.color);
-    ctx.font = `700 ${size}px system-ui, sans-serif`;
+    ctx.font = labelFont(size);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, f.x, f.y);

@@ -11,7 +11,7 @@ export class GameLoop {
   constructor({ now = () => performance.now(), onError = defaultOnError } = {}) {
     this.now = now;
     this.onError = onError;
-    this.entities = new Map(); // entity -> { lastMs, avgMs, maxMs }
+    this.entities = new Map(); // entity -> { avgMs, maxMs }
     this.tick = 0;
     this.droppedTicks = 0;
     this.acc = 0;
@@ -20,7 +20,7 @@ export class GameLoop {
   }
 
   add(entity) {
-    this.entities.set(entity, { lastMs: 0, avgMs: 0, maxMs: 0 });
+    this.entities.set(entity, { avgMs: 0, maxMs: 0 });
     if (!this.timer) this.#schedule();
   }
 
@@ -76,7 +76,6 @@ export class GameLoop {
         continue;
       }
       const ms = performance.now() - start;
-      stats.lastMs = ms;
       stats.avgMs += (ms - stats.avgMs) * AVG_WEIGHT;
       stats.maxMs = Math.max(stats.maxMs, ms);
     }

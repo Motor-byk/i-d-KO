@@ -60,6 +60,8 @@ export function resolveCircle(p, r) {
 export function sweepCircle(x, y, dx, dy, r) {
   const p = { x, y };
   const normals = [];
+  // A NaN/Infinity displacement would mean NaN positions or an endless substep loop.
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) dx = dy = 0;
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (r * SUBSTEP_FRACTION)));
   let sx = dx / steps;
   let sy = dy / steps;

@@ -48,3 +48,8 @@ test('bounceVelocity reflects off the surface it moves into, scaled by restituti
   assert.deepEqual(bounceVelocity(800, 100, [{ x: -1, y: 0 }], 0.5), { vx: -400, vy: 50 });
   assert.equal(bounceVelocity(-800, 0, [{ x: -1, y: 0 }], 0.5), null, 'moving away: no bounce');
 });
+
+test('a non-finite displacement is ignored instead of hanging or producing NaN', () => {
+  assert.deepEqual(sweepCircle(200, 200, Infinity, 0, R), { x: 200, y: 200, normals: [] });
+  assert.deepEqual(sweepCircle(200, 200, NaN, 5, R), { x: 200, y: 200, normals: [] });
+});

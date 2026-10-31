@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createCombat, stepCombat, stepFighter, phase, moveFrames, chargeFraction, applyHit, applyHitstop, STATE,
+  createCombat, stepCombat, stepFighter, phase, moveFrames, chargeFraction, applyHit, applyHitstop, applyParry,
+  isParrying, STATE,
 } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
 import { COMBAT, BUTTONS, ARENA, PLAYER, DT } from '../shared/constants.js';
@@ -237,4 +238,31 @@ test('hitstun cannot be dashed out of', () => {
   const cs = createCombat();
   applyHit(cs, { hitstun: 10, hitstop: 0 });
   assert.equal(stepCombat(cs, { pressed: DASH }), 0);
+});
+
+test('a parry is active for its window, then a whiff is stuck in recovery', () => {
+  const cs = createCombat();
+  assert.equal(stepCombat(cs, { pressed: BUTTONS.PARRY }), BUTTONS.PARRY);
+  const active = [isParrying(cs)];
+  for (let i = 1; i < COMBAT.PARRY.active + 1; i++) { stepCombat(cs, {}); active.push(isParrying(cs)); }
+  assert.deepEqual(active, [...Array(COMBAT.PARRY.active).fill(true), false]);
+  run(cs, COMBAT.PARRY.recovery - 2);
+  assert.equal(cs.state, STATE.PARRY);
+  assert.equal(stepCombat(cs, JAB), 0, 'a whiffed parry is punishable');
+  stepCombat(cs, {});
+  assert.equal(cs.state, STATE.JAB, 'the buffered jab fires once recovery ends');
+});
+
+test('applyParry frees the parrier and stuns the attacker', () => {
+  const p = createCombat();
+  const a = createCombat();
+  stepCombat(p, { pressed: BUTTONS.PARRY });
+  stepCombat(a, JAB);
+  applyParry(p, a);
+  assert.equal(p.state, STATE.IDLE);
+  assert.equal(a.state, STATE.STUNNED);
+  run(a, COMBAT.PARRY.hitstop + COMBAT.PARRY.stun - 1);
+  assert.equal(a.state, STATE.STUNNED);
+  run(a, 1);
+  assert.equal(a.state, STATE.IDLE);
 });

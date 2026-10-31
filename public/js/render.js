@@ -1,5 +1,5 @@
 import { ARENA, PLAYER, RENDER, COMBAT } from '../shared/constants.js';
-import { STATE, moveFrames, phase, chargeFraction } from '../shared/combat-state.js';
+import { STATE, moveFrames, phase, chargeFraction, isParrying } from '../shared/combat-state.js';
 
 const COLORS = {
   void: '#0d0e12',
@@ -17,7 +17,11 @@ const COLORS = {
   hitstop: 'rgba(255, 255, 255, 0.75)',
   charge: 'rgba(255, 255, 255, 0.8)',
   charged: '#ffd166',
+  parry: '#9be7ff',
+  parryWhiff: 'rgba(155, 231, 255, 0.3)',
+  stun: '#ffd166',
 };
+const STUN_DOTS = 3;
 const DASH_GHOSTS = [{ back: 0.9, alpha: 0.18 }, { back: 0.45, alpha: 0.32 }];
 
 const GRID = 100;
@@ -161,6 +165,23 @@ export function createRenderer(canvas) {
     if (f.cs.state === STATE.HITSTUN) {
       ctx.fillStyle = f.cs.hitstop ? COLORS.hitstop : COLORS.hitstun;
       ctx.fill();
+    }
+    if (f.cs.state === STATE.PARRY) {
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r + 9, 0, Math.PI * 2);
+      ctx.lineWidth = isParrying(f.cs) ? 5 : 2;
+      ctx.strokeStyle = isParrying(f.cs) ? COLORS.parry : COLORS.parryWhiff;
+      ctx.stroke();
+    }
+    if (f.cs.state === STATE.STUNNED) {
+      // Dots circling over the head.
+      ctx.fillStyle = COLORS.stun;
+      for (let i = 0; i < STUN_DOTS; i++) {
+        const a = f.cs.t * 0.3 + (i * Math.PI * 2) / STUN_DOTS;
+        ctx.beginPath();
+        ctx.arc(f.x + Math.cos(a) * r * 0.7, f.y - r * 0.2 + Math.sin(a) * r * 0.25, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     if (charging) {
       const k = chargeFraction(f.cs.t);

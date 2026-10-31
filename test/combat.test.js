@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { assistAim, resolveHits } from '../server/game/combat.js';
-import { createCombat, stepCombat, phase, STATE } from '../shared/combat-state.js';
+import { createCombat, stepCombat, phase, isParrying, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
 
@@ -93,4 +93,31 @@ test('a well-charged heavy launches its target', () => {
   assert.equal(hit.damage, COMBAT.HEAVY.damageMax);
   assert.equal(b.cs.launched, true);
   assert.ok(Math.abs(b.body.kx - COMBAT.HEAVY.knockbackMax) < 1e-9);
+});
+
+test('a hit on a parrying enemy is parried: no damage, the attacker is stunned', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 570, 500);
+  const c = fighter(3, 1, 640, 500); // a second attacker on b's other side, same tick
+  stepCombat(b.cs, { pressed: BUTTONS.PARRY });
+  jabActive(a, 0);
+  jabActive(c, Math.PI);
+  stepCombat(b.cs, {}); // keep b inside its window while the jabs reach active
+  assert.ok(isParrying(b.cs));
+  const hits = resolveHits([a, b, c]);
+  assert.ok(hits.every((h) => h.parried));
+  assert.equal(b.hp, PLAYER.BASE_HP);
+  assert.equal(a.cs.state, STATE.STUNNED);
+  assert.equal(c.cs.state, STATE.STUNNED, 'a parry holds against several hits at once');
+  assert.equal(b.cs.state, STATE.IDLE);
+});
+
+test('a teammate hit ignores the parry and just pushes', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 1, 570, 500);
+  stepCombat(b.cs, { pressed: BUTTONS.PARRY });
+  jabActive(a, 0);
+  const [hit] = resolveHits([a, b]);
+  assert.equal(hit.parried, false);
+  assert.equal(a.cs.state, STATE.JAB);
 });

@@ -1,5 +1,5 @@
 import { COMBAT, PLAYER } from '../../shared/constants.js';
-import { applyHit, applyHitstop, moveFrames, phase } from '../../shared/combat-state.js';
+import { applyHit, applyHitstop, applyParry, isParrying, moveFrames, phase } from '../../shared/combat-state.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, alive, hitIds }.
 
@@ -37,9 +37,12 @@ function inReach(a, b, dir, reach) {
 
 // Finds every hit this tick, then applies them all, so two attacks that trade both land.
 // Each move hits a target at most once (attacker.hitIds is cleared when a move starts).
-// Returns the hits as [{ attacker, target, damage }].
+// An enemy hit on a parrying target is parried instead (judged on state from before this
+// tick's hits, so a parry holds against several at once). Friendly fire ignores parries.
+// Returns the hits as [{ attacker, target, damage, parried }].
 export function resolveHits(fighters) {
   const hits = [];
+  const parrying = new Set(fighters.filter((f) => f.alive && isParrying(f.cs)));
   for (const a of fighters) {
     if (!a.alive || phase(a.cs) !== 'active') continue;
     const m = moveFrames(a.cs);
@@ -52,6 +55,10 @@ export function resolveHits(fighters) {
   }
   return hits.map(({ attacker, target, move }) => {
     const friendly = attacker.teamId === target.teamId;
+    if (!friendly && parrying.has(target)) {
+      applyParry(target.cs, attacker.cs);
+      return { attacker, target, damage: 0, parried: true };
+    }
     const dx = target.body.x - attacker.body.x;
     const dy = target.body.y - attacker.body.y;
     const d = Math.hypot(dx, dy);
@@ -59,11 +66,11 @@ export function resolveHits(fighters) {
     target.body.kx = nx * move.knockback;
     target.body.ky = ny * move.knockback;
     // Friendly fire is knockback only: no damage, hitstun or hitstop.
-    if (friendly) return { attacker, target, damage: 0 };
+    if (friendly) return { attacker, target, damage: 0, parried: false };
     target.hp = Math.max(0, target.hp - move.damage);
     if (target.hp === 0) target.alive = false;
     applyHit(target.cs, move);
     applyHitstop(attacker.cs, move.hitstop);
-    return { attacker, target, damage: move.damage };
+    return { attacker, target, damage: move.damage, parried: false };
   });
 }

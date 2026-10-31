@@ -13,11 +13,13 @@ export const STATE = {
   CHARGE: 'charge', // holding heavy
   HEAVY: 'heavy',   // heavy released: startup, active, recovery
   DASH: 'dash',
+  PARRY: 'parry',
   HITSTUN: 'hitstun',
+  STUNNED: 'stunned', // got parried
 };
 
 // When several actions are pressed on the same tick, the first one here wins the buffer.
-const ACTION_PRIORITY = [BUTTONS.DASH, BUTTONS.HEAVY, BUTTONS.JAB];
+const ACTION_PRIORITY = [BUTTONS.DASH, BUTTONS.PARRY, BUTTONS.HEAVY, BUTTONS.JAB];
 
 export function createCombat() {
   return {
@@ -116,7 +118,14 @@ const ACTIONS = {
       if (move && Math.hypot(move.x, move.y) >= COMBAT.DASH.MIN_STICK) cs.dir = Math.atan2(move.y, move.x);
     },
   },
+  [BUTTONS.PARRY]: {
+    canStart: (cs) => cs.state === STATE.IDLE,
+    start: (cs) => enter(cs, STATE.PARRY, COMBAT.PARRY.active + COMBAT.PARRY.recovery),
+  },
 };
+
+// Would a hit landing now be parried?
+export const isParrying = (cs) => cs.state === STATE.PARRY && cs.t < COMBAT.PARRY.active;
 
 // While charging: aim follows the input, and the heavy fires on release (after MIN_CHARGE)
 // or by itself once a full charge has been held for MAX_HOLD.
@@ -202,6 +211,14 @@ export function applyHit(cs, { hitstun, hitstop, launch = false }) {
   enter(cs, STATE.HITSTUN, hitstun);
   cs.hitstop = hitstop;
   cs.launched = launch;
+}
+
+// A parry landed: the parrier is free to act at once, the attacker is stunned. Both freeze briefly.
+export function applyParry(parrier, attacker) {
+  enter(parrier, STATE.IDLE);
+  enter(attacker, STATE.STUNNED, COMBAT.PARRY.stun);
+  parrier.hitstop = COMBAT.PARRY.hitstop;
+  attacker.hitstop = COMBAT.PARRY.hitstop;
 }
 
 // Freezes a fighter's timers (the attacker's side of a landed hit).

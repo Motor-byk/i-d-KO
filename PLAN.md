@@ -13,7 +13,8 @@
   - Step 17: `stepFighter(cs, body, input)` in `combat-state.js` is the shared per-tick unit (combat timing, then walking; hitstop freezes the body). `server/game/combat.js` collects every hit from pre-hit state and then applies them, so trades both land. Inputs carry `aimed` (mouse or drag); un-aimed jabs snap to the nearest enemy in the assist cone. Snapshots carry each fighter's full `cs`. A KO is `alive: false` in the snapshot; the win check is step 26.
   - Step 18: inputs get a `released` edge at arrival (OR-merged like `pressed`), and the fighter keeps the applied input's held `buttons`. Heavy = `charge` state (aim follows, slowed walk) → fires on release once `MIN_CHARGE` is reached (a merged tap still fires), or by itself after `MAX_HOLD` at full charge. Damage/knockback scale with charge; from `LAUNCH_CHARGE` the target is `launched` and bounces off the next wall once (shared in `stepFighter`, so prediction sees it) with extra hitstun and a short hitstop.
   - Step 19: dash = `dash` state along the stick (or facing if the stick is under `MIN_STICK`), from idle, from a heavy charge, or cancelling jab/heavy recovery after `cancelAfter` ticks. Cooldown runs from the dash start and a press on cooldown is buffered. No invulnerability: dodging is spacing; parry is the defensive tool.
-- **Next: step 20** (`feat: parry`).
+  - Step 20: parry = `parry` state (active window, then whiff recovery), from idle only. An enemy hit on a target inside the window is parried: no damage or knockback, the parrier is idle at once, the attacker is `stunned`, and both get a short hitstop. Parrying is judged on pre-hit state, so it holds against simultaneous hits. Friendly hits ignore parries. The 2-tick input grace is still step 24.
+- **Next: step 21** (`feat: hitstun decay and combo burst`).
 - Review notes to handle in later steps:
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Step 22: clear pending inputs on reconnect/rejoin (the server's ack resets to -1). Expect small corrections when the server merges or starves inputs.
@@ -141,7 +142,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 17. [x] `feat: jab string and hit resolution` — combat.js, auto/manual aim, friendly knockback.
 18. [x] `feat: heavy charge, launch, wall bounce`.
 19. [x] `feat: dash and dash-cancel`.
-20. `feat: parry`.
+20. [x] `feat: parry`.
 21. `feat: hitstun decay and combo burst` — + tests.
 22. `feat: client prediction and reconciliation` — net.js using physics + combat-state + replay tests.
 23. `feat: adaptive interpolation and clock sync`.

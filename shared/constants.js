@@ -100,9 +100,10 @@ export const COMBAT = {
   },
 
   PARRY: {
-    active: 4,
-    recovery: 14,
-    stun: 28,
+    active: 4,     // hits landing in these ticks are parried
+    recovery: 14,  // a whiffed parry is stuck this long
+    stun: 28,      // the parried attacker can't act this long
+    hitstop: 5,    // both freeze on a parry
     grace: 2,
   },
 

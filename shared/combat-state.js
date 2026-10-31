@@ -1,4 +1,5 @@
 import { COMBAT, BUTTONS } from './constants.js';
+import { stepBody } from './physics.js';
 
 // Combat timing, shared by the server and client prediction: what a fighter is doing, for how
 // long, and what it may do next. Hit *detection* is server-only (server/game/combat.js); this
@@ -95,6 +96,24 @@ export function stepCombat(cs, { pressed = 0, aim = cs.dir } = {}) {
   // Tried on the press tick and INPUT_BUFFER more, then dropped.
   if (++cs.bufferAge > COMBAT.INPUT_BUFFER) cs.buffer = 0;
   return 0;
+}
+
+// Walking speed multiplier per state; anything not listed can't walk.
+const WALK_SCALE = {
+  [STATE.IDLE]: 1,
+  [STATE.JAB]: COMBAT.ATTACK_WALK,
+};
+
+// One tick of a fighter: combat timing, then movement. Hitstop freezes the body too.
+// input: { move: {x, y}, pressed, aim }. Returns what stepCombat returns.
+export function stepFighter(cs, body, input) {
+  const frozen = cs.hitstop > 0;
+  const started = stepCombat(cs, input);
+  if (!frozen) {
+    const scale = WALK_SCALE[cs.state] ?? 0;
+    stepBody(body, { x: input.move.x * scale, y: input.move.y * scale });
+  }
+  return started;
 }
 
 // Puts a fighter in hitstun. The server calls this when a hit lands.

@@ -56,7 +56,9 @@ export const PLAYER = {
 export const COMBAT = {
   INPUT_BUFFER: 5,
   AIM_ASSIST_CONE: Math.PI / 3, // ~60 degrees total
-  AIM_ASSIST_RANGE: 260,
+  AIM_ASSIST_RANGE: 260,         // center to center
+  HIT_ARC: (2 * Math.PI) / 3,    // a move hits targets within this arc around its direction
+  ATTACK_WALK: 0.35,             // walking speed multiplier during a jab
 
   JAB: [
     // knockback in units/second; reach measured from the attacker's edge

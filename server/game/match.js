@@ -1,15 +1,18 @@
-import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK } from '../../shared/constants.js';
-import { createBody, stepBody, separateBodies } from '../../shared/physics.js';
+import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK, BUTTONS } from '../../shared/constants.js';
+import { createBody, separateBodies } from '../../shared/physics.js';
 import { resolveCircle } from '../../shared/arena.js';
+import { createCombat, stepFighter } from '../../shared/combat-state.js';
+import { assistAim, resolveHits } from './combat.js';
 
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 
 const round2 = (v) => Math.round(v * 100) / 100;
 
-// Returns a clean input or null. Shape: { seq, tick, move: {x, y}, aim, buttons }.
+// Returns a clean input or null. Shape: { seq, tick, move: {x, y}, aim, aimed, buttons }.
+// aimed: the player pointed the aim on purpose (mouse, drag); otherwise attacks get aim assist.
 export function validateInput(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { seq, tick, move, aim, buttons } = raw;
+  const { seq, tick, move, aim, aimed, buttons } = raw;
   if (!Number.isSafeInteger(seq) || seq < 0) return null;
   if (!Number.isSafeInteger(tick) || tick < 0) return null;
   if (!move || typeof move !== 'object') return null;
@@ -20,7 +23,14 @@ export function validateInput(raw) {
   if (!Number.isFinite(aim)) return null;
   if (!Number.isInteger(buttons) || buttons < 0 || buttons > BUTTON_MASK) return null;
   const scale = len > 1 ? 1 / len : 1;
-  return { seq, tick, move: { x: x * scale, y: y * scale }, aim: Math.atan2(Math.sin(aim), Math.cos(aim)), buttons };
+  return {
+    seq,
+    tick,
+    move: { x: x * scale, y: y * scale },
+    aim: Math.atan2(Math.sin(aim), Math.cos(aim)),
+    aimed: aimed === true,
+    buttons,
+  };
 }
 
 // Spreads teams around an ellipse, members side by side along it. Returns [{ x, y, aim }].
@@ -67,6 +77,9 @@ export class Match {
       teamId: p.teamId,
       body: createBody(spawns[i].x, spawns[i].y),
       aim: spawns[i].aim,
+      aimed: false,
+      cs: { ...createCombat(), dir: spawns[i].aim },
+      hitIds: new Set(), // who the current move already hit
       hp: PLAYER.BASE_HP,
       alive: true,
       queue: [],
@@ -124,6 +137,7 @@ export class Match {
       if (input) {
         f.move = input.move;
         f.aim = input.aim;
+        f.aimed = input.aimed;
         f.ackSeq = input.seq;
         f.pressed = input.pressed;
         f.starved = 0;
@@ -131,9 +145,12 @@ export class Match {
         // A late packet repeats the last move; a stalled client stops instead of running on.
         f.move = { x: 0, y: 0 };
       }
-      stepBody(f.body, f.move);
+      const started = stepFighter(f.cs, f.body, { move: f.move, pressed: f.pressed, aim: f.aim });
+      if (started) f.hitIds.clear();
+      if (started === BUTTONS.JAB && !f.aimed) f.cs.dir = assistAim(f, this.fighters, f.cs.dir);
     }
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));
+    resolveHits(this.fighters);
     if (this.#snapshotDue()) this.emit('match:snapshot', this.snapshot(), { volatile: true });
   }
 
@@ -150,7 +167,7 @@ export class Match {
       tick: this.tick,
       acks,
       ...(perf && { tickMs: { avg: round2(perf.avgMs), max: round2(perf.maxMs) } }),
-      fighters: this.fighters.map(({ id, body, aim, hp, alive }) => ({
+      fighters: this.fighters.map(({ id, body, aim, cs, hp, alive }) => ({
         id,
         x: round2(body.x),
         y: round2(body.y),
@@ -161,6 +178,7 @@ export class Match {
         aim: round2(aim),
         hp,
         alive,
+        cs: { ...cs, dir: round2(cs.dir) },
       })),
     };
   }

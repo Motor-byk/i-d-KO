@@ -1,4 +1,5 @@
-import { ARENA, PLAYER, RENDER } from '../shared/constants.js';
+import { ARENA, PLAYER, RENDER, COMBAT } from '../shared/constants.js';
+import { STATE, moveFrames, phase } from '../shared/combat-state.js';
 
 const COLORS = {
   void: '#0d0e12',
@@ -12,6 +13,8 @@ const COLORS = {
   name: '#f2f2f5',
   me: '#ffffff',
   outline: 'rgba(0, 0, 0, 0.5)',
+  hitstun: 'rgba(255, 255, 255, 0.3)',
+  hitstop: 'rgba(255, 255, 255, 0.75)',
 };
 
 const GRID = 100;
@@ -23,6 +26,21 @@ function textColorFor(hex) {
   const n = parseInt(hex.slice(1), 16);
   const lum = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
   return lum > 150 ? '#15161c' : '#ffffff';
+}
+
+// How far each fist [left, right] is pushed out past its rest spot, 0..1 of the move's reach.
+function fistExtension(cs) {
+  const m = moveFrames(cs);
+  if (!m) return [0, 0];
+  let k;
+  switch (phase(cs)) {
+    case 'startup': k = -0.1; break; // wind up
+    case 'active': k = 1; break;
+    default: k = 1 - (cs.t - m.startup - m.active) / m.recovery;
+  }
+  // The string alternates hands; the finisher throws both.
+  if (cs.jab === COMBAT.JAB.length - 1) return [k, k];
+  return cs.jab % 2 ? [0, k] : [k, 0];
 }
 
 // Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
@@ -100,17 +118,22 @@ export function createRenderer(canvas) {
 
   function drawFighter(f, isMe) {
     const r = PLAYER.RADIUS;
-    // Fists first so the body overlaps them.
+    const m = moveFrames(f.cs);
+    const dir = m ? f.cs.dir : f.aim;
+    const ext = fistExtension(f.cs);
+    // Fists first so the body overlaps them. A punching fist swings in toward the center line.
     ctx.fillStyle = f.color;
     ctx.strokeStyle = COLORS.outline;
     ctx.lineWidth = 3;
-    for (const side of [-1, 1]) {
-      const a = f.aim + side * RENDER.FIST_SPREAD;
+    [-1, 1].forEach((side, i) => {
+      const k = Math.max(0, ext[i]);
+      const a = dir + side * RENDER.FIST_SPREAD * (1 - k * 0.8);
+      const d = r + 2 + ext[i] * (m?.reach ?? 0);
       ctx.beginPath();
-      ctx.arc(f.x + Math.cos(a) * (r + 2), f.y + Math.sin(a) * (r + 2), PLAYER.FIST_RADIUS, 0, Math.PI * 2);
+      ctx.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, PLAYER.FIST_RADIUS, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-    }
+    });
 
     ctx.beginPath();
     ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
@@ -118,6 +141,10 @@ export function createRenderer(canvas) {
     ctx.lineWidth = isMe ? 4 : 3;
     ctx.strokeStyle = isMe ? COLORS.me : COLORS.outline;
     ctx.stroke();
+    if (f.cs.state === STATE.HITSTUN) {
+      ctx.fillStyle = f.cs.hitstop ? COLORS.hitstop : COLORS.hitstun;
+      ctx.fill();
+    }
 
     const { size, text } = fitLabel(f.label);
     ctx.fillStyle = textColorFor(f.color);

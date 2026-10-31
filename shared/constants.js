@@ -123,6 +123,16 @@ export const BALANCE = {
   DMG_CAP: 0.20,
 };
 
+export const RENDER = {
+  // The camera follows your fighter and shows at least this much of the arena (world units).
+  VIEW_WIDTH: 1100,
+  VIEW_HEIGHT: 620,
+  LABEL_FONT: 15,     // option name inside the circle, world units; shrinks to fit
+  LABEL_FONT_MIN: 8,
+  NAME_FONT: 13,      // nickname above the HP bar
+  FIST_SPREAD: 0.6,   // radians either side of aim
+};
+
 // Input button bits (held state; the server derives presses from changes).
 export const BUTTONS = {
   JAB: 1,

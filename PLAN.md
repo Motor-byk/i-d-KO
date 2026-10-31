@@ -2,7 +2,7 @@
 
 ## Progress
 - **Milestone A (steps 1–7): done.** Review pass done. Fixes are in the commits after `chore: render deployment config`.
-- **Milestone B in progress.** Steps 8–11 done. **Next: step 12** (`feat: canvas renderer`).
+- **Milestone B in progress.** Steps 8–12 done. **Next: step 13** (`feat: desktop input`).
   - Position history for lag comp moves to step 24 (nothing reads it before then).
   - Inputs send held `buttons`; the server derives presses on arrival, so merging/dropping inputs can't lose a press.
   - A crashed match sends its room back to the lobby (`rooms.endMatch`).
@@ -98,7 +98,8 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/ui/home.js     nickname + create/join
 [x] public/js/ui/lobby.js    options, team picking, host controls, share link
 [ ] public/js/net.js         clock estimate, prediction/reconciliation, adaptive interpolation
-[ ] public/js/render.js      circles w/ option names, fists, ring, pillars, juice
+[x] public/js/render.js      circles w/ option names, fists, ring, pillars, juice
+[x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
 [ ] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
 [ ] public/js/input/touch.js joystick + drag-aim buttons
 [ ] public/js/input/desktop.js keyboard + mouse
@@ -119,7 +120,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 9. [x] `feat: arena with walls and pillars` — shared/arena.js, swept collision + tests.
 10. [x] `feat: shared movement physics` — shared/physics.js + tests.
 11. [x] `feat: match loop, input validation, snapshots` — match.js (20 Hz, encode once, acks map).
-12. `feat: canvas renderer` — render.js.
+12. [x] `feat: canvas renderer` — render.js, ui/match.js (camera follows you, fits the arena for spectators).
 13. `feat: desktop input`.
 14. `feat: touch controls` — joystick + drag-aim, landscape prompt.
 15. `feat: debug overlay`.

@@ -2,6 +2,7 @@ import { connect, call, wakeServer, keepAwake, session } from './connection.js';
 import { h, errorText, logo } from './ui/dom.js';
 import { homeScreen } from './ui/home.js';
 import { lobbyScreen } from './ui/lobby.js';
+import { matchScreen } from './ui/match.js';
 
 const app = document.getElementById('app');
 const banner = h('div.banner', { hidden: true });
@@ -76,8 +77,8 @@ function onRoom(room) {
     if (screen?.kind !== 'lobby') showLobby();
     screen.update(room);
   } else {
-    // Match screen arrives with the match loop.
-    show({ kind: 'match', el: h('main.screen', {}, h('h2', {}, 'Fight!')) });
+    if (screen?.kind !== 'match') show(matchScreen({ playerId: me.playerId, onLeave: leaveRoom }));
+    screen.update(room);
   }
 }
 
@@ -134,6 +135,7 @@ async function boot() {
   socket = connect();
   socket.on('room:update', onRoom);
   socket.on('room:kicked', showMovedTab);
+  socket.on('match:snapshot', (snap) => screen?.onSnapshot?.(snap));
   socket.on('disconnect', (reason) => {
     // A server-initiated disconnect (kick) does not auto-reconnect, so don't promise it will.
     if (reason !== 'io server disconnect') setBanner('Connection lost. Reconnecting…');

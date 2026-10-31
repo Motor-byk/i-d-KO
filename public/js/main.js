@@ -83,6 +83,11 @@ function onRoom(room) {
         onLeave: leaveRoom,
         // Volatile: dropped while offline instead of replayed late after a reconnect.
         sendInput: (input) => socket.volatile.emit('match:input', input),
+        ping: async () => {
+          const start = performance.now();
+          const res = await call(socket, 'net:ping');
+          return res.error ? null : performance.now() - start;
+        },
       }));
     }
     screen.update(room);

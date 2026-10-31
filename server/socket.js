@@ -70,6 +70,7 @@ export function attachSocketHandlers(io, rooms) {
       room,
       emit: (event, payload, { volatile = false } = {}) => (volatile ? target.volatile : target).emit(event, payload),
       onEmpty: () => loop.remove(match),
+      perf: () => loop.stats(match),
     });
     room.match = match;
     loop.add(match);
@@ -157,6 +158,9 @@ export function attachSocketHandlers(io, rooms) {
       const room = rooms.getRoom(seat.code);
       if (room) broadcastRoom(room);
     };
+
+    // RTT probe for the debug overlay.
+    on('net:ping', (_payload, reply) => reply({}));
 
     on('room:leave', (_payload, reply) => {
       exit(rooms.leave);

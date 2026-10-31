@@ -50,11 +50,13 @@ export function spawnPoints(teamSizes) {
 
 // One running match. The global loop calls step(); socket.js feeds input().
 // emit(event, payload, { volatile }) broadcasts to the room; onEmpty() is called once nobody is left.
+// perf() returns the loop's tick timing for this match ({ avgMs, maxMs }), sent once a second.
 export class Match {
-  constructor({ room, emit, onEmpty }) {
+  constructor({ room, emit, onEmpty, perf = () => null }) {
     this.room = room;
     this.emit = emit;
     this.onEmpty = onEmpty;
+    this.perf = perf;
     this.tick = 0;
 
     const teams = room.options.map((o) => [...room.players.values()].filter((p) => p.teamId === o.id));
@@ -136,9 +138,11 @@ export class Match {
   snapshot() {
     const acks = {};
     for (const f of this.fighters) acks[f.id] = f.ackSeq;
+    const perf = this.tick % TICK_RATE === 0 ? this.perf() : null;
     return {
       tick: this.tick,
       acks,
+      ...(perf && { tickMs: { avg: round2(perf.avgMs), max: round2(perf.maxMs) } }),
       fighters: this.fighters.map(({ id, body, aim, hp, alive }) => ({
         id,
         x: round2(body.x),

@@ -173,3 +173,16 @@ test('resetInput lets a rejoined client start its seq over', () => {
   assert.equal(match.byId.get(1).ackSeq, -1);
   assert.equal(match.input(1, input(1)), true);
 });
+
+test('one snapshot a second carries the server tick time', () => {
+  const players = new Map([[1, { id: 1, teamId: 1 }], [2, { id: 2, teamId: 2 }]]);
+  const sent = [];
+  const match = new Match({
+    room: { players, options: [{ id: 1 }, { id: 2 }] },
+    emit: (_e, snap) => sent.push(snap),
+    onEmpty: () => {},
+    perf: () => ({ avgMs: 0.1234, maxMs: 1.5 }),
+  });
+  for (let i = 0; i < TICK_RATE; i++) match.step();
+  assert.deepEqual(sent.filter((s) => s.tickMs).map((s) => s.tickMs), [{ avg: 0.12, max: 1.5 }]);
+});

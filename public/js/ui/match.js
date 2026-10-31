@@ -3,16 +3,20 @@ import { h } from './dom.js';
 import { createRenderer } from '../render.js';
 import { desktopInput } from '../input/desktop.js';
 import { touchInput } from '../input/touch.js';
+import { debugOverlay } from '../debug.js';
 
 // Match screen: a full-screen canvas drawn every frame from the latest snapshot.
 // Samples input at the tick rate and hands it to sendInput(input) while you're fighting.
+// ping() resolves to an RTT in ms for the debug overlay.
 // Returns { el, update(room), onSnapshot(snap), setError() }.
-export function matchScreen({ playerId, onLeave, sendInput }) {
+export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   const canvas = h('canvas.arena');
   const touch = touchInput();
+  const debug = debugOverlay({ ping });
   const el = h('main.match', {},
     canvas,
     touch.el,
+    debug.el,
     h('button.small.ghost.match-leave', { onclick: onLeave, 'aria-label': 'Leave match' }, '✕'),
     h('div.rotate-hint', {}, 'Turn your phone sideways to fight'),
   );
@@ -62,6 +66,7 @@ export function matchScreen({ playerId, onLeave, sendInput }) {
     if (!el.isConnected) {
       clearInterval(inputTimer);
       desktop.destroy();
+      debug.destroy();
       return;
     }
     const me = myFighter();
@@ -82,7 +87,10 @@ export function matchScreen({ playerId, onLeave, sendInput }) {
     kind: 'match',
     el,
     update: (next) => { room = next; },
-    onSnapshot: (next) => { snap = next; },
+    onSnapshot: (next) => {
+      snap = next;
+      debug.onSnapshot(next);
+    },
     setError: () => {},
   };
 }

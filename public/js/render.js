@@ -21,6 +21,8 @@ const COLORS = {
   parryWhiff: 'rgba(155, 231, 255, 0.3)',
   stun: '#ffd166',
   burst: 'rgba(255, 255, 255, 0.5)',
+  dashCharging: '#5c6b80',
+  dashReady: '#9be7ff',
 };
 const STUN_DOTS = 3;
 const INVULN_ALPHA = 0.55;
@@ -29,6 +31,8 @@ const DASH_GHOSTS = [{ back: 0.9, alpha: 0.18 }, { back: 0.45, alpha: 0.32 }];
 const GRID = 100;
 const labelFont = (size) => `700 ${size}px system-ui, sans-serif`;
 const HP_BAR = { w: PLAYER.RADIUS * 2, h: 6, gap: 10 };
+// Your own dash cooldown: a vertical bar beside your fighter, full when the dash is ready.
+const DASH_BAR = { w: 5, h: PLAYER.RADIUS * 1.6, gap: 14 };
 
 // Dark text on light team colors, light text on dark ones.
 function textColorFor(hex) {
@@ -221,6 +225,16 @@ export function createRenderer(canvas) {
     ctx.fillRect(f.x - HP_BAR.w / 2, barY, HP_BAR.w, HP_BAR.h);
     ctx.fillStyle = ratio > 0.3 ? COLORS.hp : COLORS.hpLow;
     ctx.fillRect(f.x - HP_BAR.w / 2, barY, HP_BAR.w * ratio, HP_BAR.h);
+
+    if (isMe) {
+      const ready = 1 - f.cs.dashCooldown / COMBAT.DASH.cooldown;
+      const x = f.x + r + DASH_BAR.gap;
+      const y = f.y - DASH_BAR.h / 2;
+      ctx.fillStyle = COLORS.hpBack;
+      ctx.fillRect(x, y, DASH_BAR.w, DASH_BAR.h);
+      ctx.fillStyle = ready >= 1 ? COLORS.dashReady : COLORS.dashCharging;
+      ctx.fillRect(x, y + DASH_BAR.h * (1 - ready), DASH_BAR.w, DASH_BAR.h * ready);
+    }
 
     ctx.fillStyle = COLORS.name;
     ctx.font = `600 ${RENDER.NAME_FONT}px system-ui, sans-serif`;

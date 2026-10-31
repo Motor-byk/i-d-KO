@@ -1,4 +1,5 @@
 import { BUTTONS } from '../../shared/constants.js';
+import { buttonLatch } from './latch.js';
 
 // Physical key positions (event.code), so WASD works on any keyboard layout.
 const MOVE_KEYS = {
@@ -15,12 +16,8 @@ const MOUSE_BUTTONS = { 0: BUTTONS.JAB, 2: BUTTONS.HEAVY };
 // sample() -> { move: {x, y}, buttons, aim: angle | null }.
 export function desktopInput(target, { aimAt }) {
   const keys = new Set();
-  let held = 0;
-  let tapped = 0; // pressed since the last sample: a click shorter than one tick still counts
+  const buttons = buttonLatch();
   let pointer = null;
-
-  const press = (bit) => { held |= bit; tapped |= bit; };
-  const release = (bit) => { held &= ~bit; };
 
   const listeners = [
     [window, 'keydown', (e) => {
@@ -28,22 +25,22 @@ export function desktopInput(target, { aimAt }) {
       if (MOVE_KEYS[e.code] || BUTTON_KEYS[e.code]) e.preventDefault(); // no page scroll
       if (e.repeat) return;
       keys.add(e.code);
-      if (BUTTON_KEYS[e.code]) press(BUTTON_KEYS[e.code]);
+      if (BUTTON_KEYS[e.code]) buttons.press(BUTTON_KEYS[e.code]);
     }],
     [window, 'keyup', (e) => {
       keys.delete(e.code);
-      if (BUTTON_KEYS[e.code]) release(BUTTON_KEYS[e.code]);
+      if (BUTTON_KEYS[e.code]) buttons.release(BUTTON_KEYS[e.code]);
     }],
     // Alt-tab with a key down would otherwise leave it stuck.
-    [window, 'blur', () => { keys.clear(); held = 0; }],
+    [window, 'blur', () => { keys.clear(); buttons.releaseAll(); }],
     [target, 'pointerdown', (e) => {
       if (e.pointerType !== 'mouse' || !(e.button in MOUSE_BUTTONS)) return;
       if (e.target.closest('button')) return; // UI buttons, not attacks
       pointer = { x: e.clientX, y: e.clientY };
-      press(MOUSE_BUTTONS[e.button]);
+      buttons.press(MOUSE_BUTTONS[e.button]);
     }],
     [window, 'pointerup', (e) => {
-      if (e.pointerType === 'mouse' && e.button in MOUSE_BUTTONS) release(MOUSE_BUTTONS[e.button]);
+      if (e.pointerType === 'mouse' && e.button in MOUSE_BUTTONS) buttons.release(MOUSE_BUTTONS[e.button]);
     }],
     [window, 'pointermove', (e) => {
       if (e.pointerType === 'mouse') pointer = { x: e.clientX, y: e.clientY };
@@ -60,11 +57,9 @@ export function desktopInput(target, { aimAt }) {
       if (dir) { x += dir[0]; y += dir[1]; }
     }
     const len = Math.hypot(x, y);
-    const buttons = held | tapped;
-    tapped = 0;
     return {
       move: len ? { x: x / len, y: y / len } : { x: 0, y: 0 },
-      buttons,
+      buttons: buttons.take(),
       aim: pointer ? aimAt(pointer.x, pointer.y) : null,
     };
   }

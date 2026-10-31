@@ -87,7 +87,7 @@ export class Match {
       ackSeq: -1,      // newest seq applied by the sim
       move: { x: 0, y: 0 },
       starved: 0,      // ticks in a row with no input
-      held: 0,         // buttons held as of the last queued input
+      queuedHeld: 0,   // buttons held as of the last queued input (edges are derived against it)
       buttons: 0,      // buttons held as of the applied input
       pressed: 0,      // buttons pressed this tick
       released: 0,     // buttons released this tick
@@ -104,9 +104,9 @@ export class Match {
     if (!input || input.seq <= f.lastSeq) return false;
     f.lastSeq = input.seq;
     // Edges are derived here, at arrival, so merging or dropping inputs can't lose one.
-    input.pressed = input.buttons & ~f.held;
-    input.released = f.held & ~input.buttons;
-    f.held = input.buttons;
+    input.pressed = input.buttons & ~f.queuedHeld;
+    input.released = f.queuedHeld & ~input.buttons;
+    f.queuedHeld = input.buttons;
     input.tick = Math.min(input.tick, this.tick);
     f.queue.push(input);
     // Too much buffered: fold the oldest into the next one (keep the newest move, OR the edges).
@@ -126,7 +126,7 @@ export class Match {
     f.move = { x: 0, y: 0 };
     f.lastSeq = -1;
     f.ackSeq = -1;
-    f.held = 0;
+    f.queuedHeld = 0;
     f.buttons = 0;
   }
 

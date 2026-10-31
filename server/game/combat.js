@@ -5,7 +5,7 @@ import { applyHit, applyHitstop, applyParry, isParrying, moveFrames, phase } fro
 
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
-// Tap attacks snap to the nearest enemy inside the assist cone around aim; else aim is kept.
+// Un-aimed jabs snap to the nearest enemy inside the assist cone around aim; else aim is kept.
 export function assistAim(attacker, fighters, aim) {
   let best = null;
   let bestDist = COMBAT.AIM_ASSIST_RANGE;
@@ -97,13 +97,8 @@ export function resolveHits(fighters) {
 export function burstPush(burster, fighters) {
   for (const f of fighters) {
     if (f === burster || !f.alive) continue;
-    const dx = f.body.x - burster.body.x;
-    const dy = f.body.y - burster.body.y;
-    const d = Math.hypot(dx, dy);
-    if (d > COMBAT.BURST_RADIUS) continue;
-    const [nx, ny] = d > 1e-6 ? [dx / d, dy / d] : [1, 0];
-    f.body.kx = nx * COMBAT.BURST_PUSH;
-    f.body.ky = ny * COMBAT.BURST_PUSH;
+    if (Math.hypot(f.body.x - burster.body.x, f.body.y - burster.body.y) > COMBAT.BURST_RADIUS) continue;
+    push(burster, f, COMBAT.BURST_PUSH, 0);
     f.cs.launched = false;
   }
 }

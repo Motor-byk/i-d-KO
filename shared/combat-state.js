@@ -26,8 +26,8 @@ export function createCombat() {
   return {
     state: STATE.IDLE,
     t: 0,          // ticks spent in this state
-    len: 0,        // length of a timed state (hitstun); moves take theirs from frame data
-    hitstop: 0,    // ticks left frozen: timers stop, presses still buffer
+    len: 0,        // length of a timed state (dash, parry, hitstun, stun, burst); moves use frame data
+    hitstop: 0,    // ticks left frozen: timers stop (the buffer too, so a press during it still chains)
     buffer: 0,     // buffered action (a BUTTONS bit), 0 = none
     bufferAge: 0,
     jab: 0,        // index into COMBAT.JAB of the current (or last) jab
@@ -39,17 +39,22 @@ export function createCombat() {
     combo: 0,      // hits taken in the current combo (it lasts while in hitstun)
     comboT: 0,     // ticks the current combo has lasted, hitstop included
     invuln: 0,     // ticks left that hits pass through (after a burst)
-    dir: 0,        // facing (or dash direction), locked when the current move started
+    dir: 0,        // facing (or dash direction), locked when a move starts; follows aim while charging
   };
 }
 
 const lerp = (a, b, k) => a + (b - a) * k;
 
-// Frame data of the move being performed, or null when not in a move.
+// Timing and reach of the move being performed (no allocation), or null when not in a move.
+export function moveTiming(cs) {
+  if (cs.state === STATE.JAB) return COMBAT.JAB[cs.jab];
+  return cs.state === STATE.HEAVY ? COMBAT.HEAVY : null;
+}
+
+// Full hit data of the move being performed, or null when not in a move.
 // A heavy's damage and knockback scale with its charge.
 export function moveFrames(cs) {
-  if (cs.state === STATE.JAB) return COMBAT.JAB[cs.jab];
-  if (cs.state !== STATE.HEAVY) return null;
+  if (cs.state !== STATE.HEAVY) return moveTiming(cs);
   const H = COMBAT.HEAVY;
   const k = chargeFraction(cs.charge);
   return {
@@ -68,7 +73,7 @@ export function chargeFraction(ticks) {
 
 // 'startup' | 'active' | 'recovery' for a move, null otherwise.
 export function phase(cs) {
-  const m = moveFrames(cs);
+  const m = moveTiming(cs);
   if (!m) return null;
   if (cs.t < m.startup) return 'startup';
   if (cs.t < m.startup + m.active) return 'active';
@@ -76,7 +81,7 @@ export function phase(cs) {
 }
 
 function duration(cs) {
-  const m = moveFrames(cs);
+  const m = moveTiming(cs);
   return m ? m.startup + m.active + m.recovery : cs.len;
 }
 
@@ -96,15 +101,17 @@ function enterAttack(cs, state) {
 
 // Jab and heavy recovery can be cancelled into a dash once cancelAfter ticks of it have passed.
 function canDashCancel(cs) {
-  const m = moveFrames(cs);
+  const m = moveTiming(cs);
   return !!m && cs.t - m.startup - m.active >= COMBAT.DASH.cancelAfter;
 }
+
+const whenIdle = (cs) => cs.state === STATE.IDLE;
 
 const letGoOfHeavy = ({ held = 0, released = 0 }) => !(held & BUTTONS.HEAVY) || !!(released & BUTTONS.HEAVY);
 
 const ACTIONS = {
   [BUTTONS.JAB]: {
-    canStart: (cs) => cs.state === STATE.IDLE,
+    canStart: whenIdle,
     start(cs) {
       const next = cs.chain > 0 ? (cs.jab + 1) % COMBAT.JAB.length : 0;
       enterAttack(cs, STATE.JAB);
@@ -112,7 +119,7 @@ const ACTIONS = {
     },
   },
   [BUTTONS.HEAVY]: {
-    canStart: (cs) => cs.state === STATE.IDLE,
+    canStart: whenIdle,
     start(cs, input) {
       enterAttack(cs, STATE.CHARGE);
       cs.letGo = letGoOfHeavy(input);
@@ -129,7 +136,7 @@ const ACTIONS = {
     },
   },
   [BUTTONS.PARRY]: {
-    canStart: (cs) => cs.state === STATE.IDLE,
+    canStart: whenIdle,
     start: (cs) => enter(cs, STATE.PARRY, COMBAT.PARRY.active + COMBAT.PARRY.recovery),
   },
 };
@@ -181,7 +188,7 @@ export function stepCombat(cs, input = {}) {
   if (cs.chain > 0) cs.chain--;
   if (cs.dashCooldown > 0) cs.dashCooldown--;
   if (cs.invuln > 0) cs.invuln--;
-  const m = moveFrames(cs);
+  const m = moveTiming(cs);
   if (cs.state === STATE.JAB && cs.t === m.startup + m.active) cs.chain = COMBAT.JAB_CHAIN_WINDOW;
   if (cs.state === STATE.CHARGE) stepCharge(cs, input, aim);
   else if (cs.state !== STATE.IDLE && cs.t >= duration(cs)) enter(cs, STATE.IDLE);
@@ -210,14 +217,15 @@ const WALK_SCALE = {
 // A launched fighter flying into a wall or pillar fast enough bounces off it, once.
 // input: { move: {x, y}, pressed, held, released, aim }. Returns what stepCombat returns.
 export function stepFighter(cs, body, input) {
-  if (cs.hitstop > 0) return stepCombat(cs, input);
+  const frozen = cs.hitstop > 0;
   const started = stepCombat(cs, input);
+  if (frozen) return started;
   if (cs.state === STATE.BURST) {
     body.kx = 0;
     body.ky = 0;
   }
   const scale = WALK_SCALE[cs.state] ?? 0;
-  const [kx, ky] = [body.kx, body.ky];
+  const { kx, ky } = body;
   const dash = cs.state === STATE.DASH ? { x: Math.cos(cs.dir), y: Math.sin(cs.dir) } : null;
   const normals = stepBody(body, { x: input.move.x * scale, y: input.move.y * scale }, dash);
   const H = COMBAT.HEAVY;

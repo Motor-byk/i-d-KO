@@ -199,7 +199,7 @@ test('a fighter whose inputs stop arriving stops walking', () => {
   match.resetInput(1); // disconnect
   match.step();
   assert.deepEqual(f.move, { x: 0, y: 0 });
-  assert.equal(f.held, 0);
+  assert.equal(f.queuedHeld, 0);
 });
 
 test('if the match cannot be started, the room unlocks', async (t) => {

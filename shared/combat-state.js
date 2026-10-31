@@ -241,7 +241,7 @@ export function applyHit(cs, { hitstun, hitstop, launch = false }) {
   enter(cs, STATE.HITSTUN, len);
   cs.combo = combo;
   cs.comboT = comboT;
-  cs.hitstop = hitstop;
+  cs.hitstop = Math.max(cs.hitstop, hitstop);
   cs.launched = launch;
 }
 

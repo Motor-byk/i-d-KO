@@ -138,3 +138,17 @@ test('a burst pushes everyone nearby away', () => {
   assert.equal(near.body.kx, COMBAT.BURST_PUSH);
   assert.equal(far.body.kx, 0);
 });
+
+test('two enemy hits on one target in one tick both deal damage but count as one combo step', () => {
+  const t = fighter(1, 1, 500, 500);
+  const a = fighter(2, 2, 430, 500);
+  const b = fighter(3, 2, 570, 500);
+  for (const [f, dir] of [[a, 0], [b, Math.PI]]) {
+    Object.assign(f.cs, { state: STATE.JAB, jab: 2, t: COMBAT.JAB[2].startup, dir }); // the finisher, active
+  }
+  const hits = resolveHits([t, a, b]);
+  assert.equal(hits.length, 2);
+  assert.equal(t.hp, PLAYER.BASE_HP - 2 * COMBAT.JAB[2].damage);
+  assert.equal(t.cs.combo, 1);
+  assert.equal(t.cs.len, COMBAT.JAB[2].hitstun);
+});

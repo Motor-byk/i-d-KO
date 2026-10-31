@@ -35,10 +35,22 @@ function inReach(a, b, dir, reach) {
   return Math.abs(angleDiff(Math.atan2(dy, dx), dir)) <= COMBAT.HIT_ARC / 2 + slack;
 }
 
+// Sets target's knockback to speed, straight away from `from` (along fallbackAngle if stacked).
+function push(from, target, speed, fallbackAngle) {
+  const dx = target.body.x - from.body.x;
+  const dy = target.body.y - from.body.y;
+  const d = Math.hypot(dx, dy);
+  const [nx, ny] = d > 1e-6 ? [dx / d, dy / d] : [Math.cos(fallbackAngle), Math.sin(fallbackAngle)];
+  target.body.kx = nx * speed;
+  target.body.ky = ny * speed;
+}
+
 // Finds every hit this tick, then applies them all, so two attacks that trade both land.
 // Each move hits a target at most once (attacker.hitIds is cleared when a move starts).
 // An enemy hit on a parrying target is parried instead (judged on state from before this
 // tick's hits, so a parry holds against several at once). Friendly fire ignores parries.
+// Several enemy hits on one target in the same tick all deal damage, but stun and push it
+// once, with the strongest of them, so they count as one combo step.
 // Returns the hits as [{ attacker, target, damage, parried }].
 export function resolveHits(fighters) {
   const hits = [];
@@ -53,26 +65,31 @@ export function resolveHits(fighters) {
       hits.push({ attacker: a, target: t, move: m });
     }
   }
-  return hits.map(({ attacker, target, move }) => {
+  const strongest = new Map(); // target -> the enemy hit that stuns it this tick
+  const results = hits.map(({ attacker, target, move }) => {
     const friendly = attacker.teamId === target.teamId;
-    if (!friendly && parrying.has(target)) {
+    const parried = !friendly && parrying.has(target);
+    let damage = 0;
+    if (parried) {
       applyParry(target.cs, attacker.cs);
-      return { attacker, target, damage: 0, parried: true };
+    } else if (friendly) {
+      // Friendly fire is knockback only: no damage, hitstun or hitstop.
+      push(attacker, target, move.knockback, attacker.cs.dir);
+    } else {
+      damage = move.damage;
+      target.hp = Math.max(0, target.hp - damage);
+      if (target.hp === 0) target.alive = false;
+      applyHitstop(attacker.cs, move.hitstop);
+      const best = strongest.get(target);
+      if (!best || move.hitstun > best.move.hitstun) strongest.set(target, { attacker, move });
     }
-    const dx = target.body.x - attacker.body.x;
-    const dy = target.body.y - attacker.body.y;
-    const d = Math.hypot(dx, dy);
-    const [nx, ny] = d > 1e-6 ? [dx / d, dy / d] : [Math.cos(attacker.cs.dir), Math.sin(attacker.cs.dir)];
-    target.body.kx = nx * move.knockback;
-    target.body.ky = ny * move.knockback;
-    // Friendly fire is knockback only: no damage, hitstun or hitstop.
-    if (friendly) return { attacker, target, damage: 0, parried: false };
-    target.hp = Math.max(0, target.hp - move.damage);
-    if (target.hp === 0) target.alive = false;
-    applyHit(target.cs, move);
-    applyHitstop(attacker.cs, move.hitstop);
-    return { attacker, target, damage: move.damage, parried: false };
+    return { attacker, target, damage, parried };
   });
+  for (const [target, { attacker, move }] of strongest) {
+    push(attacker, target, move.knockback, attacker.cs.dir);
+    applyHit(target.cs, move);
+  }
+  return results;
 }
 
 // A fighter bursting out of a combo shoves everyone near it away (knockback only).

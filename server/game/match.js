@@ -98,6 +98,16 @@ export class Match {
     return true;
   }
 
+  // A rejoining client starts counting seq from scratch, so forget the old stream.
+  resetInput(playerId) {
+    const f = this.byId.get(playerId);
+    if (!f) return;
+    f.queue = [];
+    f.lastSeq = -1;
+    f.ackSeq = -1;
+    f.held = 0;
+  }
+
   step() {
     if (!this.room.players.size) return this.onEmpty();
     this.tick++;

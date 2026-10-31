@@ -30,6 +30,7 @@ export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   let dpr = 1;
   const labelFits = new Map(); // label -> { size, text }, measured once per label
+  let cam = null; // camera used for the last frame, for toWorld()
 
   const resize = () => {
     dpr = window.devicePixelRatio || 1;
@@ -138,7 +139,7 @@ export function createRenderer(canvas) {
 
   function draw(view) {
     const follow = view.fighters.find((f) => f.id === view.followId && f.alive);
-    const cam = camera(follow);
+    cam = camera(follow);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = COLORS.void;
     ctx.fillRect(0, 0, cam.cw, cam.ch);
@@ -151,5 +152,15 @@ export function createRenderer(canvas) {
     for (const f of alive) drawFighter(f, f.id === view.meId);
   }
 
-  return { draw };
+  // Screen (client) coordinates -> world coordinates, using the last drawn frame's camera.
+  function toWorld(clientX, clientY) {
+    if (!cam) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: cam.x + (clientX - rect.left - cam.cw / 2) / cam.scale,
+      y: cam.y + (clientY - rect.top - cam.ch / 2) / cam.scale,
+    };
+  }
+
+  return { draw, toWorld };
 }

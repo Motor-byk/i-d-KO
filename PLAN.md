@@ -2,7 +2,9 @@
 
 ## Progress
 - **Milestone A (steps 1–7): done.** Review pass done. Fixes are in the commits after `chore: render deployment config`.
-- **Milestone B in progress.** Steps 8–12 done. **Next: step 13** (`feat: desktop input`).
+- **Milestone B in progress.** Steps 8–13 done. **Next: step 14** (`feat: touch controls`).
+  - Input is sampled and sent at 30 Hz from `ui/match.js`. The `tick` field is the latest snapshot tick until clock sync (step 23). A rejoin resets the player's seq on the server.
+  - Not yet checked in a real browser (Chrome extension wasn't connected). Socket smoke test passes.
   - Position history for lag comp moves to step 24 (nothing reads it before then).
   - Inputs send held `buttons`; the server derives presses on arrival, so merging/dropping inputs can't lose a press.
   - A crashed match sends its room back to the lobby (`rooms.endMatch`).
@@ -102,7 +104,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
 [ ] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
 [ ] public/js/input/touch.js joystick + drag-aim buttons
-[ ] public/js/input/desktop.js keyboard + mouse
+[x] public/js/input/desktop.js keyboard + mouse
 [x] test/*.test.js           node:test (helpers.js: startServer, call, nextEvent)
 [ ] scripts/bots.js          headless bots with simulated latency
 ```
@@ -121,7 +123,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 10. [x] `feat: shared movement physics` — shared/physics.js + tests.
 11. [x] `feat: match loop, input validation, snapshots` — match.js (20 Hz, encode once, acks map).
 12. [x] `feat: canvas renderer` — render.js, ui/match.js (camera follows you, fits the arena for spectators).
-13. `feat: desktop input`.
+13. [x] `feat: desktop input`.
 14. `feat: touch controls` — joystick + drag-aim, landscape prompt.
 15. `feat: debug overlay`.
 16. `feat: shared combat state machine` — combat-state.js (timers, buffer, hitstop) + tests.

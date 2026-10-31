@@ -164,3 +164,12 @@ test('a match that throws is ended and its room goes back to the lobby', async (
   assert.equal(loop.stats(match), undefined);
   assert.equal(errors.mock.callCount(), 1);
 });
+
+test('resetInput lets a rejoined client start its seq over', () => {
+  const { match } = fakeMatch();
+  match.input(1, input(500));
+  match.step();
+  match.resetInput(1);
+  assert.equal(match.byId.get(1).ackSeq, -1);
+  assert.equal(match.input(1, input(1)), true);
+});

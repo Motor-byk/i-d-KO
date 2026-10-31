@@ -102,6 +102,7 @@ export function attachSocketHandlers(io, rooms) {
         previous.disconnect(true);
       }
       socketByPlayer.set(player.id, socket);
+      room.match?.resetInput(player.id);
       socket.data.code = room.code;
       socket.data.playerId = player.id;
       socket.join(room.code);

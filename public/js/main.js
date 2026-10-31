@@ -77,7 +77,14 @@ function onRoom(room) {
     if (screen?.kind !== 'lobby') showLobby();
     screen.update(room);
   } else {
-    if (screen?.kind !== 'match') show(matchScreen({ playerId: me.playerId, onLeave: leaveRoom }));
+    if (screen?.kind !== 'match') {
+      show(matchScreen({
+        playerId: me.playerId,
+        onLeave: leaveRoom,
+        // Volatile: dropped while offline instead of replayed late after a reconnect.
+        sendInput: (input) => socket.volatile.emit('match:input', input),
+      }));
+    }
     screen.update(room);
   }
 }

@@ -2,7 +2,7 @@
 
 ## Progress
 - **Milestone A (steps 1–7): done.** Review pass done. Fixes are in the commits after `chore: render deployment config`.
-- **Milestone B in progress.** Steps 8–9 done. **Next: step 10** (`feat: shared movement physics`).
+- **Milestone B in progress.** Steps 8–10 done. **Next: step 11** (`feat: match loop, input validation, snapshots`).
   - Deviation: the arena lives in `shared/arena.js` (not `server/game/`), because client prediction collides with pillars too.
 - Known open items:
   - SIGTERM handling is step 31.
@@ -85,7 +85,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [ ] server/game/balance.js   dark-horse multipliers
 [ ] server/game/modes/elimination.js   win check, tie -> sudden death
 [x] shared/constants.js      every tunable: ticks, frame data, room limits, ring, balance, net
-[ ] shared/physics.js        shared movement/dash step (fixed dt, ordered collisions)
+[x] shared/physics.js        shared movement/dash step (fixed dt, ordered collisions), server-only body separation
 [ ] shared/combat-state.js   state machine timing: states, timers, input buffer, hitstop, hitstun decay, burst
 [x] public/index.html        app shell; loads config.js + js/main.js
 [x] public/config.js         GAME_SERVER_URL (overwritten at static build)
@@ -114,7 +114,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 7. [x] `chore: render deployment config` — render.yaml (static site + web service, autoDeploy false), README deploy notes. Smoke test on a phone.
 8. [x] `feat: global fixed-tick loop` — loop.js + tests.
 9. [x] `feat: arena with walls and pillars` — shared/arena.js, swept collision + tests.
-10. `feat: shared movement physics` — shared/physics.js + tests.
+10. [x] `feat: shared movement physics` — shared/physics.js + tests.
 11. `feat: match loop, input validation, snapshots` — match.js (20 Hz, encode once, acks map).
 12. `feat: canvas renderer` — render.js.
 13. `feat: desktop input`.

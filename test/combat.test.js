@@ -160,3 +160,20 @@ test('a burst push cancels a launch', () => {
   burstPush(v, [v, near]);
   assert.equal(near.cs.launched, false);
 });
+
+test('one jab hitting two enemies counts once toward the string', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 570, 490);
+  const c = fighter(3, 2, 570, 510);
+  jabActive(a);
+  resolveHits([a, b, c]);
+  assert.equal(a.cs.stringHits, 1);
+});
+
+test('parried and friendly hits do not count toward the string', () => {
+  const a = fighter(1, 1, 500, 500);
+  const mate = fighter(2, 1, 570, 500);
+  jabActive(a);
+  resolveHits([a, mate]);
+  assert.equal(a.cs.stringHits, 0);
+});

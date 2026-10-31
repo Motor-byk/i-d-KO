@@ -1,5 +1,5 @@
 import { COMBAT, PLAYER } from '../../shared/constants.js';
-import { applyHit, applyHitstop, applyParry, isParrying, moveFrames, phase } from '../../shared/combat-state.js';
+import { applyHit, applyLanded, applyParry, isParrying, moveFrames, phase } from '../../shared/combat-state.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, alive, hitIds }.
 
@@ -79,7 +79,7 @@ export function resolveHits(fighters) {
       damage = move.damage;
       target.hp = Math.max(0, target.hp - damage);
       if (target.hp === 0) target.alive = false;
-      applyHitstop(attacker.cs, move.hitstop);
+      applyLanded(attacker.cs, move.hitstop);
       const best = strongest.get(target);
       if (!best || move.hitstun > best.move.hitstun) strongest.set(target, { attacker, move });
     }

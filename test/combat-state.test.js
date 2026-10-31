@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createCombat, stepCombat, stepFighter, phase, moveFrames, chargeFraction, applyHit, applyHitstop, applyParry,
+  createCombat, stepCombat, stepFighter, phase, moveFrames, chargeFraction, applyHit, applyLanded, applyParry,
   isParrying, STATE,
 } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
@@ -79,8 +79,8 @@ test('hitstop freezes timers and the buffer, but presses still buffer', () => {
   const cs = createCombat();
   stepCombat(cs, JAB);
   const before = { ...cs };
-  applyHitstop(cs, 6);
-  applyHitstop(cs, 2); // a shorter hitstop doesn't cut a longer one short
+  applyLanded(cs, 6);
+  applyLanded(cs, 2); // a shorter hitstop doesn't cut a longer one short
   stepCombat(cs, JAB);
   run(cs, 5);
   assert.equal(cs.t, before.t);
@@ -338,4 +338,52 @@ test('a launched fighter sliding along a wall does not bounce', () => {
   stepFighter(cs, body, { move: { x: 0, y: 0 } });
   assert.equal(cs.launched, true);
   assert.equal(cs.len, 24);
+});
+
+test('heavy recovery cannot be dash-cancelled', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: BUTTONS.HEAVY, released: BUTTONS.HEAVY });
+  while (cs.state !== STATE.HEAVY) stepCombat(cs, {});
+  while (phase(cs) !== 'recovery') stepCombat(cs, {});
+  run(cs, COMBAT.DASH.cancelAfter);
+  assert.equal(stepCombat(cs, { pressed: DASH }), 0);
+  assert.equal(cs.state, STATE.HEAVY);
+});
+
+// Lands each jab of a string as soon as it goes active; skip lists jab indexes that whiff.
+function landString(cs, skip = []) {
+  for (let i = 0; i < COMBAT.JAB.length; i++) {
+    stepCombat(cs, JAB);
+    while (phase(cs) !== 'active') stepCombat(cs, {});
+    if (!skip.includes(cs.jab)) applyLanded(cs, 0);
+    while (cs.state === STATE.JAB) stepCombat(cs, {});
+  }
+}
+
+test('landing every jab of a string fully recharges the dash', () => {
+  const cs = createCombat();
+  cs.dashCooldown = COMBAT.DASH.cooldown;
+  landString(cs);
+  assert.equal(cs.dashCooldown, 0);
+  assert.equal(stepCombat(cs, { pressed: DASH }), DASH);
+});
+
+test('a string with a missed jab does not recharge the dash', () => {
+  for (const skip of [[0], [1], [2]]) {
+    const cs = createCombat();
+    cs.dashCooldown = COMBAT.DASH.cooldown;
+    landString(cs, skip);
+    assert.ok(cs.dashCooldown > 0, `missed jab ${skip}`);
+  }
+});
+
+test('a new string starts the count over', () => {
+  const cs = createCombat();
+  stepCombat(cs, JAB);
+  while (phase(cs) !== 'active') stepCombat(cs, {});
+  applyLanded(cs, 0);
+  run(cs, 40); // the chain window passes
+  cs.dashCooldown = COMBAT.DASH.cooldown;
+  landString(cs, [0]);
+  assert.ok(cs.dashCooldown > 0);
 });

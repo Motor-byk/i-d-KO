@@ -36,6 +36,7 @@ export function createCombat() {
     letGo: false,  // heavy released while charging (it fires once MIN_CHARGE is reached)
     launched: false, // in hitstun from a launching hit: the next wall it hits bounces it
     dashCooldown: 0,
+    stringHits: 0, // jabs of the current string that landed on an enemy, in order
     combo: 0,      // hits taken in the current combo (it lasts while in hitstun)
     comboT: 0,     // ticks the current combo has lasted, hitstop included
     invuln: 0,     // ticks left that hits pass through (after a burst)
@@ -99,10 +100,12 @@ function enterAttack(cs, state) {
   cs.invuln = 0;
 }
 
-// Jab and heavy recovery can be cancelled into a dash once cancelAfter ticks of it have passed.
+// Jab recovery can be cancelled into a dash once cancelAfter ticks of it have passed.
+// Heavy recovery can't: a heavy commits you.
 function canDashCancel(cs) {
+  if (cs.state !== STATE.JAB) return false;
   const m = moveTiming(cs);
-  return !!m && cs.t - m.startup - m.active >= COMBAT.DASH.cancelAfter;
+  return cs.t - m.startup - m.active >= COMBAT.DASH.cancelAfter;
 }
 
 const whenIdle = (cs) => cs.state === STATE.IDLE;
@@ -116,6 +119,7 @@ const ACTIONS = {
       const next = cs.chain > 0 ? (cs.jab + 1) % COMBAT.JAB.length : 0;
       enterAttack(cs, STATE.JAB);
       cs.jab = next;
+      if (next === 0) cs.stringHits = 0;
     },
   },
   [BUTTONS.HEAVY]: {
@@ -263,7 +267,14 @@ export function applyParry(parrier, attacker) {
   attacker.hitstop = COMBAT.PARRY.hitstop;
 }
 
-// Freezes a fighter's timers (the attacker's side of a landed hit).
-export function applyHitstop(cs, ticks) {
-  cs.hitstop = Math.max(cs.hitstop, ticks);
+// The attacker's side of a landed enemy hit: freeze, and count jab string progress.
+// Landing every jab of one string fully recharges the dash.
+export function applyLanded(cs, hitstop) {
+  cs.hitstop = Math.max(cs.hitstop, hitstop);
+  if (cs.state !== STATE.JAB || cs.jab !== cs.stringHits) return; // a missed jab breaks the count
+  cs.stringHits++;
+  if (cs.stringHits === COMBAT.JAB.length) {
+    cs.stringHits = 0;
+    cs.dashCooldown = 0;
+  }
 }

@@ -17,6 +17,7 @@
   - Step 21: a combo lasts while the victim stays in hitstun; each hit's hitstun is multiplied by `HITSTUN_DECAY` per hit so far (floor `MIN_HITSTUN`). The combo clock counts real ticks (hitstop too); at `COMBO_BURST_TICKS` the victim enters `burst` (knockback stops, everyone within `BURST_RADIUS` is pushed) with `BURST_INVULN` that ends early on attacking. Jab 1–2 hitstun went 12 → 16 so the 3-jab string stays a true combo after decay (a test locks this in).
   - Review fixes: same-tick multi-hits on one target are one combo step (strongest hit stuns); a combo stays open through the tick its hitstun ends (no frame-perfect decay reset); wall bounce needs speed *into* the surface, and a burst push clears launches; touch heavy keeps its drag aim on release. Kept on purpose: the input buffer doesn't age during hitstop (presses during hitstop chain).
   - Checked in Chrome against a bot: jab string, heavy charge ring/launch, getting KO'd by a bot's jab strings (~6s standing still), spectator camera. Parry and touch weren't exercised in the browser (unit tests only).
+- After the review (user request): dash cooldown 20 → 60 ticks (2s); heavy recovery can no longer be dash-cancelled (jab recovery still can, and so can a heavy *charge*); landing all 3 jabs of one string on enemies (`cs.stringHits`, counted in `applyLanded`) resets the dash cooldown. Parried and friendly hits don't count.
 - **Next: step 22** (`feat: client prediction and reconciliation`), the start of Milestone D.
 - Review notes to handle in later steps:
   - Step 22: prediction replays `stepFighter` (combat + movement), so restore the full `cs` from the snapshot. Hit detection and burst pushes stay server-only, so expect corrections on hits.
@@ -68,7 +69,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 |---|---|
 | **Jab** | 3-hit string, and the 3rd hit knocks back. Tap = auto-aim (nearest enemy in a ~60° facing cone). Drag = manual aim. |
 | **Heavy** | Drag to aim, hold to charge, release to fire. A charged hit launches the target; hitting a wall or pillar = wall bounce. |
-| **Dash** | Tap, in the joystick direction. Cancels jab/heavy recovery. Cooldown. Swept collision so it can't tunnel through pillars. |
+| **Dash** | Tap, in the joystick direction. Cancels jab recovery (not heavy: a heavy commits you). 2s cooldown, fully recharged by landing all 3 jabs of a string on enemies. Swept collision so it can't tunnel through pillars. |
 | **Parry** | Tap. 3–4 tick active window, and a successful parry stuns the attacker. Whiff = punishable recovery. |
 
 - **Anti-infinite:** hitstun decays per hit in a combo. After ~1.5s (45 ticks) of continuous combo the victim **bursts** out with brief invulnerability.

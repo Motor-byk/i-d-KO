@@ -56,19 +56,24 @@ export const PLAYER = {
 export const COMBAT = {
   INPUT_BUFFER: 5,
   AIM_ASSIST_CONE: Math.PI / 3, // ~60 degrees total
-  AIM_ASSIST_RANGE: 260,
+  AIM_ASSIST_RANGE: 260,         // center to center
+  HIT_ARC: (2 * Math.PI) / 3,    // a move hits targets within this arc around its direction
+  ATTACK_WALK: 0.35,             // walking speed multiplier during a jab
 
   JAB: [
     // knockback in units/second; reach measured from the attacker's edge
-    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 12, hitstop: 2 },
-    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 12, hitstop: 2 },
+    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
+    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
     { startup: 4, active: 3, recovery: 12, damage: 9, reach: 66, knockback: 620, hitstun: 18, hitstop: 4 },
   ],
   JAB_CHAIN_WINDOW: 8, // ticks after recovery starts in which the next jab continues the string
 
   HEAVY: {
-    MIN_CHARGE: 6,
+    MIN_CHARGE: 6,     // a tap still charges this long before firing
     MAX_CHARGE: 30,
+    MAX_HOLD: 30,      // ticks a full charge can be held before it fires by itself
+    CHARGE_WALK: 0.5,  // walking speed multiplier while charging
+    LAUNCH_CHARGE: 0.5, // charge fraction from which a hit launches (and can wall bounce)
     startup: 5,
     active: 3,
     recovery: 16,
@@ -82,28 +87,33 @@ export const COMBAT = {
     WALL_BOUNCE_MIN_SPEED: 450,
     WALL_BOUNCE_RESTITUTION: 0.55,
     WALL_BOUNCE_HITSTUN: 14, // extra hitstun on bounce
+    WALL_BOUNCE_HITSTOP: 3,
   },
 
   DASH: {
     duration: 6,
     speed: 900,
-    cooldown: 20,
-    // jab/heavy recovery can be cancelled into dash after this many recovery ticks
+    cooldown: 60,      // from the dash's start; landing a full jab string resets it
+    // jab recovery (not heavy) can be cancelled into dash after this many recovery ticks
     cancelAfter: 2,
+    MIN_STICK: 0.3,    // a weaker stick than this dashes where you face instead
   },
 
   PARRY: {
-    active: 4,
-    recovery: 14,
-    stun: 28,
+    active: 4,     // hits landing in these ticks are parried
+    recovery: 14,  // a whiffed parry is stuck this long
+    stun: 28,      // the parried attacker can't act this long
+    hitstop: 5,    // both freeze on a parry
     grace: 2,
   },
 
   HITSTUN_DECAY: 0.8,      // each consecutive hit multiplies hitstun by this
   MIN_HITSTUN: 4,
   COMBO_BURST_TICKS: 45,   // continuous combo length before forced burst
-  BURST_INVULN: 20,
-  BURST_PUSH: 700,
+  BURST_TICKS: 6,          // the burst itself: can't act, knockback stops
+  BURST_INVULN: 20,        // from the burst's start; ends early if you attack
+  BURST_PUSH: 700,         // knockback on everyone near the burst
+  BURST_RADIUS: 150,       // center to center
 };
 
 export const RING = {

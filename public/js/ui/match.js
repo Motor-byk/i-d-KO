@@ -73,6 +73,8 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       tick: snap.tick,
       move: fingers.move ?? keys.move,
       aim,
+      // The mouse always aims on purpose; touch only when dragging.
+      aimed: fingers.aim !== null ? fingers.aimed : keys.aim !== null,
       buttons: keys.buttons | fingers.buttons,
     });
   }, 1000 / TICK_RATE);

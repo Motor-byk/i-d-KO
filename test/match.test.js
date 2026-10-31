@@ -199,7 +199,7 @@ test('a fighter whose inputs stop arriving stops walking', () => {
   match.resetInput(1); // disconnect
   match.step();
   assert.deepEqual(f.move, { x: 0, y: 0 });
-  assert.equal(f.held, 0);
+  assert.equal(f.queuedHeld, 0);
 });
 
 test('if the match cannot be started, the room unlocks', async (t) => {
@@ -218,4 +218,47 @@ test('if the match cannot be started, the room unlocks', async (t) => {
   assert.equal((await call(a, 'match:start')).error, 'SERVER_ERROR');
   assert.equal(rooms.getRoom(room.code).state, 'lobby');
   assert.equal(rooms.getRoom(room.code).match, null);
+});
+
+test('a jab input hits an enemy in front, and the snapshot shows the combat state', () => {
+  const { match, sent } = fakeMatch();
+  const [a, b] = match.fighters;
+  a.body.x = 500; a.body.y = 500;
+  b.body.x = 570; b.body.y = 500;
+  match.input(a.id, input(1, { aim: 0, aimed: true, buttons: BUTTONS.JAB }));
+  for (let i = 0; i < 10; i++) match.step();
+  assert.ok(b.hp < PLAYER.BASE_HP);
+  const snap = sent.at(-1)[1];
+  assert.ok(snap.fighters.every((f) => typeof f.cs.state === 'string'));
+});
+
+test('aimed is only true when sent as true', () => {
+  assert.equal(validateInput(input(1, { aimed: true })).aimed, true);
+  assert.equal(validateInput(input(1, { aimed: 'yes' })).aimed, false);
+  assert.equal(validateInput(input(1)).aimed, false);
+});
+
+test('release edges survive input merging', () => {
+  const { match } = fakeMatch();
+  match.input(1, input(1, { buttons: BUTTONS.HEAVY }));
+  match.input(1, input(2, { buttons: 0 }));
+  match.input(1, input(3, { buttons: 0 }));
+  const released = match.byId.get(1).queue.reduce((acc, i) => acc | i.released, 0);
+  assert.equal(released, BUTTONS.HEAVY);
+});
+
+test('a mashed jab string is a true combo: all three hits land in one combo', () => {
+  const { match } = fakeMatch();
+  const [a, b] = match.fighters;
+  a.body.x = 500; a.body.y = 500;
+  b.body.x = 575; b.body.y = 500;
+  const combos = [];
+  let hp = b.hp;
+  for (let tick = 1; tick < 40; tick++) {
+    match.input(a.id, input(tick, { move: { x: 1, y: 0 }, aim: 0, aimed: true, buttons: tick % 2 ? BUTTONS.JAB : 0 }));
+    match.input(b.id, input(tick));
+    match.step();
+    if (b.hp !== hp) { combos.push(b.cs.combo); hp = b.hp; }
+  }
+  assert.deepEqual(combos.slice(0, 3), [1, 2, 3]);
 });

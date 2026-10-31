@@ -1,15 +1,18 @@
-import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK } from '../../shared/constants.js';
-import { createBody, stepBody, separateBodies } from '../../shared/physics.js';
+import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK, BUTTONS } from '../../shared/constants.js';
+import { createBody, separateBodies } from '../../shared/physics.js';
 import { resolveCircle } from '../../shared/arena.js';
+import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
+import { assistAim, burstPush, resolveHits } from './combat.js';
 
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 
 const round2 = (v) => Math.round(v * 100) / 100;
 
-// Returns a clean input or null. Shape: { seq, tick, move: {x, y}, aim, buttons }.
+// Returns a clean input or null. Shape: { seq, tick, move: {x, y}, aim, aimed, buttons }.
+// aimed: the player pointed the aim on purpose (mouse, drag); otherwise attacks get aim assist.
 export function validateInput(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { seq, tick, move, aim, buttons } = raw;
+  const { seq, tick, move, aim, aimed, buttons } = raw;
   if (!Number.isSafeInteger(seq) || seq < 0) return null;
   if (!Number.isSafeInteger(tick) || tick < 0) return null;
   if (!move || typeof move !== 'object') return null;
@@ -20,7 +23,14 @@ export function validateInput(raw) {
   if (!Number.isFinite(aim)) return null;
   if (!Number.isInteger(buttons) || buttons < 0 || buttons > BUTTON_MASK) return null;
   const scale = len > 1 ? 1 / len : 1;
-  return { seq, tick, move: { x: x * scale, y: y * scale }, aim: Math.atan2(Math.sin(aim), Math.cos(aim)), buttons };
+  return {
+    seq,
+    tick,
+    move: { x: x * scale, y: y * scale },
+    aim: Math.atan2(Math.sin(aim), Math.cos(aim)),
+    aimed: aimed === true,
+    buttons,
+  };
 }
 
 // Spreads teams around an ellipse, members side by side along it. Returns [{ x, y, aim }].
@@ -67,6 +77,9 @@ export class Match {
       teamId: p.teamId,
       body: createBody(spawns[i].x, spawns[i].y),
       aim: spawns[i].aim,
+      aimed: false,
+      cs: { ...createCombat(), dir: spawns[i].aim },
+      hitIds: new Set(), // who the current move already hit
       hp: PLAYER.BASE_HP,
       alive: true,
       queue: [],
@@ -74,8 +87,10 @@ export class Match {
       ackSeq: -1,      // newest seq applied by the sim
       move: { x: 0, y: 0 },
       starved: 0,      // ticks in a row with no input
-      held: 0,         // buttons held as of the last queued input
+      queuedHeld: 0,   // buttons held as of the last queued input (edges are derived against it)
+      buttons: 0,      // buttons held as of the applied input
       pressed: 0,      // buttons pressed this tick
+      released: 0,     // buttons released this tick
     }));
     separateBodies(this.fighters.map((f) => f.body));
     this.byId = new Map(this.fighters.map((f) => [f.id, f]));
@@ -88,15 +103,16 @@ export class Match {
     const input = validateInput(raw);
     if (!input || input.seq <= f.lastSeq) return false;
     f.lastSeq = input.seq;
-    // Presses are derived here, at arrival, so merging or dropping inputs can't lose one.
-    input.pressed = input.buttons & ~f.held;
-    f.held = input.buttons;
+    // Edges are derived here, at arrival, so merging or dropping inputs can't lose one.
+    input.pressed = input.buttons & ~f.queuedHeld;
+    input.released = f.queuedHeld & ~input.buttons;
+    f.queuedHeld = input.buttons;
     input.tick = Math.min(input.tick, this.tick);
     f.queue.push(input);
-    // Too much buffered: fold the oldest into the next one (keep the newest move, OR the presses).
+    // Too much buffered: fold the oldest into the next one (keep the newest move, OR the edges).
     while (f.queue.length > NET.INPUT_QUEUE_MAX) {
       const [oldest, next] = f.queue.splice(0, 2);
-      f.queue.unshift({ ...next, pressed: next.pressed | oldest.pressed });
+      f.queue.unshift({ ...next, pressed: next.pressed | oldest.pressed, released: next.released | oldest.released });
     }
     return true;
   }
@@ -110,7 +126,8 @@ export class Match {
     f.move = { x: 0, y: 0 };
     f.lastSeq = -1;
     f.ackSeq = -1;
-    f.held = 0;
+    f.queuedHeld = 0;
+    f.buttons = 0;
   }
 
   step() {
@@ -121,19 +138,28 @@ export class Match {
       if (!f.alive) continue;
       const input = f.queue.shift();
       f.pressed = 0;
+      f.released = 0;
       if (input) {
         f.move = input.move;
         f.aim = input.aim;
+        f.aimed = input.aimed;
         f.ackSeq = input.seq;
         f.pressed = input.pressed;
+        f.released = input.released;
+        f.buttons = input.buttons;
         f.starved = 0;
       } else if (++f.starved >= NET.INPUT_STARVE_TICKS) {
         // A late packet repeats the last move; a stalled client stops instead of running on.
         f.move = { x: 0, y: 0 };
       }
-      stepBody(f.body, f.move);
+      const { move, pressed, released, buttons: held, aim } = f;
+      const started = stepFighter(f.cs, f.body, { move, pressed, released, held, aim });
+      if (started) f.hitIds.clear();
+      if (started === BUTTONS.JAB && !f.aimed) f.cs.dir = assistAim(f, this.fighters, f.cs.dir);
+      if (f.cs.state === STATE.BURST && f.cs.t === 0) burstPush(f, this.fighters);
     }
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));
+    resolveHits(this.fighters);
     if (this.#snapshotDue()) this.emit('match:snapshot', this.snapshot(), { volatile: true });
   }
 
@@ -150,7 +176,7 @@ export class Match {
       tick: this.tick,
       acks,
       ...(perf && { tickMs: { avg: round2(perf.avgMs), max: round2(perf.maxMs) } }),
-      fighters: this.fighters.map(({ id, body, aim, hp, alive }) => ({
+      fighters: this.fighters.map(({ id, body, aim, cs, hp, alive }) => ({
         id,
         x: round2(body.x),
         y: round2(body.y),
@@ -161,6 +187,7 @@ export class Match {
         aim: round2(aim),
         hp,
         alive,
+        cs: { ...cs, dir: round2(cs.dir) },
       })),
     };
   }

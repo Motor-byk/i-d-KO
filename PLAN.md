@@ -8,9 +8,20 @@
   - Inputs send held `buttons`; the server derives presses on arrival, so merging/dropping inputs can't lose a press. After `NET.INPUT_STARVE_TICKS` with no input, a fighter stops walking; disconnect and rejoin reset the input stream.
   - A crashed match (or one that fails to start) sends its room back to the lobby (`rooms.endMatch`).
   - Checked in Chrome against a bot: rendering, WASD, mouse aim, debug overlay, reload-rejoin mid-match and leave all work. Touch controls are still untested on a real phone.
-- **Next: step 16** (`feat: shared combat state machine`), the start of Milestone C.
+- **Milestone C (steps 16–21): done** on branch `milestone-c-combat` (not merged). Review pass done. Fixes are in the commits after `feat: hitstun decay and combo burst`.
+  - Step 16: `shared/combat-state.js` is a plain-object state machine (`state`, `t` ticks in state, `hitstop`, one-slot `buffer`). Moves are added to its `ACTIONS` table step by step; jab timing (string + chain window) lives here, hit detection in step 17.
+  - Step 17: `stepFighter(cs, body, input)` in `combat-state.js` is the shared per-tick unit (combat timing, then walking; hitstop freezes the body). `server/game/combat.js` collects every hit from pre-hit state and then applies them, so trades both land. Inputs carry `aimed` (mouse or drag); un-aimed jabs snap to the nearest enemy in the assist cone. Snapshots carry each fighter's full `cs`. A KO is `alive: false` in the snapshot; the win check is step 26.
+  - Step 18: inputs get a `released` edge at arrival (OR-merged like `pressed`), and the fighter keeps the applied input's held `buttons`. Heavy = `charge` state (aim follows, slowed walk) → fires on release once `MIN_CHARGE` is reached (a merged tap still fires), or by itself after `MAX_HOLD` at full charge. Damage/knockback scale with charge; from `LAUNCH_CHARGE` the target is `launched` and bounces off the next wall once (shared in `stepFighter`, so prediction sees it) with extra hitstun and a short hitstop.
+  - Step 19: dash = `dash` state along the stick (or facing if the stick is under `MIN_STICK`), from idle, from a heavy charge, or cancelling jab/heavy recovery after `cancelAfter` ticks. Cooldown runs from the dash start and a press on cooldown is buffered. No invulnerability: dodging is spacing; parry is the defensive tool.
+  - Step 20: parry = `parry` state (active window, then whiff recovery), from idle only. An enemy hit on a target inside the window is parried: no damage or knockback, the parrier is idle at once, the attacker is `stunned`, and both get a short hitstop. Parrying is judged on pre-hit state, so it holds against simultaneous hits. Friendly hits ignore parries. The 2-tick input grace is still step 24.
+  - Step 21: a combo lasts while the victim stays in hitstun; each hit's hitstun is multiplied by `HITSTUN_DECAY` per hit so far (floor `MIN_HITSTUN`). The combo clock counts real ticks (hitstop too); at `COMBO_BURST_TICKS` the victim enters `burst` (knockback stops, everyone within `BURST_RADIUS` is pushed) with `BURST_INVULN` that ends early on attacking. Jab 1–2 hitstun went 12 → 16 so the 3-jab string stays a true combo after decay (a test locks this in).
+  - Review fixes: same-tick multi-hits on one target are one combo step (strongest hit stuns); a combo stays open through the tick its hitstun ends (no frame-perfect decay reset); wall bounce needs speed *into* the surface, and a burst push clears launches; touch heavy keeps its drag aim on release. Kept on purpose: the input buffer doesn't age during hitstop (presses during hitstop chain).
+  - Checked in Chrome against a bot: jab string, heavy charge ring/launch, getting KO'd by a bot's jab strings (~6s standing still), spectator camera. Parry and touch weren't exercised in the browser (unit tests only).
+- After the review (user request): dash cooldown 20 → 60 ticks (2s); heavy recovery can no longer be dash-cancelled (jab recovery still can, and so can a heavy *charge*); landing all 3 jabs of one string on enemies (`cs.stringHits`, counted in `applyLanded`) resets the dash cooldown. Parried and friendly hits don't count. Your own fighter shows the dash cooldown as a vertical bar beside it (bright when ready); other players' cooldowns aren't drawn.
+- **Next: step 22** (`feat: client prediction and reconciliation`), the start of Milestone D.
 - Review notes to handle in later steps:
-  - Step 16–18: derive the *release* edge at input arrival too (a merged quick tap gives `pressed` with `buttons=0`), and store the applied input's `buttons` on the fighter for charged heavy.
+  - Step 22: prediction replays `stepFighter` (combat + movement), so restore the full `cs` from the snapshot. Hit detection and burst pushes stay server-only, so expect corrections on hits.
+  - Step 24: the parry grace window (`COMBAT.PARRY.grace`, still unread) belongs in `resolveHits`' parry check.
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Step 22: clear pending inputs on reconnect/rejoin (the server's ack resets to -1). Expect small corrections when the server merges or starves inputs.
   - Step 23: dropped loop ticks make the tick→time mapping jump; clock smoothing must tolerate it. The client sends `snap.tick` (newest received) for now; it must send the rendered tick, as an integer.
@@ -58,7 +69,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 |---|---|
 | **Jab** | 3-hit string, and the 3rd hit knocks back. Tap = auto-aim (nearest enemy in a ~60° facing cone). Drag = manual aim. |
 | **Heavy** | Drag to aim, hold to charge, release to fire. A charged hit launches the target; hitting a wall or pillar = wall bounce. |
-| **Dash** | Tap, in the joystick direction. Cancels jab/heavy recovery. Cooldown. Swept collision so it can't tunnel through pillars. |
+| **Dash** | Tap, in the joystick direction. Cancels jab recovery (not heavy: a heavy commits you). 2s cooldown, fully recharged by landing all 3 jabs of a string on enemies. Swept collision so it can't tunnel through pillars. |
 | **Parry** | Tap. 3–4 tick active window, and a successful parry stuns the attacker. Whiff = punishable recovery. |
 
 - **Anti-infinite:** hitstun decays per hit in a combo. After ~1.5s (45 ticks) of continuous combo the victim **bursts** out with brief invulnerability.
@@ -90,7 +101,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] server/socket.js         socket event wiring, per-IP join limits, per-socket event limit, one socket per player
 [x] server/loop.js           global accumulator loop, per-room try/catch + tick timing
 [x] server/game/match.js     input queue/validation, spawns, sim step, 20 Hz snapshot broadcast
-[ ] server/game/combat.js    hit detection + resolution (uses shared/combat-state.js), friendly knockback
+[x] server/game/combat.js    hit detection + resolution (uses shared/combat-state.js), friendly knockback
 [ ] server/game/lagcomp.js   position rewind rules
 [x] shared/arena.js         walls, pillars, swept collision, wall-bounce reflection (shared: prediction needs it)
 [ ] server/game/ring.js      shrink schedule + outside damage
@@ -98,7 +109,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [ ] server/game/modes/elimination.js   win check, tie -> sudden death
 [x] shared/constants.js      every tunable: ticks, frame data, room limits, ring, balance, net
 [x] shared/physics.js        shared movement/dash step (fixed dt, ordered collisions), server-only body separation
-[ ] shared/combat-state.js   state machine timing: states, timers, input buffer, hitstop, hitstun decay, burst
+[x] shared/combat-state.js   state machine timing: states, timers, input buffer, hitstop, hitstun decay, burst
 [x] public/index.html        app shell; loads config.js + js/main.js
 [x] public/config.js         GAME_SERVER_URL (overwritten at static build)
 [x] public/js/main.js        screen state machine (waking/home/lobby/match/moved), rejoin flow
@@ -133,12 +144,12 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 13. [x] `feat: desktop input`.
 14. [x] `feat: touch controls` — joystick + drag-aim, landscape prompt.
 15. [x] `feat: debug overlay`. `?debug` or the backquote key. Server tick time rides in one snapshot per second; RTT via `net:ping`.
-16. `feat: shared combat state machine` — combat-state.js (timers, buffer, hitstop) + tests.
-17. `feat: jab string and hit resolution` — combat.js, auto/manual aim, friendly knockback.
-18. `feat: heavy charge, launch, wall bounce`.
-19. `feat: dash and dash-cancel`.
-20. `feat: parry`.
-21. `feat: hitstun decay and combo burst` — + tests.
+16. [x] `feat: shared combat state machine` — combat-state.js (timers, buffer, hitstop) + tests.
+17. [x] `feat: jab string and hit resolution` — combat.js, auto/manual aim, friendly knockback.
+18. [x] `feat: heavy charge, launch, wall bounce`.
+19. [x] `feat: dash and dash-cancel`.
+20. [x] `feat: parry`.
+21. [x] `feat: hitstun decay and combo burst` — + tests.
 22. `feat: client prediction and reconciliation` — net.js using physics + combat-state + replay tests.
 23. `feat: adaptive interpolation and clock sync`.
 24. `feat: lag compensation` — lagcomp.js (positions only, parry grace) + tests.

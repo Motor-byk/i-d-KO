@@ -13,7 +13,8 @@ const CONTROLS = [
 
 // Virtual joystick (appears wherever the left half is touched) + drag-to-aim buttons.
 // Every touch is tracked by its pointerId, so moving, aiming and dashing can overlap.
-// sample() -> { move: {x, y} | null, buttons, aim: angle | null }; null = no touch input.
+// sample() -> { move: {x, y} | null, buttons, aim: angle | null, aimed }; null = no touch input.
+// aimed: the aim came from a drag (manual) rather than the joystick (attacks get aim assist).
 export function touchInput() {
   const knob = h('div.stick-knob');
   const stickEl = h('div.stick', { hidden: true }, knob);
@@ -24,7 +25,7 @@ export function touchInput() {
   let stick = null;           // { x, y } normalized, while the joystick is held
   const buttons = buttonLatch();
   let dragAim = null;         // { pointerId, angle } of the aim button being dragged
-  let releaseAim = null;      // aim of a drag that just ended (jab), applied with its press
+  let releaseAim = null;      // aim of a drag that just ended, sent with its press (jab) or release (heavy)
 
   function startStick(e) {
     const ox = e.clientX;
@@ -72,12 +73,10 @@ export function touchInput() {
         btnEl.classList.remove('down');
         // Only clear the aim if it's ours: Jab and Heavy can be dragged at the same time.
         if (dragAim?.pointerId === e.pointerId) dragAim = null;
-        if (control.onRelease) {
-          buttons.tap(control.bit);
-          releaseAim = aimed;
-        } else {
-          buttons.release(control.bit);
-        }
+        // The heavy fires on release too, so it needs the drag's aim on that sample as well.
+        if (control.aim) releaseAim = aimed;
+        if (control.onRelease) buttons.tap(control.bit);
+        else buttons.release(control.bit);
       },
     };
   }
@@ -110,8 +109,9 @@ export function touchInput() {
     // Facing follows the aim drag, else a just-released aim, else the joystick direction.
     let aim = dragAim?.angle ?? releaseAim;
     releaseAim = null;
-    if (aim === null && stick && (stick.x || stick.y)) aim = Math.atan2(stick.y, stick.x);
-    return { move: stick, buttons: buttons.take(), aim };
+    const aimed = aim !== null;
+    if (!aimed && stick && (stick.x || stick.y)) aim = Math.atan2(stick.y, stick.x);
+    return { move: stick, buttons: buttons.take(), aim, aimed };
   }
 
   return { el, sample };

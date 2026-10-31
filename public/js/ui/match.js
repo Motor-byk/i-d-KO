@@ -2,15 +2,19 @@ import { PLAYER, TICK_RATE } from '../../shared/constants.js';
 import { h } from './dom.js';
 import { createRenderer } from '../render.js';
 import { desktopInput } from '../input/desktop.js';
+import { touchInput } from '../input/touch.js';
 
 // Match screen: a full-screen canvas drawn every frame from the latest snapshot.
 // Samples input at the tick rate and hands it to sendInput(input) while you're fighting.
 // Returns { el, update(room), onSnapshot(snap), setError() }.
 export function matchScreen({ playerId, onLeave, sendInput }) {
   const canvas = h('canvas.arena');
+  const touch = touchInput();
   const el = h('main.match', {},
     canvas,
+    touch.el,
     h('button.small.ghost.match-leave', { onclick: onLeave, 'aria-label': 'Leave match' }, '✕'),
+    h('div.rotate-hint', {}, 'Turn your phone sideways to fight'),
   );
   const renderer = createRenderer(canvas);
   let room = null;
@@ -44,7 +48,7 @@ export function matchScreen({ playerId, onLeave, sendInput }) {
   requestAnimationFrame(frame);
 
   const myFighter = () => snap?.fighters.find((f) => f.id === playerId && f.alive);
-  const desktop = desktopInput(canvas, {
+  const desktop = desktopInput(el, {
     aimAt: (clientX, clientY) => {
       const me = myFighter();
       const target = me && renderer.toWorld(clientX, clientY);
@@ -62,9 +66,16 @@ export function matchScreen({ playerId, onLeave, sendInput }) {
     }
     const me = myFighter();
     if (!me) return; // spectating or KO'd
-    const sample = desktop.sample();
-    aim = sample.aim ?? aim ?? me.aim;
-    sendInput({ seq: ++seq, tick: snap.tick, move: sample.move, aim, buttons: sample.buttons });
+    const keys = desktop.sample();
+    const fingers = touch.sample();
+    aim = fingers.aim ?? keys.aim ?? aim ?? me.aim;
+    sendInput({
+      seq: ++seq,
+      tick: snap.tick,
+      move: fingers.move ?? keys.move,
+      aim,
+      buttons: keys.buttons | fingers.buttons,
+    });
   }, 1000 / TICK_RATE);
 
   return {

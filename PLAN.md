@@ -2,7 +2,7 @@
 
 ## Progress
 - **Milestone A (steps 1–7): done.** Review pass done. Fixes are in the commits after `chore: render deployment config`.
-- **Milestone B in progress.** Steps 8–13 done. **Next: step 14** (`feat: touch controls`).
+- **Milestone B in progress.** Steps 8–14 done. **Next: step 15** (`feat: debug overlay`), then the Milestone B review.
   - Input is sampled and sent at 30 Hz from `ui/match.js`. The `tick` field is the latest snapshot tick until clock sync (step 23). A rejoin resets the player's seq on the server.
   - Not yet checked in a real browser (Chrome extension wasn't connected). Socket smoke test passes.
   - Position history for lag comp moves to step 24 (nothing reads it before then).
@@ -103,7 +103,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/render.js      circles w/ option names, fists, ring, pillars, juice
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
 [ ] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
-[ ] public/js/input/touch.js joystick + drag-aim buttons
+[x] public/js/input/touch.js joystick + drag-aim buttons (Jab fires on release; facing follows the stick)
 [x] public/js/input/desktop.js keyboard + mouse
 [x] test/*.test.js           node:test (helpers.js: startServer, call, nextEvent)
 [ ] scripts/bots.js          headless bots with simulated latency
@@ -124,7 +124,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 11. [x] `feat: match loop, input validation, snapshots` — match.js (20 Hz, encode once, acks map).
 12. [x] `feat: canvas renderer` — render.js, ui/match.js (camera follows you, fits the arena for spectators).
 13. [x] `feat: desktop input`.
-14. `feat: touch controls` — joystick + drag-aim, landscape prompt.
+14. [x] `feat: touch controls` — joystick + drag-aim, landscape prompt.
 15. `feat: debug overlay`.
 16. `feat: shared combat state machine` — combat-state.js (timers, buffer, hitstop) + tests.
 17. `feat: jab string and hit resolution` — combat.js, auto/manual aim, friendly knockback.

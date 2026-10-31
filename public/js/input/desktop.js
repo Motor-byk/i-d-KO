@@ -10,9 +10,10 @@ const MOVE_KEYS = {
 const BUTTON_KEYS = { Space: BUTTONS.DASH, ShiftLeft: BUTTONS.PARRY, ShiftRight: BUTTONS.PARRY };
 const MOUSE_BUTTONS = { 0: BUTTONS.JAB, 2: BUTTONS.HEAVY };
 
-// Keyboard + mouse. aimAt(clientX, clientY) turns the cursor into an aim angle (or null).
+// Keyboard + mouse. Mouse buttons are caught on target (the match screen, so clicks reach
+// it through overlays). aimAt(clientX, clientY) turns the cursor into an aim angle (or null).
 // sample() -> { move: {x, y}, buttons, aim: angle | null }.
-export function desktopInput(canvas, { aimAt }) {
+export function desktopInput(target, { aimAt }) {
   const keys = new Set();
   let held = 0;
   let tapped = 0; // pressed since the last sample: a click shorter than one tick still counts
@@ -35,8 +36,9 @@ export function desktopInput(canvas, { aimAt }) {
     }],
     // Alt-tab with a key down would otherwise leave it stuck.
     [window, 'blur', () => { keys.clear(); held = 0; }],
-    [canvas, 'pointerdown', (e) => {
+    [target, 'pointerdown', (e) => {
       if (e.pointerType !== 'mouse' || !(e.button in MOUSE_BUTTONS)) return;
+      if (e.target.closest('button')) return; // UI buttons, not attacks
       pointer = { x: e.clientX, y: e.clientY };
       press(MOUSE_BUTTONS[e.button]);
     }],
@@ -46,9 +48,9 @@ export function desktopInput(canvas, { aimAt }) {
     [window, 'pointermove', (e) => {
       if (e.pointerType === 'mouse') pointer = { x: e.clientX, y: e.clientY };
     }],
-    [canvas, 'contextmenu', (e) => e.preventDefault()],
+    [target, 'contextmenu', (e) => e.preventDefault()],
   ];
-  for (const [target, type, fn] of listeners) target.addEventListener(type, fn);
+  for (const [node, type, fn] of listeners) node.addEventListener(type, fn);
 
   function sample() {
     let x = 0;
@@ -68,7 +70,7 @@ export function desktopInput(canvas, { aimAt }) {
   }
 
   const destroy = () => {
-    for (const [target, type, fn] of listeners) target.removeEventListener(type, fn);
+    for (const [node, type, fn] of listeners) node.removeEventListener(type, fn);
   };
 
   return { sample, destroy };

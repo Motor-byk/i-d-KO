@@ -280,14 +280,24 @@ test('each hit in a combo stuns for less, down to the minimum', () => {
   assert.equal(cs.combo, 12);
 });
 
-test('a combo ends when hitstun runs out, so the next hit starts fresh', () => {
+test('a combo ends a tick after hitstun runs out, so the next hit starts fresh', () => {
   const cs = createCombat();
   applyHit(cs, { hitstun: 5, hitstop: 0 });
   run(cs, 5);
   assert.equal(cs.state, STATE.IDLE);
+  run(cs, 1);
   applyHit(cs, { hitstun: 16, hitstop: 0 });
   assert.equal(cs.combo, 1);
   assert.equal(cs.len, 16);
+});
+
+test('a hit on the tick hitstun runs out still continues the combo', () => {
+  const cs = createCombat();
+  applyHit(cs, { hitstun: 5, hitstop: 0 });
+  run(cs, 5);
+  applyHit(cs, { hitstun: 16, hitstop: 0 });
+  assert.equal(cs.combo, 2);
+  assert.equal(cs.len, Math.round(16 * COMBAT.HITSTUN_DECAY));
 });
 
 test('a combo that lasts COMBO_BURST_TICKS (hitstop included) bursts out', () => {

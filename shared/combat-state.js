@@ -86,10 +86,6 @@ function enter(cs, state, len = 0) {
   cs.len = len;
   cs.launched = false;
   if (state !== STATE.IDLE) cs.chain = 0;
-  if (state !== STATE.HITSTUN) {
-    cs.combo = 0;
-    cs.comboT = 0;
-  }
 }
 
 // Attacking out of a burst gives up what's left of its invulnerability.
@@ -163,6 +159,12 @@ export function stepCombat(cs, input = {}) {
     cs.buffer = action;
     cs.bufferAge = 0;
   }
+  // A combo ends one tick after hitstun does, so a hit landing on the very tick hitstun runs
+  // out still continues it (and its decay) instead of starting fresh.
+  if (cs.state !== STATE.HITSTUN) {
+    cs.combo = 0;
+    cs.comboT = 0;
+  }
   // The combo clock runs in real time (hitstop too), so nothing can extend it past the burst.
   if (cs.state === STATE.HITSTUN && ++cs.comboT >= COMBAT.COMBO_BURST_TICKS) {
     enter(cs, STATE.BURST, COMBAT.BURST_TICKS);
@@ -232,11 +234,11 @@ export function stepFighter(cs, body, input) {
   return started;
 }
 
-// Puts a fighter in hitstun. The server calls this when a hit lands. A hit while still in
-// hitstun continues the combo, and each one stuns for less (HITSTUN_DECAY), so combos drop.
+// Puts a fighter in hitstun. The server calls this when a hit lands. A hit before the combo
+// ends continues it, and each one stuns for less (HITSTUN_DECAY), so combos drop.
 export function applyHit(cs, { hitstun, hitstop, launch = false }) {
-  const combo = cs.state === STATE.HITSTUN ? cs.combo + 1 : 1;
-  const comboT = combo > 1 ? cs.comboT : 0;
+  const combo = cs.combo + 1;
+  const comboT = cs.comboT;
   const len = Math.max(COMBAT.MIN_HITSTUN, Math.round(hitstun * COMBAT.HITSTUN_DECAY ** (combo - 1)));
   enter(cs, STATE.HITSTUN, len);
   cs.combo = combo;

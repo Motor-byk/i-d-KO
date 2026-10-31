@@ -1,5 +1,6 @@
 import { BUTTONS, TOUCH } from '../../shared/constants.js';
 import { h } from '../ui/dom.js';
+import { buttonLatch } from './latch.js';
 
 // Right-side buttons. aim: drag from the button to aim. onRelease: the press happens when the
 // finger lifts (so a drag can aim first); otherwise the button is held while touched.
@@ -21,9 +22,8 @@ export function touchInput() {
 
   const pointers = new Map(); // pointerId -> { move(e), up() }
   let stick = null;           // { x, y } normalized, while the joystick is held
-  let held = 0;
-  let tapped = 0;
-  let dragAim = null;         // live aim while dragging an aim button
+  const buttons = buttonLatch();
+  let dragAim = null;         // { pointerId, angle } of the aim button being dragged
   let releaseAim = null;      // aim of a drag that just ended (jab), applied with its press
 
   function startStick(e) {
@@ -58,7 +58,7 @@ export function touchInput() {
     const oy = e.clientY;
     let aimed = null;
     btnEl.classList.add('down');
-    if (!control.onRelease) { held |= control.bit; tapped |= control.bit; }
+    if (!control.onRelease) buttons.press(control.bit);
     return {
       move(ev) {
         if (!control.aim) return;
@@ -66,16 +66,17 @@ export function touchInput() {
         const dy = ev.clientY - oy;
         if (Math.hypot(dx, dy) < TOUCH.AIM_DEADZONE) return;
         aimed = Math.atan2(dy, dx);
-        dragAim = aimed;
+        dragAim = { pointerId: e.pointerId, angle: aimed };
       },
       up() {
         btnEl.classList.remove('down');
-        if (control.aim) dragAim = null;
+        // Only clear the aim if it's ours: Jab and Heavy can be dragged at the same time.
+        if (dragAim?.pointerId === e.pointerId) dragAim = null;
         if (control.onRelease) {
-          tapped |= control.bit;
+          buttons.tap(control.bit);
           releaseAim = aimed;
         } else {
-          held &= ~control.bit;
+          buttons.release(control.bit);
         }
       },
     };
@@ -86,12 +87,16 @@ export function touchInput() {
     e.preventDefault();
     const btnEl = e.target.closest('[data-control]');
     const control = btnEl && CONTROLS.find((c) => c.name === btnEl.dataset.control);
-    let handler;
-    if (control) handler = startButton(e, control, btnEl);
-    else if (e.clientX < window.innerWidth / 2 && !stick) handler = startStick(e);
-    else return;
-    el.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, handler);
+    const wantsStick = !control && e.clientX < window.innerWidth / 2 && !stick;
+    // One finger per button, so a second finger lifting can't release the first one's hold.
+    if (!wantsStick && !(control && !btnEl.classList.contains('down'))) return;
+    // Capture before touching any state: if it throws, no up() would ever undo that state.
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {
+      return;
+    }
+    pointers.set(e.pointerId, control ? startButton(e, control, btnEl) : startStick(e));
   });
   el.addEventListener('pointermove', (e) => pointers.get(e.pointerId)?.move(e));
   const end = (e) => {
@@ -102,13 +107,11 @@ export function touchInput() {
   el.addEventListener('pointercancel', end);
 
   function sample() {
-    const buttons = held | tapped;
-    tapped = 0;
     // Facing follows the aim drag, else a just-released aim, else the joystick direction.
-    let aim = dragAim ?? releaseAim;
+    let aim = dragAim?.angle ?? releaseAim;
     releaseAim = null;
     if (aim === null && stick && (stick.x || stick.y)) aim = Math.atan2(stick.y, stick.x);
-    return { move: stick, buttons, aim };
+    return { move: stick, buttons: buttons.take(), aim };
   }
 
   return { el, sample };

@@ -35,5 +35,6 @@ npm test      # node --test "test/**/*.test.js"
 
 ## Workflow the user wants
 - Build in small steps with one atomic commit each (`feat:`, `fix:`, `refactor:`, `chore:`). Don't push unless asked.
+- Start each milestone on its own branch off `main`, named for the milestone's focus (e.g. `milestone-c-combat`). Commit the milestone's steps and review fixes there. Don't merge into `main` unless asked.
 - After each major milestone, stop and run three review subagents: simplify, bug check (Sonnet), and networking (when relevant). Then apply the verified findings as separate commits and summarize for the user.
 - `PLAN.md` holds the full design, build order and milestones. Check its **Progress** section to see where things stand, and update it (and the step checkboxes) with every step.

@@ -2,7 +2,8 @@
 
 ## Progress
 - **Milestone A (steps 1–7): done.** Review pass done. Fixes are in the commits after `chore: render deployment config`.
-- **Milestone B in progress.** Step 8 done. **Next: step 9** (`feat: arena with walls and pillars`).
+- **Milestone B in progress.** Steps 8–9 done. **Next: step 10** (`feat: shared movement physics`).
+  - Deviation: the arena lives in `shared/arena.js` (not `server/game/`), because client prediction collides with pillars too.
 - Known open items:
   - SIGTERM handling is step 31.
   - Verify Render passes `cf-connecting-ip` (otherwise the rate-limit IP falls back to the spoofable X-Forwarded-For). Log the headers once after the first deploy.
@@ -79,7 +80,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [ ] server/game/match.js     input queue/validation, sim step, 20 Hz snapshot encode+broadcast, position history
 [ ] server/game/combat.js    hit detection + resolution (uses shared/combat-state.js), friendly knockback
 [ ] server/game/lagcomp.js   position rewind rules
-[ ] server/game/arena.js     walls, pillars, swept collision, wall-bounce detection
+[x] shared/arena.js         walls, pillars, swept collision, wall-bounce reflection (shared: prediction needs it)
 [ ] server/game/ring.js      shrink schedule + outside damage
 [ ] server/game/balance.js   dark-horse multipliers
 [ ] server/game/modes/elimination.js   win check, tie -> sudden death
@@ -112,7 +113,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 6. [x] `feat: home and lobby UI` — main.js, ui/lobby.js, waking-server screen.
 7. [x] `chore: render deployment config` — render.yaml (static site + web service, autoDeploy false), README deploy notes. Smoke test on a phone.
 8. [x] `feat: global fixed-tick loop` — loop.js + tests.
-9. `feat: arena with walls and pillars` — arena.js, swept collision + tests.
+9. [x] `feat: arena with walls and pillars` — shared/arena.js, swept collision + tests.
 10. `feat: shared movement physics` — shared/physics.js + tests.
 11. `feat: match loop, input validation, snapshots` — match.js (20 Hz, encode once, acks map).
 12. `feat: canvas renderer` — render.js.

@@ -37,7 +37,8 @@ export function createRenderer(canvas) {
     canvas.width = Math.round(canvas.clientWidth * dpr);
     canvas.height = Math.round(canvas.clientHeight * dpr);
   };
-  new ResizeObserver(resize).observe(canvas);
+  const resizer = new ResizeObserver(resize);
+  resizer.observe(canvas);
 
   function camera(follow) {
     const cw = canvas.width / dpr;
@@ -162,5 +163,5 @@ export function createRenderer(canvas) {
     };
   }
 
-  return { draw, toWorld };
+  return { draw, toWorld, destroy: () => resizer.disconnect() };
 }

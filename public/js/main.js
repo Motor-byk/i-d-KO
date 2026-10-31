@@ -16,6 +16,7 @@ let screen = null;   // current screen object
 const SEAT_GONE = new Set(['BAD_TOKEN', 'ROOM_NOT_FOUND']);
 
 function show(next) {
+  screen?.destroy?.();
   screen = next;
   app.replaceChildren(next.el);
 }

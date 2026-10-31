@@ -8,7 +8,7 @@ import { debugOverlay } from '../debug.js';
 // Match screen: a full-screen canvas drawn every frame from the latest snapshot.
 // Samples input at the tick rate and hands it to sendInput(input) while you're fighting.
 // ping() resolves to an RTT in ms for the debug overlay.
-// Returns { el, update(room), onSnapshot(snap), setError() }.
+// Returns { el, update(room), onSnapshot(snap), setError(), destroy() }.
 export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   const canvas = h('canvas.arena');
   const touch = touchInput();
@@ -44,12 +44,12 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
     };
   }
 
+  let frameId;
   const frame = () => {
-    if (!el.isConnected) return; // screen was replaced
     if (room && snap) renderer.draw(view());
-    requestAnimationFrame(frame);
+    frameId = requestAnimationFrame(frame);
   };
-  requestAnimationFrame(frame);
+  frameId = requestAnimationFrame(frame);
 
   const myFighter = () => snap?.fighters.find((f) => f.id === playerId && f.alive);
   const desktop = desktopInput(el, {
@@ -63,12 +63,6 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   let seq = 0;
   let aim = null;
   const inputTimer = setInterval(() => {
-    if (!el.isConnected) {
-      clearInterval(inputTimer);
-      desktop.destroy();
-      debug.destroy();
-      return;
-    }
     const me = myFighter();
     if (!me) return; // spectating or KO'd
     const keys = desktop.sample();
@@ -92,5 +86,12 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       debug.onSnapshot(next);
     },
     setError: () => {},
+    destroy() {
+      cancelAnimationFrame(frameId);
+      clearInterval(inputTimer);
+      desktop.destroy();
+      debug.destroy();
+      renderer.destroy();
+    },
   };
 }

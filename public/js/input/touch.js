@@ -25,7 +25,7 @@ export function touchInput() {
   let stick = null;           // { x, y } normalized, while the joystick is held
   const buttons = buttonLatch();
   let dragAim = null;         // { pointerId, angle } of the aim button being dragged
-  let releaseAim = null;      // aim of a drag that just ended (jab), applied with its press
+  let releaseAim = null;      // aim of a drag that just ended, sent with its press (jab) or release (heavy)
 
   function startStick(e) {
     const ox = e.clientX;
@@ -73,12 +73,10 @@ export function touchInput() {
         btnEl.classList.remove('down');
         // Only clear the aim if it's ours: Jab and Heavy can be dragged at the same time.
         if (dragAim?.pointerId === e.pointerId) dragAim = null;
-        if (control.onRelease) {
-          buttons.tap(control.bit);
-          releaseAim = aimed;
-        } else {
-          buttons.release(control.bit);
-        }
+        // The heavy fires on release too, so it needs the drag's aim on that sample as well.
+        if (control.aim) releaseAim = aimed;
+        if (control.onRelease) buttons.tap(control.bit);
+        else buttons.release(control.bit);
       },
     };
   }

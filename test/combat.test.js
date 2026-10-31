@@ -152,3 +152,11 @@ test('two enemy hits on one target in one tick both deal damage but count as one
   assert.equal(t.cs.combo, 1);
   assert.equal(t.cs.len, COMBAT.JAB[2].hitstun);
 });
+
+test('a burst push cancels a launch', () => {
+  const v = fighter(1, 1, 500, 500);
+  const near = fighter(2, 2, 600, 500);
+  near.cs.launched = true;
+  burstPush(v, [v, near]);
+  assert.equal(near.cs.launched, false);
+});

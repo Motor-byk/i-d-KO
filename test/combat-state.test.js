@@ -328,3 +328,14 @@ test('attacking out of a burst gives up the invulnerability', () => {
   stepCombat(cs, JAB);
   assert.equal(cs.invuln, 0);
 });
+
+test('a launched fighter sliding along a wall does not bounce', () => {
+  const cs = createCombat();
+  const body = createBody(PLAYER.RADIUS, 300); // flush to the left wall
+  applyHit(cs, { hitstun: 24, hitstop: 0, launch: true });
+  body.kx = -5;
+  body.ky = COMBAT.HEAVY.knockbackMax;
+  stepFighter(cs, body, { move: { x: 0, y: 0 } });
+  assert.equal(cs.launched, true);
+  assert.equal(cs.len, 24);
+});

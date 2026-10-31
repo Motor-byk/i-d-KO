@@ -92,7 +92,8 @@ export function resolveHits(fighters) {
   return results;
 }
 
-// A fighter bursting out of a combo shoves everyone near it away (knockback only).
+// A fighter bursting out of a combo shoves everyone near it away (knockback only). The shove
+// replaces any launch, so it can't wall bounce someone into a longer combo.
 export function burstPush(burster, fighters) {
   for (const f of fighters) {
     if (f === burster || !f.alive) continue;
@@ -103,5 +104,6 @@ export function burstPush(burster, fighters) {
     const [nx, ny] = d > 1e-6 ? [dx / d, dy / d] : [1, 0];
     f.body.kx = nx * COMBAT.BURST_PUSH;
     f.body.ky = ny * COMBAT.BURST_PUSH;
+    f.cs.launched = false;
   }
 }

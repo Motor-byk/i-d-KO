@@ -221,15 +221,15 @@ export function stepFighter(cs, body, input) {
   const dash = cs.state === STATE.DASH ? { x: Math.cos(cs.dir), y: Math.sin(cs.dir) } : null;
   const normals = stepBody(body, { x: input.move.x * scale, y: input.move.y * scale }, dash);
   const H = COMBAT.HEAVY;
-  if (cs.launched && normals.length && Math.hypot(kx, ky) >= H.WALL_BOUNCE_MIN_SPEED) {
-    const bounce = bounceVelocity(kx, ky, normals, H.WALL_BOUNCE_RESTITUTION);
-    if (bounce) {
-      body.kx = bounce.vx;
-      body.ky = bounce.vy;
-      cs.launched = false;
-      cs.len += H.WALL_BOUNCE_HITSTUN;
-      cs.hitstop = H.WALL_BOUNCE_HITSTOP;
-    }
+  // Only a real impact bounces: enough speed into the surface, not a slide along it.
+  const impact = (n) => -(kx * n.x + ky * n.y) >= H.WALL_BOUNCE_MIN_SPEED;
+  if (cs.launched && normals.some(impact)) {
+    const bounce = bounceVelocity(kx, ky, normals.filter(impact), H.WALL_BOUNCE_RESTITUTION);
+    body.kx = bounce.vx;
+    body.ky = bounce.vy;
+    cs.launched = false;
+    cs.len += H.WALL_BOUNCE_HITSTUN;
+    cs.hitstop = H.WALL_BOUNCE_HITSTOP;
   }
   return started;
 }

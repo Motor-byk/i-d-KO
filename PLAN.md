@@ -8,7 +8,9 @@
   - Inputs send held `buttons`; the server derives presses on arrival, so merging/dropping inputs can't lose a press. After `NET.INPUT_STARVE_TICKS` with no input, a fighter stops walking; disconnect and rejoin reset the input stream.
   - A crashed match (or one that fails to start) sends its room back to the lobby (`rooms.endMatch`).
   - Checked in Chrome against a bot: rendering, WASD, mouse aim, debug overlay, reload-rejoin mid-match and leave all work. Touch controls are still untested on a real phone.
-- **Next: step 16** (`feat: shared combat state machine`), the start of Milestone C.
+- **Milestone C (steps 16–21): in progress** on branch `milestone-c-combat`.
+  - Step 16: `shared/combat-state.js` is a plain-object state machine (`state`, `t` ticks in state, `hitstop`, one-slot `buffer`). Moves are added to its `ACTIONS` table step by step; jab timing (string + chain window) lives here, hit detection in step 17.
+- **Next: step 17** (`feat: jab string and hit resolution`).
 - Review notes to handle in later steps:
   - Step 16–18: derive the *release* edge at input arrival too (a merged quick tap gives `pressed` with `buttons=0`), and store the applied input's `buttons` on the fighter for charged heavy.
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
@@ -98,7 +100,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [ ] server/game/modes/elimination.js   win check, tie -> sudden death
 [x] shared/constants.js      every tunable: ticks, frame data, room limits, ring, balance, net
 [x] shared/physics.js        shared movement/dash step (fixed dt, ordered collisions), server-only body separation
-[ ] shared/combat-state.js   state machine timing: states, timers, input buffer, hitstop, hitstun decay, burst
+[x] shared/combat-state.js   state machine timing: states, timers, input buffer, hitstop, hitstun decay, burst
 [x] public/index.html        app shell; loads config.js + js/main.js
 [x] public/config.js         GAME_SERVER_URL (overwritten at static build)
 [x] public/js/main.js        screen state machine (waking/home/lobby/match/moved), rejoin flow
@@ -133,7 +135,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 13. [x] `feat: desktop input`.
 14. [x] `feat: touch controls` — joystick + drag-aim, landscape prompt.
 15. [x] `feat: debug overlay`. `?debug` or the backquote key. Server tick time rides in one snapshot per second; RTT via `net:ping`.
-16. `feat: shared combat state machine` — combat-state.js (timers, buffer, hitstop) + tests.
+16. [x] `feat: shared combat state machine` — combat-state.js (timers, buffer, hitstop) + tests.
 17. `feat: jab string and hit resolution` — combat.js, auto/manual aim, friendly knockback.
 18. `feat: heavy charge, launch, wall bounce`.
 19. `feat: dash and dash-cancel`.

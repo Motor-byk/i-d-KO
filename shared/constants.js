@@ -152,6 +152,7 @@ export const BUTTON_MASK = 15;
 export const NET = {
   MAX_INPUTS_PER_SECOND: 60,
   INPUT_QUEUE_MAX: 2,
+  INPUT_STARVE_TICKS: 4, // no input for this long: stop moving (stalled tab, lost connection)
   LAG_COMP_MAX_MS: 100,
   INTERP_MIN_MS: 100,
   INTERP_MAX_MS: 200,

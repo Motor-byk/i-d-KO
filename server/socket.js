@@ -167,7 +167,10 @@ export function attachSocketHandlers(io, rooms) {
       reply({ ok: true });
     });
 
-    socket.on('disconnect', () => exit(rooms.disconnect));
+    socket.on('disconnect', () => {
+      rooms.getRoom(socket.data.code)?.match?.resetInput(socket.data.playerId);
+      exit(rooms.disconnect);
+    });
   });
 
   return { loop };

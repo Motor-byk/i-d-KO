@@ -73,6 +73,7 @@ export class Match {
       lastSeq: -1,     // newest seq accepted
       ackSeq: -1,      // newest seq applied by the sim
       move: { x: 0, y: 0 },
+      starved: 0,      // ticks in a row with no input
       held: 0,         // buttons held as of the last queued input
       pressed: 0,      // buttons pressed this tick
     }));
@@ -100,11 +101,13 @@ export class Match {
     return true;
   }
 
-  // A rejoining client starts counting seq from scratch, so forget the old stream.
+  // Forgets a player's input stream: on disconnect (stand still, no stale held buttons)
+  // and on rejoin (the new client counts seq from scratch).
   resetInput(playerId) {
     const f = this.byId.get(playerId);
     if (!f) return;
     f.queue = [];
+    f.move = { x: 0, y: 0 };
     f.lastSeq = -1;
     f.ackSeq = -1;
     f.held = 0;
@@ -117,13 +120,17 @@ export class Match {
       if (f.alive && !this.room.players.has(f.id)) f.alive = false; // left the room
       if (!f.alive) continue;
       const input = f.queue.shift();
-      // An empty queue repeats the last move with no new presses.
+      f.pressed = 0;
       if (input) {
         f.move = input.move;
         f.aim = input.aim;
         f.ackSeq = input.seq;
+        f.pressed = input.pressed;
+        f.starved = 0;
+      } else if (++f.starved >= NET.INPUT_STARVE_TICKS) {
+        // A late packet repeats the last move; a stalled client stops instead of running on.
+        f.move = { x: 0, y: 0 };
       }
-      f.pressed = input ? input.pressed : 0;
       stepBody(f.body, f.move);
     }
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));

@@ -186,3 +186,18 @@ test('one snapshot a second carries the server tick time', () => {
   for (let i = 0; i < TICK_RATE; i++) match.step();
   assert.deepEqual(sent.filter((s) => s.tickMs).map((s) => s.tickMs), [{ avg: 0.12, max: 1.5 }]);
 });
+
+test('a fighter whose inputs stop arriving stops walking', () => {
+  const { match } = fakeMatch();
+  const f = match.byId.get(1);
+  match.input(1, input(1, { move: { x: 1, y: 0 } }));
+  for (let i = 0; i < NET.INPUT_STARVE_TICKS; i++) match.step();
+  assert.deepEqual(f.move, { x: 1, y: 0 }, 'a few missing inputs keep the last move');
+  match.step();
+  assert.deepEqual(f.move, { x: 0, y: 0 });
+  match.input(1, input(2, { move: { x: 1, y: 0 }, buttons: BUTTONS.JAB }));
+  match.resetInput(1); // disconnect
+  match.step();
+  assert.deepEqual(f.move, { x: 0, y: 0 });
+  assert.equal(f.held, 0);
+});

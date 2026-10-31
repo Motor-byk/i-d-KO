@@ -2,13 +2,20 @@
 
 ## Progress
 - **Milestone A (steps 1–7): done.** Review pass done. Fixes are in the commits after `chore: render deployment config`.
-- **Milestone B in progress.** Steps 8–15 done. **Next: Milestone B review** (simplify, bug, networking agents).
-  - Input is sampled and sent at 30 Hz from `ui/match.js`. The `tick` field is the latest snapshot tick until clock sync (step 23). A rejoin resets the player's seq on the server.
-  - Not yet checked in a real browser (Chrome extension wasn't connected). Socket smoke test passes.
-  - Position history for lag comp moves to step 24 (nothing reads it before then).
-  - Inputs send held `buttons`; the server derives presses on arrival, so merging/dropping inputs can't lose a press.
-  - A crashed match sends its room back to the lobby (`rooms.endMatch`).
+- **Milestone B (steps 8–15): done.** Review pass done. Fixes are in the commits after `feat: debug overlay`.
   - Deviation: the arena lives in `shared/arena.js` (not `server/game/`), because client prediction collides with pillars too.
+  - Position history for lag comp moves to step 24 (nothing reads it before then).
+  - Inputs send held `buttons`; the server derives presses on arrival, so merging/dropping inputs can't lose a press. After `NET.INPUT_STARVE_TICKS` with no input, a fighter stops walking; disconnect and rejoin reset the input stream.
+  - A crashed match (or one that fails to start) sends its room back to the lobby (`rooms.endMatch`).
+  - Not yet checked in a real browser (Chrome extension wasn't connected). Socket smoke test passes.
+- **Next: step 16** (`feat: shared combat state machine`), the start of Milestone C.
+- Review notes to handle in later steps:
+  - Step 16–18: derive the *release* edge at input arrival too (a merged quick tap gives `pressed` with `buttons=0`), and store the applied input's `buttons` on the fighter for charged heavy.
+  - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
+  - Step 22: clear pending inputs on reconnect/rejoin (the server's ack resets to -1). Expect small corrections when the server merges or starves inputs.
+  - Step 23: dropped loop ticks make the tick→time mapping jump; clock smoothing must tolerate it. The client sends `snap.tick` (newest received) for now; it must send the rendered tick, as an integer.
+  - Step 24: add the lower clamp on input `tick` (now − 100ms).
+  - Later/optional: trim the input queue back to 1 when it sits at 2 (a late packet adds a permanent +33ms); shrink snapshots (omit zero knockback, send velocities only for your own fighter) once combat state doubles their size (~24 KB/s per client now).
 - Known open items:
   - SIGTERM handling is step 31.
   - Verify Render passes `cf-connecting-ip` (otherwise the rate-limit IP falls back to the spoofable X-Forwarded-For). Log the headers once after the first deploy.

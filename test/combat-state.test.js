@@ -4,7 +4,7 @@ import {
   createCombat, stepCombat, stepFighter, phase, moveFrames, chargeFraction, applyHit, applyHitstop, STATE,
 } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
-import { COMBAT, BUTTONS, ARENA, PLAYER } from '../shared/constants.js';
+import { COMBAT, BUTTONS, ARENA, PLAYER, DT } from '../shared/constants.js';
 
 const JAB = { pressed: BUTTONS.JAB };
 const total = (m) => m.startup + m.active + m.recovery;
@@ -181,4 +181,60 @@ test('a hit that does not launch just stops at the wall', () => {
   body.kx = COMBAT.HEAVY.knockbackMax;
   stepFighter(cs, body, { move: { x: 0, y: 0 } });
   assert.equal(body.kx, 0);
+});
+
+const DASH = BUTTONS.DASH;
+
+test('a dash moves fast along the stick, then goes on cooldown', () => {
+  const cs = createCombat();
+  const body = createBody(300, 150);
+  assert.equal(stepFighter(cs, body, { pressed: DASH, move: { x: 0, y: 1 }, aim: 0 }), DASH);
+  assert.ok(Math.abs(cs.dir - Math.PI / 2) < 1e-9, 'dashes along the stick, not the aim');
+  for (let i = 1; i < COMBAT.DASH.duration; i++) stepFighter(cs, body, { move: { x: 0, y: 0 } });
+  assert.ok(Math.abs(body.y - (150 + COMBAT.DASH.speed * DT * COMBAT.DASH.duration)) < 1e-6);
+  stepFighter(cs, body, { move: { x: 0, y: 0 } });
+  assert.equal(cs.state, STATE.IDLE);
+  assert.equal(stepCombat(cs, { pressed: DASH }), 0, 'on cooldown');
+});
+
+test('with the stick centered, a dash goes where you face', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: DASH, move: { x: 0.1, y: 0 }, aim: 2 });
+  assert.equal(cs.dir, 2);
+});
+
+test('a dash cancels jab recovery after cancelAfter ticks, but not before', () => {
+  const m = COMBAT.JAB[0];
+  const cs = createCombat();
+  stepCombat(cs, JAB);
+  run(cs, m.startup + m.active - 1); // last active tick
+  assert.equal(phase(cs), 'active');
+  stepCombat(cs, { pressed: DASH }); // buffered
+  run(cs, COMBAT.DASH.cancelAfter - 1);
+  assert.equal(phase(cs), 'recovery');
+  assert.equal(stepCombat(cs, {}), DASH, 'the buffered dash fires as soon as cancelling is allowed');
+  assert.equal(cs.state, STATE.DASH);
+});
+
+test('a dash cancels a heavy charge', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: BUTTONS.HEAVY, held: BUTTONS.HEAVY });
+  run(cs, 3, { held: BUTTONS.HEAVY });
+  assert.equal(stepCombat(cs, { pressed: DASH, held: BUTTONS.HEAVY }), DASH);
+});
+
+test('a dash press on cooldown is buffered until the cooldown ends', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: DASH });
+  run(cs, COMBAT.DASH.cooldown - COMBAT.INPUT_BUFFER - 1);
+  stepCombat(cs, { pressed: DASH });
+  let fired = 0;
+  for (let i = 0; i < COMBAT.INPUT_BUFFER && !fired; i++) fired = stepCombat(cs, {});
+  assert.equal(fired, DASH);
+});
+
+test('hitstun cannot be dashed out of', () => {
+  const cs = createCombat();
+  applyHit(cs, { hitstun: 10, hitstop: 0 });
+  assert.equal(stepCombat(cs, { pressed: DASH }), 0);
 });

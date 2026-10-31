@@ -18,6 +18,7 @@ const COLORS = {
   charge: 'rgba(255, 255, 255, 0.8)',
   charged: '#ffd166',
 };
+const DASH_GHOSTS = [{ back: 0.9, alpha: 0.18 }, { back: 0.45, alpha: 0.32 }];
 
 const GRID = 100;
 const labelFont = (size) => `700 ${size}px system-ui, sans-serif`;
@@ -121,6 +122,17 @@ export function createRenderer(canvas) {
 
   function drawFighter(f, isMe) {
     const r = PLAYER.RADIUS;
+    if (f.cs.state === STATE.DASH) {
+      // Fading copies trailing behind the dash.
+      for (const g of DASH_GHOSTS) {
+        ctx.globalAlpha = g.alpha;
+        ctx.fillStyle = f.color;
+        ctx.beginPath();
+        ctx.arc(f.x - Math.cos(f.cs.dir) * r * 2 * g.back, f.y - Math.sin(f.cs.dir) * r * 2 * g.back, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
     const m = moveFrames(f.cs);
     const charging = f.cs.state === STATE.CHARGE;
     const dir = m || charging ? f.cs.dir : f.aim;

@@ -12,7 +12,8 @@
   - Step 16: `shared/combat-state.js` is a plain-object state machine (`state`, `t` ticks in state, `hitstop`, one-slot `buffer`). Moves are added to its `ACTIONS` table step by step; jab timing (string + chain window) lives here, hit detection in step 17.
   - Step 17: `stepFighter(cs, body, input)` in `combat-state.js` is the shared per-tick unit (combat timing, then walking; hitstop freezes the body). `server/game/combat.js` collects every hit from pre-hit state and then applies them, so trades both land. Inputs carry `aimed` (mouse or drag); un-aimed jabs snap to the nearest enemy in the assist cone. Snapshots carry each fighter's full `cs`. A KO is `alive: false` in the snapshot; the win check is step 26.
   - Step 18: inputs get a `released` edge at arrival (OR-merged like `pressed`), and the fighter keeps the applied input's held `buttons`. Heavy = `charge` state (aim follows, slowed walk) → fires on release once `MIN_CHARGE` is reached (a merged tap still fires), or by itself after `MAX_HOLD` at full charge. Damage/knockback scale with charge; from `LAUNCH_CHARGE` the target is `launched` and bounces off the next wall once (shared in `stepFighter`, so prediction sees it) with extra hitstun and a short hitstop.
-- **Next: step 19** (`feat: dash and dash-cancel`).
+  - Step 19: dash = `dash` state along the stick (or facing if the stick is under `MIN_STICK`), from idle, from a heavy charge, or cancelling jab/heavy recovery after `cancelAfter` ticks. Cooldown runs from the dash start and a press on cooldown is buffered. No invulnerability: dodging is spacing; parry is the defensive tool.
+- **Next: step 20** (`feat: parry`).
 - Review notes to handle in later steps:
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Step 22: clear pending inputs on reconnect/rejoin (the server's ack resets to -1). Expect small corrections when the server merges or starves inputs.
@@ -139,7 +140,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 16. [x] `feat: shared combat state machine` — combat-state.js (timers, buffer, hitstop) + tests.
 17. [x] `feat: jab string and hit resolution` — combat.js, auto/manual aim, friendly knockback.
 18. [x] `feat: heavy charge, launch, wall bounce`.
-19. `feat: dash and dash-cancel`.
+19. [x] `feat: dash and dash-cancel`.
 20. `feat: parry`.
 21. `feat: hitstun decay and combo burst` — + tests.
 22. `feat: client prediction and reconciliation` — net.js using physics + combat-state + replay tests.

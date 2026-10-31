@@ -12,11 +12,12 @@ export const STATE = {
   JAB: 'jab',
   CHARGE: 'charge', // holding heavy
   HEAVY: 'heavy',   // heavy released: startup, active, recovery
+  DASH: 'dash',
   HITSTUN: 'hitstun',
 };
 
 // When several actions are pressed on the same tick, the first one here wins the buffer.
-const ACTION_PRIORITY = [BUTTONS.HEAVY, BUTTONS.JAB];
+const ACTION_PRIORITY = [BUTTONS.DASH, BUTTONS.HEAVY, BUTTONS.JAB];
 
 export function createCombat() {
   return {
@@ -31,7 +32,8 @@ export function createCombat() {
     charge: 0,     // ticks the current heavy was charged
     letGo: false,  // heavy released while charging (it fires once MIN_CHARGE is reached)
     launched: false, // in hitstun from a launching hit: the next wall it hits bounces it
-    dir: 0,        // facing, locked when the current move started
+    dashCooldown: 0,
+    dir: 0,        // facing (or dash direction), locked when the current move started
   };
 }
 
@@ -80,6 +82,12 @@ function enter(cs, state, len = 0) {
   if (state !== STATE.IDLE) cs.chain = 0;
 }
 
+// Jab and heavy recovery can be cancelled into a dash once cancelAfter ticks of it have passed.
+function canDashCancel(cs) {
+  const m = moveFrames(cs);
+  return !!m && cs.t - m.startup - m.active >= COMBAT.DASH.cancelAfter;
+}
+
 const letGoOfHeavy = ({ held = 0, released = 0 }) => !(held & BUTTONS.HEAVY) || !!(released & BUTTONS.HEAVY);
 
 const ACTIONS = {
@@ -98,6 +106,16 @@ const ACTIONS = {
       cs.letGo = letGoOfHeavy(input);
     },
   },
+  [BUTTONS.DASH]: {
+    canStart: (cs) => cs.dashCooldown === 0
+      && (cs.state === STATE.IDLE || cs.state === STATE.CHARGE || canDashCancel(cs)),
+    // Dashes along the stick, or where you face if the stick is (nearly) centered.
+    start(cs, { move }) {
+      enter(cs, STATE.DASH, COMBAT.DASH.duration);
+      cs.dashCooldown = COMBAT.DASH.cooldown;
+      if (move && Math.hypot(move.x, move.y) >= COMBAT.DASH.MIN_STICK) cs.dir = Math.atan2(move.y, move.x);
+    },
+  },
 };
 
 // While charging: aim follows the input, and the heavy fires on release (after MIN_CHARGE)
@@ -113,7 +131,7 @@ function stepCharge(cs, input, aim) {
   }
 }
 
-// Advances one tick. input: { pressed, held, released } (BUTTONS bits) and aim (radians).
+// Advances one tick. input: { pressed, held, released } (BUTTONS bits), move {x, y} and aim (radians).
 // Returns the BUTTONS bit of the action started this tick, or 0.
 export function stepCombat(cs, input = {}) {
   const { pressed = 0, aim = cs.dir } = input;
@@ -129,6 +147,7 @@ export function stepCombat(cs, input = {}) {
 
   cs.t++;
   if (cs.chain > 0) cs.chain--;
+  if (cs.dashCooldown > 0) cs.dashCooldown--;
   const m = moveFrames(cs);
   if (cs.state === STATE.JAB && cs.t === m.startup + m.active) cs.chain = COMBAT.JAB_CHAIN_WINDOW;
   if (cs.state === STATE.CHARGE) stepCharge(cs, input, aim);
@@ -138,8 +157,8 @@ export function stepCombat(cs, input = {}) {
   const bit = cs.buffer;
   if (ACTIONS[bit].canStart(cs)) {
     cs.buffer = 0;
-    ACTIONS[bit].start(cs, input);
     cs.dir = aim;
+    ACTIONS[bit].start(cs, input);
     return bit;
   }
   // Tried on the press tick and INPUT_BUFFER more, then dropped.
@@ -162,7 +181,8 @@ export function stepFighter(cs, body, input) {
   const started = stepCombat(cs, input);
   const scale = WALK_SCALE[cs.state] ?? 0;
   const [kx, ky] = [body.kx, body.ky];
-  const normals = stepBody(body, { x: input.move.x * scale, y: input.move.y * scale });
+  const dash = cs.state === STATE.DASH ? { x: Math.cos(cs.dir), y: Math.sin(cs.dir) } : null;
+  const normals = stepBody(body, { x: input.move.x * scale, y: input.move.y * scale }, dash);
   const H = COMBAT.HEAVY;
   if (cs.launched && normals.length && Math.hypot(kx, ky) >= H.WALL_BOUNCE_MIN_SPEED) {
     const bounce = bounceVelocity(kx, ky, normals, H.WALL_BOUNCE_RESTITUTION);

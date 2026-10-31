@@ -93,9 +93,10 @@ export const COMBAT = {
   DASH: {
     duration: 6,
     speed: 900,
-    cooldown: 20,
+    cooldown: 20,      // from the dash's start
     // jab/heavy recovery can be cancelled into dash after this many recovery ticks
     cancelAfter: 2,
+    MIN_STICK: 0.3,    // a weaker stick than this dashes where you face instead
   },
 
   PARRY: {

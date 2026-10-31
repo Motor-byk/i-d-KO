@@ -237,3 +237,12 @@ test('aimed is only true when sent as true', () => {
   assert.equal(validateInput(input(1, { aimed: 'yes' })).aimed, false);
   assert.equal(validateInput(input(1)).aimed, false);
 });
+
+test('release edges survive input merging', () => {
+  const { match } = fakeMatch();
+  match.input(1, input(1, { buttons: BUTTONS.HEAVY }));
+  match.input(1, input(2, { buttons: 0 }));
+  match.input(1, input(3, { buttons: 0 }));
+  const released = match.byId.get(1).queue.reduce((acc, i) => acc | i.released, 0);
+  assert.equal(released, BUTTONS.HEAVY);
+});

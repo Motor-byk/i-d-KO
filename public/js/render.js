@@ -1,5 +1,5 @@
 import { ARENA, PLAYER, RENDER, COMBAT } from '../shared/constants.js';
-import { STATE, moveFrames, phase } from '../shared/combat-state.js';
+import { STATE, moveFrames, phase, chargeFraction } from '../shared/combat-state.js';
 
 const COLORS = {
   void: '#0d0e12',
@@ -15,6 +15,8 @@ const COLORS = {
   outline: 'rgba(0, 0, 0, 0.5)',
   hitstun: 'rgba(255, 255, 255, 0.3)',
   hitstop: 'rgba(255, 255, 255, 0.75)',
+  charge: 'rgba(255, 255, 255, 0.8)',
+  charged: '#ffd166',
 };
 
 const GRID = 100;
@@ -30,6 +32,7 @@ function textColorFor(hex) {
 
 // How far each fist [left, right] is pushed out past its rest spot, 0..1 of the move's reach.
 function fistExtension(cs) {
+  if (cs.state === STATE.CHARGE) return [-0.3, -0.3]; // drawn back
   const m = moveFrames(cs);
   if (!m) return [0, 0];
   let k;
@@ -38,8 +41,8 @@ function fistExtension(cs) {
     case 'active': k = 1; break;
     default: k = 1 - (cs.t - m.startup - m.active) / m.recovery;
   }
-  // The string alternates hands; the finisher throws both.
-  if (cs.jab === COMBAT.JAB.length - 1) return [k, k];
+  // The jab string alternates hands; the finisher and the heavy throw both.
+  if (cs.state === STATE.HEAVY || cs.jab === COMBAT.JAB.length - 1) return [k, k];
   return cs.jab % 2 ? [0, k] : [k, 0];
 }
 
@@ -119,7 +122,9 @@ export function createRenderer(canvas) {
   function drawFighter(f, isMe) {
     const r = PLAYER.RADIUS;
     const m = moveFrames(f.cs);
-    const dir = m ? f.cs.dir : f.aim;
+    const charging = f.cs.state === STATE.CHARGE;
+    const dir = m || charging ? f.cs.dir : f.aim;
+    const reach = m?.reach ?? COMBAT.HEAVY.reach;
     const ext = fistExtension(f.cs);
     // Fists first so the body overlaps them. A punching fist swings in toward the center line.
     ctx.fillStyle = f.color;
@@ -128,7 +133,7 @@ export function createRenderer(canvas) {
     [-1, 1].forEach((side, i) => {
       const k = Math.max(0, ext[i]);
       const a = dir + side * RENDER.FIST_SPREAD * (1 - k * 0.8);
-      const d = r + 2 + ext[i] * (m?.reach ?? 0);
+      const d = r + 2 + ext[i] * reach;
       ctx.beginPath();
       ctx.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, PLAYER.FIST_RADIUS, 0, Math.PI * 2);
       ctx.fill();
@@ -144,6 +149,14 @@ export function createRenderer(canvas) {
     if (f.cs.state === STATE.HITSTUN) {
       ctx.fillStyle = f.cs.hitstop ? COLORS.hitstop : COLORS.hitstun;
       ctx.fill();
+    }
+    if (charging) {
+      const k = chargeFraction(f.cs.t);
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(k, 0.02));
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = k >= 1 ? COLORS.charged : COLORS.charge;
+      ctx.stroke();
     }
 
     const { size, text } = fitLabel(f.label);

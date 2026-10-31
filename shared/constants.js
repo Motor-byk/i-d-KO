@@ -69,8 +69,11 @@ export const COMBAT = {
   JAB_CHAIN_WINDOW: 8, // ticks after recovery starts in which the next jab continues the string
 
   HEAVY: {
-    MIN_CHARGE: 6,
+    MIN_CHARGE: 6,     // a tap still charges this long before firing
     MAX_CHARGE: 30,
+    MAX_HOLD: 30,      // ticks a full charge can be held before it fires by itself
+    CHARGE_WALK: 0.5,  // walking speed multiplier while charging
+    LAUNCH_CHARGE: 0.5, // charge fraction from which a hit launches (and can wall bounce)
     startup: 5,
     active: 3,
     recovery: 16,
@@ -84,6 +87,7 @@ export const COMBAT = {
     WALL_BOUNCE_MIN_SPEED: 450,
     WALL_BOUNCE_RESTITUTION: 0.55,
     WALL_BOUNCE_HITSTUN: 14, // extra hitstun on bounce
+    WALL_BOUNCE_HITSTOP: 3,
   },
 
   DASH: {

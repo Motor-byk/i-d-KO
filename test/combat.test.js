@@ -81,3 +81,16 @@ test('aim assist snaps to the nearest enemy in the cone, ignoring teammates', ()
   assert.ok(Math.abs(assistAim(a, all, 0) - Math.atan2(40, 100)) < 1e-9);
   assert.equal(assistAim(a, [a, mate, outside], 0.1), 0.1, 'nothing in the cone: keep the aim');
 });
+
+test('a well-charged heavy launches its target', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 580, 500);
+  stepCombat(a.cs, { pressed: BUTTONS.HEAVY, held: BUTTONS.HEAVY });
+  for (let i = 0; i < COMBAT.HEAVY.MAX_CHARGE; i++) stepCombat(a.cs, { held: BUTTONS.HEAVY });
+  stepCombat(a.cs, { released: BUTTONS.HEAVY, aim: 0 });
+  while (phase(a.cs) !== 'active') stepCombat(a.cs, {});
+  const [hit] = resolveHits([a, b]);
+  assert.equal(hit.damage, COMBAT.HEAVY.damageMax);
+  assert.equal(b.cs.launched, true);
+  assert.ok(Math.abs(b.body.kx - COMBAT.HEAVY.knockbackMax) < 1e-9);
+});

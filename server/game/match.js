@@ -88,7 +88,9 @@ export class Match {
       move: { x: 0, y: 0 },
       starved: 0,      // ticks in a row with no input
       held: 0,         // buttons held as of the last queued input
+      buttons: 0,      // buttons held as of the applied input
       pressed: 0,      // buttons pressed this tick
+      released: 0,     // buttons released this tick
     }));
     separateBodies(this.fighters.map((f) => f.body));
     this.byId = new Map(this.fighters.map((f) => [f.id, f]));
@@ -101,15 +103,16 @@ export class Match {
     const input = validateInput(raw);
     if (!input || input.seq <= f.lastSeq) return false;
     f.lastSeq = input.seq;
-    // Presses are derived here, at arrival, so merging or dropping inputs can't lose one.
+    // Edges are derived here, at arrival, so merging or dropping inputs can't lose one.
     input.pressed = input.buttons & ~f.held;
+    input.released = f.held & ~input.buttons;
     f.held = input.buttons;
     input.tick = Math.min(input.tick, this.tick);
     f.queue.push(input);
-    // Too much buffered: fold the oldest into the next one (keep the newest move, OR the presses).
+    // Too much buffered: fold the oldest into the next one (keep the newest move, OR the edges).
     while (f.queue.length > NET.INPUT_QUEUE_MAX) {
       const [oldest, next] = f.queue.splice(0, 2);
-      f.queue.unshift({ ...next, pressed: next.pressed | oldest.pressed });
+      f.queue.unshift({ ...next, pressed: next.pressed | oldest.pressed, released: next.released | oldest.released });
     }
     return true;
   }
@@ -124,6 +127,7 @@ export class Match {
     f.lastSeq = -1;
     f.ackSeq = -1;
     f.held = 0;
+    f.buttons = 0;
   }
 
   step() {
@@ -134,18 +138,22 @@ export class Match {
       if (!f.alive) continue;
       const input = f.queue.shift();
       f.pressed = 0;
+      f.released = 0;
       if (input) {
         f.move = input.move;
         f.aim = input.aim;
         f.aimed = input.aimed;
         f.ackSeq = input.seq;
         f.pressed = input.pressed;
+        f.released = input.released;
+        f.buttons = input.buttons;
         f.starved = 0;
       } else if (++f.starved >= NET.INPUT_STARVE_TICKS) {
         // A late packet repeats the last move; a stalled client stops instead of running on.
         f.move = { x: 0, y: 0 };
       }
-      const started = stepFighter(f.cs, f.body, { move: f.move, pressed: f.pressed, aim: f.aim });
+      const { move, pressed, released, buttons: held, aim } = f;
+      const started = stepFighter(f.cs, f.body, { move, pressed, released, held, aim });
       if (started) f.hitIds.clear();
       if (started === BUTTONS.JAB && !f.aimed) f.cs.dir = assistAim(f, this.fighters, f.cs.dir);
     }

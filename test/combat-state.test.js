@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createCombat, stepCombat, phase, applyHit, applyHitstop, STATE } from '../shared/combat-state.js';
-import { COMBAT, BUTTONS } from '../shared/constants.js';
+import {
+  createCombat, stepCombat, stepFighter, phase, moveFrames, chargeFraction, applyHit, applyHitstop, STATE,
+} from '../shared/combat-state.js';
+import { createBody } from '../shared/physics.js';
+import { COMBAT, BUTTONS, ARENA, PLAYER } from '../shared/constants.js';
 
 const JAB = { pressed: BUTTONS.JAB };
 const total = (m) => m.startup + m.active + m.recovery;
@@ -113,4 +116,69 @@ test('a state restored from a copy replays identically (prediction)', () => {
   const b = JSON.parse(JSON.stringify(a));
   inputs.slice(15).forEach((inp) => { stepCombat(a, inp); stepCombat(b, inp); });
   assert.deepEqual(a, b);
+});
+
+const HEAVY = BUTTONS.HEAVY;
+
+test('holding heavy charges until release, then fires a heavy scaled by the charge', () => {
+  const cs = createCombat();
+  assert.equal(stepCombat(cs, { pressed: HEAVY, held: HEAVY }), HEAVY);
+  assert.equal(cs.state, STATE.CHARGE);
+  for (let i = 0; i < 20; i++) stepCombat(cs, { held: HEAVY, aim: 0.5 });
+  assert.equal(cs.state, STATE.CHARGE);
+  stepCombat(cs, { released: HEAVY, aim: 0.7 });
+  assert.equal(cs.state, STATE.HEAVY);
+  assert.equal(cs.charge, 21);
+  assert.equal(cs.dir, 0.7, 'aim follows the drag until release');
+  const m = moveFrames(cs);
+  assert.ok(m.damage > COMBAT.HEAVY.damageMin && m.damage < COMBAT.HEAVY.damageMax);
+  assert.ok(m.launch);
+});
+
+test('a quick heavy tap (even one merged into a single input) still charges the minimum', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: HEAVY, released: HEAVY, held: 0 });
+  let ticks = 0;
+  while (cs.state === STATE.CHARGE) { stepCombat(cs, {}); ticks++; }
+  assert.equal(ticks, COMBAT.HEAVY.MIN_CHARGE);
+  assert.equal(moveFrames(cs).damage, COMBAT.HEAVY.damageMin);
+  assert.equal(moveFrames(cs).launch, false);
+});
+
+test('a release then re-press inside the minimum charge still fires', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: HEAVY, held: HEAVY });
+  stepCombat(cs, { released: HEAVY, pressed: HEAVY, held: HEAVY });
+  run(cs, COMBAT.HEAVY.MIN_CHARGE, { held: HEAVY });
+  assert.equal(cs.state, STATE.HEAVY);
+});
+
+test('a full charge held too long fires by itself', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: HEAVY, held: HEAVY });
+  run(cs, COMBAT.HEAVY.MAX_CHARGE + COMBAT.HEAVY.MAX_HOLD, { held: HEAVY });
+  assert.equal(cs.state, STATE.HEAVY);
+  assert.equal(cs.charge, COMBAT.HEAVY.MAX_CHARGE);
+  assert.equal(chargeFraction(cs.charge), 1);
+});
+
+test('a launched fighter bounces off a wall once, with extra hitstun', () => {
+  const cs = createCombat();
+  const body = createBody(ARENA.WIDTH - PLAYER.RADIUS - 20, 100);
+  applyHit(cs, { hitstun: 24, hitstop: 0, launch: true });
+  body.kx = COMBAT.HEAVY.knockbackMax;
+  stepFighter(cs, body, { move: { x: 0, y: 0 } });
+  assert.ok(body.kx < 0, 'knockback reflected off the wall');
+  assert.equal(cs.launched, false);
+  assert.equal(cs.len, 24 + COMBAT.HEAVY.WALL_BOUNCE_HITSTUN);
+  assert.equal(cs.hitstop, COMBAT.HEAVY.WALL_BOUNCE_HITSTOP);
+});
+
+test('a hit that does not launch just stops at the wall', () => {
+  const cs = createCombat();
+  const body = createBody(ARENA.WIDTH - PLAYER.RADIUS - 20, 100);
+  applyHit(cs, { hitstun: 24, hitstop: 0 });
+  body.kx = COMBAT.HEAVY.knockbackMax;
+  stepFighter(cs, body, { move: { x: 0, y: 0 } });
+  assert.equal(body.kx, 0);
 });

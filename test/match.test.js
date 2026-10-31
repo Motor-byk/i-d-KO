@@ -246,3 +246,19 @@ test('release edges survive input merging', () => {
   const released = match.byId.get(1).queue.reduce((acc, i) => acc | i.released, 0);
   assert.equal(released, BUTTONS.HEAVY);
 });
+
+test('a mashed jab string is a true combo: all three hits land in one combo', () => {
+  const { match } = fakeMatch();
+  const [a, b] = match.fighters;
+  a.body.x = 500; a.body.y = 500;
+  b.body.x = 575; b.body.y = 500;
+  const combos = [];
+  let hp = b.hp;
+  for (let tick = 1; tick < 40; tick++) {
+    match.input(a.id, input(tick, { move: { x: 1, y: 0 }, aim: 0, aimed: true, buttons: tick % 2 ? BUTTONS.JAB : 0 }));
+    match.input(b.id, input(tick));
+    match.step();
+    if (b.hp !== hp) { combos.push(b.cs.combo); hp = b.hp; }
+  }
+  assert.deepEqual(combos.slice(0, 3), [1, 2, 3]);
+});

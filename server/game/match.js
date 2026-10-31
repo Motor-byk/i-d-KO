@@ -1,8 +1,8 @@
 import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK, BUTTONS } from '../../shared/constants.js';
 import { createBody, separateBodies } from '../../shared/physics.js';
 import { resolveCircle } from '../../shared/arena.js';
-import { createCombat, stepFighter } from '../../shared/combat-state.js';
-import { assistAim, resolveHits } from './combat.js';
+import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
+import { assistAim, burstPush, resolveHits } from './combat.js';
 
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 
@@ -156,6 +156,7 @@ export class Match {
       const started = stepFighter(f.cs, f.body, { move, pressed, released, held, aim });
       if (started) f.hitIds.clear();
       if (started === BUTTONS.JAB && !f.aimed) f.cs.dir = assistAim(f, this.fighters, f.cs.dir);
+      if (f.cs.state === STATE.BURST && f.cs.t === 0) burstPush(f, this.fighters);
     }
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));
     resolveHits(this.fighters);

@@ -62,8 +62,8 @@ export const COMBAT = {
 
   JAB: [
     // knockback in units/second; reach measured from the attacker's edge
-    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 12, hitstop: 2 },
-    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 12, hitstop: 2 },
+    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
+    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
     { startup: 4, active: 3, recovery: 12, damage: 9, reach: 66, knockback: 620, hitstun: 18, hitstop: 4 },
   ],
   JAB_CHAIN_WINDOW: 8, // ticks after recovery starts in which the next jab continues the string
@@ -110,8 +110,10 @@ export const COMBAT = {
   HITSTUN_DECAY: 0.8,      // each consecutive hit multiplies hitstun by this
   MIN_HITSTUN: 4,
   COMBO_BURST_TICKS: 45,   // continuous combo length before forced burst
-  BURST_INVULN: 20,
-  BURST_PUSH: 700,
+  BURST_TICKS: 6,          // the burst itself: can't act, knockback stops
+  BURST_INVULN: 20,        // from the burst's start; ends early if you attack
+  BURST_PUSH: 700,         // knockback on everyone near the burst
+  BURST_RADIUS: 150,       // center to center
 };
 
 export const RING = {

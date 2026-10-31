@@ -266,3 +266,55 @@ test('applyParry frees the parrier and stuns the attacker', () => {
   run(a, 1);
   assert.equal(a.state, STATE.IDLE);
 });
+
+test('each hit in a combo stuns for less, down to the minimum', () => {
+  const cs = createCombat();
+  const lens = [];
+  for (let i = 0; i < 12; i++) {
+    applyHit(cs, { hitstun: 16, hitstop: 0 });
+    lens.push(cs.len);
+    stepCombat(cs, {});
+  }
+  assert.deepEqual(lens.slice(0, 3), [16, 13, 10]);
+  assert.equal(lens.at(-1), COMBAT.MIN_HITSTUN);
+  assert.equal(cs.combo, 12);
+});
+
+test('a combo ends when hitstun runs out, so the next hit starts fresh', () => {
+  const cs = createCombat();
+  applyHit(cs, { hitstun: 5, hitstop: 0 });
+  run(cs, 5);
+  assert.equal(cs.state, STATE.IDLE);
+  applyHit(cs, { hitstun: 16, hitstop: 0 });
+  assert.equal(cs.combo, 1);
+  assert.equal(cs.len, 16);
+});
+
+test('a combo that lasts COMBO_BURST_TICKS (hitstop included) bursts out', () => {
+  const cs = createCombat();
+  const body = createBody(800, 500);
+  for (let t = 0; t < COMBAT.COMBO_BURST_TICKS - 1; t++) {
+    if (t % 8 === 0) applyHit(cs, { hitstun: 30, hitstop: 4 });
+    stepFighter(cs, body, { move: { x: 0, y: 0 } });
+  }
+  assert.equal(cs.state, STATE.HITSTUN);
+  body.kx = 500;
+  stepFighter(cs, body, { move: { x: 0, y: 0 } });
+  assert.equal(cs.state, STATE.BURST);
+  assert.equal(cs.hitstop, 0);
+  assert.equal(cs.invuln, COMBAT.BURST_INVULN);
+  assert.equal(body.kx, 0, 'the burst stops the knockback');
+  run(cs, COMBAT.BURST_TICKS);
+  assert.equal(cs.state, STATE.IDLE);
+  assert.ok(cs.invuln > 0, 'still invulnerable for a moment after the burst');
+});
+
+test('attacking out of a burst gives up the invulnerability', () => {
+  const cs = createCombat();
+  cs.invuln = 10;
+  stepCombat(cs, { pressed: DASH });
+  assert.ok(cs.invuln > 0, 'moving away keeps it');
+  run(cs, COMBAT.DASH.duration);
+  stepCombat(cs, JAB);
+  assert.equal(cs.invuln, 0);
+});

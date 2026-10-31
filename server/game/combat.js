@@ -47,7 +47,7 @@ export function resolveHits(fighters) {
     if (!a.alive || phase(a.cs) !== 'active') continue;
     const m = moveFrames(a.cs);
     for (const t of fighters) {
-      if (t === a || !t.alive || a.hitIds.has(t.id)) continue;
+      if (t === a || !t.alive || t.cs.invuln > 0 || a.hitIds.has(t.id)) continue;
       if (!inReach(a.body, t.body, a.cs.dir, m.reach)) continue;
       a.hitIds.add(t.id);
       hits.push({ attacker: a, target: t, move: m });
@@ -73,4 +73,18 @@ export function resolveHits(fighters) {
     applyHitstop(attacker.cs, move.hitstop);
     return { attacker, target, damage: move.damage, parried: false };
   });
+}
+
+// A fighter bursting out of a combo shoves everyone near it away (knockback only).
+export function burstPush(burster, fighters) {
+  for (const f of fighters) {
+    if (f === burster || !f.alive) continue;
+    const dx = f.body.x - burster.body.x;
+    const dy = f.body.y - burster.body.y;
+    const d = Math.hypot(dx, dy);
+    if (d > COMBAT.BURST_RADIUS) continue;
+    const [nx, ny] = d > 1e-6 ? [dx / d, dy / d] : [1, 0];
+    f.body.kx = nx * COMBAT.BURST_PUSH;
+    f.body.ky = ny * COMBAT.BURST_PUSH;
+  }
 }

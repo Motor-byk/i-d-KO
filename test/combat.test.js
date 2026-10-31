@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assistAim, resolveHits } from '../server/game/combat.js';
+import { assistAim, burstPush, resolveHits } from '../server/game/combat.js';
 import { createCombat, stepCombat, phase, isParrying, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
@@ -120,4 +120,21 @@ test('a teammate hit ignores the parry and just pushes', () => {
   const [hit] = resolveHits([a, b]);
   assert.equal(hit.parried, false);
   assert.equal(a.cs.state, STATE.JAB);
+});
+
+test('invulnerable fighters cannot be hit', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 570, 500);
+  b.cs.invuln = 5;
+  jabActive(a);
+  assert.deepEqual(resolveHits([a, b]), []);
+});
+
+test('a burst pushes everyone nearby away', () => {
+  const v = fighter(1, 1, 500, 500);
+  const near = fighter(2, 2, 600, 500);
+  const far = fighter(3, 2, 500 + COMBAT.BURST_RADIUS + 1, 520);
+  burstPush(v, [v, near, far]);
+  assert.equal(near.body.kx, COMBAT.BURST_PUSH);
+  assert.equal(far.body.kx, 0);
 });

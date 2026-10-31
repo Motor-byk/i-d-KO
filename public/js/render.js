@@ -20,8 +20,10 @@ const COLORS = {
   parry: '#9be7ff',
   parryWhiff: 'rgba(155, 231, 255, 0.3)',
   stun: '#ffd166',
+  burst: 'rgba(255, 255, 255, 0.5)',
 };
 const STUN_DOTS = 3;
+const INVULN_ALPHA = 0.55;
 const DASH_GHOSTS = [{ back: 0.9, alpha: 0.18 }, { back: 0.45, alpha: 0.32 }];
 
 const GRID = 100;
@@ -142,6 +144,7 @@ export function createRenderer(canvas) {
     const dir = m || charging ? f.cs.dir : f.aim;
     const reach = m?.reach ?? COMBAT.HEAVY.reach;
     const ext = fistExtension(f.cs);
+    if (f.cs.invuln > 0) ctx.globalAlpha = INVULN_ALPHA; // see-through: hits pass
     // Fists first so the body overlaps them. A punching fist swings in toward the center line.
     ctx.fillStyle = f.color;
     ctx.strokeStyle = COLORS.outline;
@@ -165,6 +168,15 @@ export function createRenderer(canvas) {
     if (f.cs.state === STATE.HITSTUN) {
       ctx.fillStyle = f.cs.hitstop ? COLORS.hitstop : COLORS.hitstun;
       ctx.fill();
+    }
+    if (f.cs.state === STATE.BURST) {
+      // A ring blasting outward to the push radius.
+      const k = (f.cs.t + 1) / COMBAT.BURST_TICKS;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r + (COMBAT.BURST_RADIUS - r) * k, 0, Math.PI * 2);
+      ctx.lineWidth = 6 * (1 - k) + 1;
+      ctx.strokeStyle = COLORS.burst;
+      ctx.stroke();
     }
     if (f.cs.state === STATE.PARRY) {
       ctx.beginPath();
@@ -191,6 +203,7 @@ export function createRenderer(canvas) {
       ctx.strokeStyle = k >= 1 ? COLORS.charged : COLORS.charge;
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
 
     const { size, text } = fitLabel(f.label);
     ctx.fillStyle = textColorFor(f.color);

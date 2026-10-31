@@ -16,6 +16,7 @@ export const STATE = {
   PARRY: 'parry',
   HITSTUN: 'hitstun',
   STUNNED: 'stunned', // got parried
+  BURST: 'burst',     // broke out of a long combo
 };
 
 // When several actions are pressed on the same tick, the first one here wins the buffer.
@@ -35,6 +36,9 @@ export function createCombat() {
     letGo: false,  // heavy released while charging (it fires once MIN_CHARGE is reached)
     launched: false, // in hitstun from a launching hit: the next wall it hits bounces it
     dashCooldown: 0,
+    combo: 0,      // hits taken in the current combo (it lasts while in hitstun)
+    comboT: 0,     // ticks the current combo has lasted, hitstop included
+    invuln: 0,     // ticks left that hits pass through (after a burst)
     dir: 0,        // facing (or dash direction), locked when the current move started
   };
 }
@@ -82,6 +86,16 @@ function enter(cs, state, len = 0) {
   cs.len = len;
   cs.launched = false;
   if (state !== STATE.IDLE) cs.chain = 0;
+  if (state !== STATE.HITSTUN) {
+    cs.combo = 0;
+    cs.comboT = 0;
+  }
+}
+
+// Attacking out of a burst gives up what's left of its invulnerability.
+function enterAttack(cs, state) {
+  enter(cs, state);
+  cs.invuln = 0;
 }
 
 // Jab and heavy recovery can be cancelled into a dash once cancelAfter ticks of it have passed.
@@ -97,14 +111,14 @@ const ACTIONS = {
     canStart: (cs) => cs.state === STATE.IDLE,
     start(cs) {
       const next = cs.chain > 0 ? (cs.jab + 1) % COMBAT.JAB.length : 0;
-      enter(cs, STATE.JAB);
+      enterAttack(cs, STATE.JAB);
       cs.jab = next;
     },
   },
   [BUTTONS.HEAVY]: {
     canStart: (cs) => cs.state === STATE.IDLE,
     start(cs, input) {
-      enter(cs, STATE.CHARGE);
+      enterAttack(cs, STATE.CHARGE);
       cs.letGo = letGoOfHeavy(input);
     },
   },
@@ -149,6 +163,13 @@ export function stepCombat(cs, input = {}) {
     cs.buffer = action;
     cs.bufferAge = 0;
   }
+  // The combo clock runs in real time (hitstop too), so nothing can extend it past the burst.
+  if (cs.state === STATE.HITSTUN && ++cs.comboT >= COMBAT.COMBO_BURST_TICKS) {
+    enter(cs, STATE.BURST, COMBAT.BURST_TICKS);
+    cs.hitstop = 0;
+    cs.invuln = COMBAT.BURST_INVULN;
+    return 0;
+  }
   if (cs.hitstop > 0) {
     cs.hitstop--;
     return 0;
@@ -157,6 +178,7 @@ export function stepCombat(cs, input = {}) {
   cs.t++;
   if (cs.chain > 0) cs.chain--;
   if (cs.dashCooldown > 0) cs.dashCooldown--;
+  if (cs.invuln > 0) cs.invuln--;
   const m = moveFrames(cs);
   if (cs.state === STATE.JAB && cs.t === m.startup + m.active) cs.chain = COMBAT.JAB_CHAIN_WINDOW;
   if (cs.state === STATE.CHARGE) stepCharge(cs, input, aim);
@@ -188,6 +210,10 @@ const WALK_SCALE = {
 export function stepFighter(cs, body, input) {
   if (cs.hitstop > 0) return stepCombat(cs, input);
   const started = stepCombat(cs, input);
+  if (cs.state === STATE.BURST) {
+    body.kx = 0;
+    body.ky = 0;
+  }
   const scale = WALK_SCALE[cs.state] ?? 0;
   const [kx, ky] = [body.kx, body.ky];
   const dash = cs.state === STATE.DASH ? { x: Math.cos(cs.dir), y: Math.sin(cs.dir) } : null;
@@ -206,9 +232,15 @@ export function stepFighter(cs, body, input) {
   return started;
 }
 
-// Puts a fighter in hitstun. The server calls this when a hit lands.
+// Puts a fighter in hitstun. The server calls this when a hit lands. A hit while still in
+// hitstun continues the combo, and each one stuns for less (HITSTUN_DECAY), so combos drop.
 export function applyHit(cs, { hitstun, hitstop, launch = false }) {
-  enter(cs, STATE.HITSTUN, hitstun);
+  const combo = cs.state === STATE.HITSTUN ? cs.combo + 1 : 1;
+  const comboT = combo > 1 ? cs.comboT : 0;
+  const len = Math.max(COMBAT.MIN_HITSTUN, Math.round(hitstun * COMBAT.HITSTUN_DECAY ** (combo - 1)));
+  enter(cs, STATE.HITSTUN, len);
+  cs.combo = combo;
+  cs.comboT = comboT;
   cs.hitstop = hitstop;
   cs.launched = launch;
 }

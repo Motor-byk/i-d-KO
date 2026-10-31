@@ -1,5 +1,5 @@
 import { ARENA, PLAYER, RENDER, COMBAT } from '../shared/constants.js';
-import { STATE, moveFrames, phase, chargeFraction, isParrying } from '../shared/combat-state.js';
+import { STATE, moveTiming, phase, chargeFraction, isParrying } from '../shared/combat-state.js';
 
 const COLORS = {
   void: '#0d0e12',
@@ -40,7 +40,7 @@ function textColorFor(hex) {
 // How far each fist [left, right] is pushed out past its rest spot, 0..1 of the move's reach.
 function fistExtension(cs) {
   if (cs.state === STATE.CHARGE) return [-0.3, -0.3]; // drawn back
-  const m = moveFrames(cs);
+  const m = moveTiming(cs);
   if (!m) return [0, 0];
   let k;
   switch (phase(cs)) {
@@ -53,7 +53,7 @@ function fistExtension(cs) {
   return cs.jab % 2 ? [0, k] : [k, 0];
 }
 
-// Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
+// Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive, cs,
 // color, label, nickname }], meId, followId }. Camera follows followId, or fits the arena if null.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
@@ -126,20 +126,28 @@ export function createRenderer(canvas) {
     }
   }
 
+  function ring(x, y, radius, width, color, from = 0, to = Math.PI * 2) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, from, to);
+    ctx.lineWidth = width;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  }
+
   function drawFighter(f, isMe) {
     const r = PLAYER.RADIUS;
     if (f.cs.state === STATE.DASH) {
       // Fading copies trailing behind the dash.
+      ctx.fillStyle = f.color;
       for (const g of DASH_GHOSTS) {
         ctx.globalAlpha = g.alpha;
-        ctx.fillStyle = f.color;
         ctx.beginPath();
         ctx.arc(f.x - Math.cos(f.cs.dir) * r * 2 * g.back, f.y - Math.sin(f.cs.dir) * r * 2 * g.back, r, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
     }
-    const m = moveFrames(f.cs);
+    const m = moveTiming(f.cs);
     const charging = f.cs.state === STATE.CHARGE;
     const dir = m || charging ? f.cs.dir : f.aim;
     const reach = m?.reach ?? COMBAT.HEAVY.reach;
@@ -165,43 +173,38 @@ export function createRenderer(canvas) {
     ctx.lineWidth = isMe ? 4 : 3;
     ctx.strokeStyle = isMe ? COLORS.me : COLORS.outline;
     ctx.stroke();
-    if (f.cs.state === STATE.HITSTUN) {
-      ctx.fillStyle = f.cs.hitstop ? COLORS.hitstop : COLORS.hitstun;
-      ctx.fill();
-    }
-    if (f.cs.state === STATE.BURST) {
-      // A ring blasting outward to the push radius.
-      const k = (f.cs.t + 1) / COMBAT.BURST_TICKS;
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, r + (COMBAT.BURST_RADIUS - r) * k, 0, Math.PI * 2);
-      ctx.lineWidth = 6 * (1 - k) + 1;
-      ctx.strokeStyle = COLORS.burst;
-      ctx.stroke();
-    }
-    if (f.cs.state === STATE.PARRY) {
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, r + 9, 0, Math.PI * 2);
-      ctx.lineWidth = isParrying(f.cs) ? 5 : 2;
-      ctx.strokeStyle = isParrying(f.cs) ? COLORS.parry : COLORS.parryWhiff;
-      ctx.stroke();
-    }
-    if (f.cs.state === STATE.STUNNED) {
-      // Dots circling over the head.
-      ctx.fillStyle = COLORS.stun;
-      for (let i = 0; i < STUN_DOTS; i++) {
-        const a = f.cs.t * 0.3 + (i * Math.PI * 2) / STUN_DOTS;
-        ctx.beginPath();
-        ctx.arc(f.x + Math.cos(a) * r * 0.7, f.y - r * 0.2 + Math.sin(a) * r * 0.25, 4, 0, Math.PI * 2);
+    switch (f.cs.state) {
+      case STATE.HITSTUN:
+        ctx.fillStyle = f.cs.hitstop ? COLORS.hitstop : COLORS.hitstun;
         ctx.fill();
+        break;
+      case STATE.BURST: {
+        // A ring blasting outward to the push radius.
+        const k = (f.cs.t + 1) / COMBAT.BURST_TICKS;
+        ring(f.x, f.y, r + (COMBAT.BURST_RADIUS - r) * k, 6 * (1 - k) + 1, COLORS.burst);
+        break;
       }
-    }
-    if (charging) {
-      const k = chargeFraction(f.cs.t);
-      ctx.beginPath();
-      ctx.arc(f.x, f.y, r + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(k, 0.02));
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = k >= 1 ? COLORS.charged : COLORS.charge;
-      ctx.stroke();
+      case STATE.PARRY: {
+        const active = isParrying(f.cs);
+        ring(f.x, f.y, r + 9, active ? 5 : 2, active ? COLORS.parry : COLORS.parryWhiff);
+        break;
+      }
+      case STATE.STUNNED:
+        // Dots circling over the head.
+        ctx.fillStyle = COLORS.stun;
+        for (let i = 0; i < STUN_DOTS; i++) {
+          const a = f.cs.t * 0.3 + (i * Math.PI * 2) / STUN_DOTS;
+          ctx.beginPath();
+          ctx.arc(f.x + Math.cos(a) * r * 0.7, f.y - r * 0.2 + Math.sin(a) * r * 0.25, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      case STATE.CHARGE: {
+        const k = chargeFraction(f.cs.t);
+        const from = -Math.PI / 2;
+        ring(f.x, f.y, r + 7, 4, k >= 1 ? COLORS.charged : COLORS.charge, from, from + Math.PI * 2 * Math.max(k, 0.02));
+        break;
+      }
     }
     ctx.globalAlpha = 1;
 

@@ -63,3 +63,16 @@ test('real timer ticks at roughly the tick rate and stops when empty', async () 
   const expected = 300 / TICK_MS;
   assert.ok(room.ticks >= expected - 3 && room.ticks <= expected + 2, `ticks=${room.ticks}`);
 });
+
+test('a throwing onError handler does not escape the loop', (t) => {
+  const { loop, advance } = manualLoop({ onError: () => { throw new Error('handler'); } });
+  t.after(() => loop.stop());
+  const logged = t.mock.method(console, 'error', () => {});
+  const good = counter();
+  loop.add({ step() { throw new Error('boom'); } });
+  loop.add(good);
+  assert.doesNotThrow(() => loop.update());
+  advance(TICK_MS);
+  assert.equal(good.ticks, 2);
+  assert.equal(logged.mock.callCount(), 1);
+});

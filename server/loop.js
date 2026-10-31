@@ -67,7 +67,12 @@ export class GameLoop {
         entity.step();
       } catch (err) {
         this.entities.delete(entity);
-        this.onError(entity, err);
+        try {
+          this.onError(entity, err);
+        } catch (handlerErr) {
+          // Runs inside a timer callback: a throw here would be uncaught and kill the process.
+          console.error('loop onError failed', handlerErr);
+        }
         continue;
       }
       const ms = performance.now() - start;

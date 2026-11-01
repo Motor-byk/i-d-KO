@@ -34,7 +34,7 @@
   - SIGTERM handling is step 31.
   - Verify Render passes `cf-connecting-ip` (otherwise the rate-limit IP falls back to the spoofable X-Forwarded-For). Log the headers once after the first deploy.
   - A real phone test on Render needs the user's account.
-- **First Render deploy (branch `fix-wake-check`):** in Chrome, every cross-origin HTTP request from the static site to the server gets a 503 (curl and same-origin get 200; the cause wasn't pinned down, possibly connection reuse across the shared `*.onrender.com` cert and IPs), while websockets open fine. The wake check now falls back to a bare websocket open when `/health` fails.
+- **First Render deploy (branch `fix-wake-check`):** in Chrome, every cross-origin HTTP request from the static site to the server gets a 503 (curl and same-origin get 200; the cause wasn't pinned down, possibly connection reuse across the shared `*.onrender.com` cert and IPs), while websockets open fine. The wake check now falls back to a bare websocket open when `/health` fails. Then the client dropped `/health` and uses only the websocket probe (branch `ws-wake-probe`).
 
 Update this section after every step.
 
@@ -54,7 +54,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 - Free team picking in the lobby. At start, options with 0 players are dropped. At least 2 populated teams are needed.
 - **Rejoin:** a random token is issued at join and stored in `sessionStorage`. Grace is **60s in the lobby, 20s mid-match**. In a match, the circle stays idle and hittable during grace, and when grace runs out it's a KO. A room is deleted only when it's empty and nobody is in grace.
 - **Host migration:** host = earliest joiner still connected. Migrates when the host's grace runs out (not on a socket blip). If the old host rejoins, they don't get host back. Host-only actions check host status when the server handles them.
-- **Waking server:** the static client loads instantly, polls the game server's `/health` with "Waking server…" UI, then connects. Clients ping `/health` every ~5 min while open, in case WebSocket traffic doesn't count against the idle timer.
+- **Waking server:** the static client loads instantly, probes the game server with a bare websocket handshake ("Waking server…" UI), then connects. Clients probe again every ~5 min while open, in case traffic on a long-lived WebSocket doesn't count against the idle timer. Not `/health`: on Render, Chrome gets a 503 on cross-origin HTTP to the server; `/health` stays for Render's health check.
 - **Shutdown:** on SIGTERM, stop creating rooms and emit `server:restarting` to clients. Documented as a known limitation (in-memory rooms are lost on restart).
 
 ### Match (default mode: Elimination)

@@ -2,81 +2,74 @@ import { BUTTONS, TOUCH } from '../../shared/constants.js';
 import { h } from '../ui/dom.js';
 import { buttonLatch } from './latch.js';
 
-// Right-side buttons. aim: drag from the button to aim. onRelease: the press happens when the
-// finger lifts (so a drag can aim first); otherwise the button is held while touched.
+// Top-right buttons. tap: pressed once when touched; otherwise held while touched.
 const CONTROLS = [
-  { name: 'jab', label: 'Jab', bit: BUTTONS.JAB, aim: true, onRelease: true },
-  { name: 'heavy', label: 'Heavy', bit: BUTTONS.HEAVY, aim: true },
+  { name: 'jab', label: 'Jab', bit: BUTTONS.JAB, tap: true },
+  { name: 'heavy', label: 'Heavy', bit: BUTTONS.HEAVY },
   { name: 'dash', label: 'Dash', bit: BUTTONS.DASH },
   { name: 'parry', label: 'Parry', bit: BUTTONS.PARRY },
 ];
 
-// Virtual joystick (appears wherever the left half is touched) + drag-to-aim buttons.
-// Every touch is tracked by its pointerId, so moving, aiming and dashing can overlap.
-// sample() -> { move: {x, y} | null, buttons, aim: angle | null, aimed }; null = no touch input.
-// aimed: the aim came from a drag (manual) rather than the joystick (attacks get aim assist).
-export function touchInput() {
+// A joystick that appears wherever its half of the screen is touched.
+// value() -> { x, y } normalized (zero inside the deadzone), or null when not held.
+function floatingStick(name, deadzone) {
   const knob = h('div.stick-knob');
-  const stickEl = h('div.stick', { hidden: true }, knob);
+  const el = h(`div.stick.${name}`, { hidden: true }, knob);
+  let value = null;
+  return {
+    el,
+    value: () => value,
+    start(e) {
+      const ox = e.clientX;
+      const oy = e.clientY;
+      el.hidden = false;
+      el.style.left = `${ox}px`;
+      el.style.top = `${oy}px`;
+      knob.style.transform = '';
+      value = { x: 0, y: 0 };
+      return {
+        move(ev) {
+          let dx = ev.clientX - ox;
+          let dy = ev.clientY - oy;
+          const d = Math.hypot(dx, dy);
+          if (d > TOUCH.STICK_RADIUS) {
+            dx *= TOUCH.STICK_RADIUS / d;
+            dy *= TOUCH.STICK_RADIUS / d;
+          }
+          knob.style.transform = `translate(${dx}px, ${dy}px)`;
+          value = d < deadzone ? { x: 0, y: 0 } : { x: dx / TOUCH.STICK_RADIUS, y: dy / TOUCH.STICK_RADIUS };
+        },
+        up() {
+          value = null;
+          el.hidden = true;
+        },
+      };
+    },
+  };
+}
+
+// Move stick on the left half, aim stick on the right half, action buttons top right.
+// Every touch is tracked by its pointerId, so moving, aiming and pressing can overlap.
+// sample() -> { move: {x, y} | null, buttons, aim: angle | null, aimed }; null = no touch input.
+// aimed: the aim came from the aim stick (manual) rather than the move stick (attacks get aim assist).
+export function touchInput() {
+  const moveStick = floatingStick('move', TOUCH.STICK_DEADZONE);
+  const aimStick = floatingStick('aim', TOUCH.AIM_DEADZONE);
   const buttonEls = CONTROLS.map((c) => h(`div.touch-btn.${c.name}`, { 'data-control': c.name }, c.label));
-  const el = h('div.touch', {}, stickEl, h('div.touch-buttons', {}, buttonEls));
+  const el = h('div.touch', {}, moveStick.el, aimStick.el, h('div.touch-buttons', {}, buttonEls));
 
   const pointers = new Map(); // pointerId -> { move(e), up() }
-  let stick = null;           // { x, y } normalized, while the joystick is held
   const buttons = buttonLatch();
-  let dragAim = null;         // { pointerId, angle } of the aim button being dragged
-  let releaseAim = null;      // aim of a drag that just ended, sent with its press (jab) or release (heavy)
 
-  function startStick(e) {
-    const ox = e.clientX;
-    const oy = e.clientY;
-    stickEl.hidden = false;
-    stickEl.style.left = `${ox}px`;
-    stickEl.style.top = `${oy}px`;
-    knob.style.transform = '';
-    stick = { x: 0, y: 0 };
-    return {
-      move(ev) {
-        let dx = ev.clientX - ox;
-        let dy = ev.clientY - oy;
-        const d = Math.hypot(dx, dy);
-        if (d > TOUCH.STICK_RADIUS) {
-          dx *= TOUCH.STICK_RADIUS / d;
-          dy *= TOUCH.STICK_RADIUS / d;
-        }
-        knob.style.transform = `translate(${dx}px, ${dy}px)`;
-        stick = d < TOUCH.STICK_DEADZONE ? { x: 0, y: 0 } : { x: dx / TOUCH.STICK_RADIUS, y: dy / TOUCH.STICK_RADIUS };
-      },
-      up() {
-        stick = null;
-        stickEl.hidden = true;
-      },
-    };
-  }
-
-  function startButton(e, control, btnEl) {
-    const ox = e.clientX;
-    const oy = e.clientY;
-    let aimed = null;
+  function startButton(control, btnEl) {
     btnEl.classList.add('down');
-    if (!control.onRelease) buttons.press(control.bit);
+    if (control.tap) buttons.tap(control.bit);
+    else buttons.press(control.bit);
     return {
-      move(ev) {
-        if (!control.aim) return;
-        const dx = ev.clientX - ox;
-        const dy = ev.clientY - oy;
-        if (Math.hypot(dx, dy) < TOUCH.AIM_DEADZONE) return;
-        aimed = Math.atan2(dy, dx);
-        dragAim = { pointerId: e.pointerId, angle: aimed };
-      },
+      move() {},
       up() {
         btnEl.classList.remove('down');
-        // Only clear the aim if it's ours: Jab and Heavy can be dragged at the same time.
-        if (dragAim?.pointerId === e.pointerId) dragAim = null;
-        // The heavy fires on release too, so it needs the drag's aim on that sample as well.
-        if (control.aim) releaseAim = aimed;
-        if (control.onRelease) buttons.tap(control.bit);
-        else buttons.release(control.bit);
+        if (!control.tap) buttons.release(control.bit);
       },
     };
   }
@@ -86,16 +79,16 @@ export function touchInput() {
     e.preventDefault();
     const btnEl = e.target.closest('[data-control]');
     const control = btnEl && CONTROLS.find((c) => c.name === btnEl.dataset.control);
-    const wantsStick = !control && e.clientX < window.innerWidth / 2 && !stick;
-    // One finger per button, so a second finger lifting can't release the first one's hold.
-    if (!wantsStick && !(control && !btnEl.classList.contains('down'))) return;
+    const stick = control ? null : e.clientX < window.innerWidth / 2 ? moveStick : aimStick;
+    // One finger per button and per stick, so a second finger lifting can't end the first one's hold.
+    if (control ? btnEl.classList.contains('down') : stick.value()) return;
     // Capture before touching any state: if it throws, no up() would ever undo that state.
     try {
       el.setPointerCapture(e.pointerId);
     } catch {
       return;
     }
-    pointers.set(e.pointerId, control ? startButton(e, control, btnEl) : startStick(e));
+    pointers.set(e.pointerId, control ? startButton(control, btnEl) : stick.start(e));
   });
   el.addEventListener('pointermove', (e) => pointers.get(e.pointerId)?.move(e));
   const end = (e) => {
@@ -106,12 +99,13 @@ export function touchInput() {
   el.addEventListener('pointercancel', end);
 
   function sample() {
-    // Facing follows the aim drag, else a just-released aim, else the joystick direction.
-    let aim = dragAim?.angle ?? releaseAim;
-    releaseAim = null;
-    const aimed = aim !== null;
-    if (!aimed && stick && (stick.x || stick.y)) aim = Math.atan2(stick.y, stick.x);
-    return { move: stick, buttons: buttons.take(), aim, aimed };
+    // Facing follows the aim stick when it's pushed past its deadzone, else the move stick.
+    const move = moveStick.value();
+    const a = aimStick.value();
+    const aimed = !!(a && (a.x || a.y));
+    let aim = aimed ? Math.atan2(a.y, a.x) : null;
+    if (!aimed && move && (move.x || move.y)) aim = Math.atan2(move.y, move.x);
+    return { move, buttons: buttons.take(), aim, aimed };
   }
 
   return { el, sample };

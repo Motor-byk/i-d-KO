@@ -148,7 +148,7 @@ export const RENDER = {
 export const TOUCH = {
   STICK_RADIUS: 60,   // joystick throw; full speed at the rim
   STICK_DEADZONE: 8,
-  AIM_DEADZONE: 18,   // drag farther than this on Jab/Heavy to aim manually
+  AIM_DEADZONE: 18,   // push the aim stick farther than this to aim manually
 };
 
 // Input button bits (held state; the server derives presses from changes).

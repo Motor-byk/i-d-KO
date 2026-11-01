@@ -35,6 +35,7 @@
   - Verify Render passes `cf-connecting-ip` (otherwise the rate-limit IP falls back to the spoofable X-Forwarded-For). Log the headers once after the first deploy.
   - A real phone test on Render needs the user's account.
 - **First Render deploy (branch `fix-wake-check`):** in Chrome, every cross-origin HTTP request from the static site to the server gets a 503 (curl and same-origin get 200; the cause wasn't pinned down, possibly connection reuse across the shared `*.onrender.com` cert and IPs), while websockets open fine. The wake check now falls back to a bare websocket open when `/health` fails. Then the client dropped `/health` and uses only the websocket probe (branch `ws-wake-probe`).
+- **Touch layout change (user request, branch `touch-aim-stick`):** a floating aim stick on the right half replaces drag-to-aim; all four buttons sit top right (Parry Dash / Heavy Jab). Jab presses on touch, the rest are held. The debug overlay moved to top center.
 
 Update this section after every step.
 
@@ -125,7 +126,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/render.js      circles w/ option names, fists, ring, pillars, juice
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
 [x] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
-[x] public/js/input/touch.js joystick + drag-aim buttons (Jab fires on release; facing follows the stick)
+[x] public/js/input/touch.js move stick (left half) + aim stick (right half) + top-right buttons (Jab taps; facing follows the aim stick, else the move stick)
 [x] public/js/input/desktop.js keyboard + mouse
 [x] test/*.test.js           node:test (helpers.js: startServer, call, nextEvent)
 [ ] scripts/bots.js          headless bots with simulated latency

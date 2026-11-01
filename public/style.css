@@ -110,22 +110,25 @@ button.ghost { background: transparent; color: var(--muted); }
   position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
   border-radius: 50%; background: rgba(255, 255, 255, 0.45);
 }
+.stick.aim { border-color: rgba(255, 183, 3, 0.5); }
+.stick.aim .stick-knob { background: rgba(255, 183, 3, 0.6); }
+/* Action buttons, top right: Parry Dash / Heavy Jab. */
 .touch-buttons {
   position: absolute;
-  right: max(16px, env(safe-area-inset-right));
-  bottom: max(16px, env(safe-area-inset-bottom));
-  width: 210px; height: 190px;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  display: grid; grid-template-columns: repeat(2, 64px); grid-auto-rows: 64px; gap: 10px;
 }
 .touch-btn {
-  position: absolute; border-radius: 50%; display: grid; place-items: center;
+  border-radius: 50%; display: grid; place-items: center;
   font-weight: 700; font-size: 0.85rem; color: #fff;
   background: rgba(255, 255, 255, 0.14); border: 2px solid rgba(255, 255, 255, 0.3);
 }
 .touch-btn.down { background: rgba(255, 183, 3, 0.55); border-color: var(--accent); }
-.touch-btn.jab { width: 86px; height: 86px; right: 0; bottom: 0; }
-.touch-btn.heavy { width: 70px; height: 70px; right: 100px; bottom: 0; }
-.touch-btn.dash { width: 62px; height: 62px; right: 12px; bottom: 100px; }
-.touch-btn.parry { width: 56px; height: 56px; right: 96px; bottom: 90px; }
+.touch-btn.parry { grid-area: 1 / 1; }
+.touch-btn.dash { grid-area: 1 / 2; }
+.touch-btn.heavy { grid-area: 2 / 1; }
+.touch-btn.jab { grid-area: 2 / 2; }
 
 .rotate-hint {
   display: none; position: absolute; inset: 0; place-items: center; text-align: center; padding: 24px;
@@ -134,7 +137,7 @@ button.ghost { background: transparent; color: var(--muted); }
 @media (pointer: coarse) and (orientation: portrait) { .rotate-hint { display: grid; } }
 
 .debug {
-  position: absolute; top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right));
+  position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
   margin: 0; padding: 6px 8px; border-radius: 8px; pointer-events: none;
   background: rgba(0, 0, 0, 0.6); color: #9ef0c8; font: 11px/1.35 ui-monospace, monospace;
 }

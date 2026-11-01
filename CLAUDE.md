@@ -8,7 +8,7 @@ Friend groups settle disagreements (dinner, movies, hot takes) by fighting inste
 - One life, one round, shrinking ring. Decisions should be quick. More game modes may come later, so keep mode logic pluggable.
 - Majority advantage stays, but a heavily outnumbered team is a "dark horse" with small, capped HP/damage buffs.
 - Combat is about combos and skill expression: jab string, charged heavy with wall bounces, dash-cancel, parry. Hitstun decays over a combo and ends in a burst, so there are no infinites. Friendly fire is knockback only.
-- Mobile-first touch controls (joystick + drag-to-aim buttons), with desktop controls too.
+- Mobile-first touch controls (move stick on the left, aim stick on the right, action buttons top right), with desktop controls too.
 
 ## Stack
 - Node 22 + socket.io server (`server/`), plain `node:http`, no Express.

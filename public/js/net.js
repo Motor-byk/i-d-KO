@@ -26,24 +26,36 @@ export function createTicker(now) {
 
 // Estimates the server tick from snapshot arrivals. Each arrival gives a sample of
 // (server tick - local time in ticks); the estimate eases toward it, so one late packet
-// barely moves it. A big jump (the server dropped loop ticks, or we were away) is taken at once.
-// jitterMs is the smoothed size of the arrival errors.
+// barely moves it. A big jump (the server dropped loop ticks, or we were away) is taken at once
+// when CLOCK_JUMP_CONFIRM snapshots in a row agree on it.
+// jitterMs is the smoothed size of the arrival errors, stray packets included.
 export function createClock() {
   let offset = null;
   let jitter = 0;
+  let jumps = 0; // big errors in a row: +n late... -n early
   return {
     get jitterMs() {
       return jitter;
     },
     onSnapshot(tick, now) {
       const sample = tick - now / TICK_MS;
-      const err = offset === null ? Infinity : sample - offset;
-      if (Math.abs(err) > NET.CLOCK_SNAP_TICKS) {
+      if (offset === null) {
         offset = sample;
         return;
       }
+      const err = sample - offset;
+      jitter += (Math.min(Math.abs(err) * TICK_MS, NET.INTERP_MAX_MS) - jitter) * NET.JITTER_SMOOTHING;
+      if (Math.abs(err) > NET.CLOCK_SNAP_TICKS) {
+        // One stray packet is ignored; a run of them, all off the same way, is the new clock.
+        jumps = Math.sign(err) === Math.sign(jumps) ? jumps + Math.sign(err) : Math.sign(err);
+        if (Math.abs(jumps) >= NET.CLOCK_JUMP_CONFIRM) {
+          offset = sample;
+          jumps = 0;
+        }
+        return;
+      }
+      jumps = 0;
       offset += err * NET.CLOCK_SMOOTHING;
-      jitter += (Math.abs(err) * TICK_MS - jitter) * NET.JITTER_SMOOTHING;
     },
     // The server tick right now (fractional), or null before the first snapshot.
     tickAt(now) {

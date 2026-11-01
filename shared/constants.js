@@ -171,7 +171,8 @@ export const NET = {
   INTERP_ADAPT: 0.1,        // share of the gap to the target delay closed per snapshot
   INTERP_BUFFER_TICKS: 30,  // snapshots kept for interpolation
   MAX_EXTRAPOLATE_SNAPSHOTS: 2,
-  CLOCK_SNAP_TICKS: 6,      // a server clock sample this far off the estimate is taken at once
+  CLOCK_SNAP_TICKS: 6,      // a server clock sample this far off the estimate is a jump...
+  CLOCK_JUMP_CONFIRM: 3,    // ...taken once this many in a row agree (a lone one is ignored)
   CLOCK_SMOOTHING: 0.1,     // share of a clock sample's error taken per snapshot
   JITTER_SMOOTHING: 0.1,
   HEALTH_PING_MS: 5 * 60_000,

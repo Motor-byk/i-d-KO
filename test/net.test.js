@@ -61,9 +61,17 @@ test('one late snapshot barely moves the clock; jitter is measured', () => {
 test('a big jump (dropped server ticks) is taken at once', () => {
   const clock = createClock();
   const now = feed(clock);
-  // The server lost 30 ticks: the next snapshot says tick 60 where 90 was expected.
-  clock.onSnapshot(60, now + 1000);
+  // The server lost 30 ticks: snapshots now say tick 60 where 90 was expected.
+  for (let i = 0; i < NET.CLOCK_JUMP_CONFIRM; i++) clock.onSnapshot(60 + i, now + 1000 + i * TICK_MS);
   near(clock.tickAt(now + 1000), 60, 0.01);
+});
+
+test('a single very late snapshot does not move the clock', () => {
+  const clock = createClock();
+  const now = feed(clock);
+  const estimate = clock.tickAt(now);
+  clock.onSnapshot(90, 90 * TICK_MS + 50 + 250);
+  near(clock.tickAt(now), estimate, 1e-9);
 });
 
 const snap = (tick, fighters) => ({ tick, fighters });

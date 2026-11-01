@@ -113,12 +113,12 @@ test('small corrections ease out, big ones snap', () => {
   predictor.reconcile(at(500), 0);
 
   predictor.reconcile(at(510), 0);
-  assert.equal(predictor.drawn.x, 500, 'drawn where it was');
+  assert.equal(predictor.drawnAt(1).x, 500, 'drawn where it was');
   for (let seq = 1; seq <= 20; seq++) predictor.step(idle(seq));
-  assert.ok(Math.abs(predictor.drawn.x - 510) < 0.1, 'and eased onto the new spot');
+  assert.ok(Math.abs(predictor.drawnAt(1).x - 510) < 0.1, 'and eased onto the new spot');
 
   predictor.reconcile(at(510 + NET.SNAP_DISTANCE + 1), 20);
-  assert.equal(predictor.drawn.x, predictor.state.body.x, 'snapped');
+  assert.equal(predictor.drawnAt(1).x, predictor.state.body.x, 'snapped');
 });
 
 test('predicted combat state is a copy: replays never touch the snapshot', () => {

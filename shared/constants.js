@@ -166,7 +166,13 @@ export const NET = {
   LAG_COMP_MAX_MS: 100,
   INTERP_MIN_MS: 100,
   INTERP_MAX_MS: 200,
+  INTERP_JITTER_SCALE: 3,   // interpolation delay = 2 ticks + this x jitter, clamped to the range above
+  INTERP_ADAPT: 0.1,        // share of the gap to the target delay closed per snapshot
+  INTERP_BUFFER_TICKS: 30,  // snapshots kept for interpolation
   MAX_EXTRAPOLATE_SNAPSHOTS: 2,
+  CLOCK_SNAP_TICKS: 6,      // a server clock sample this far off the estimate is taken at once
+  CLOCK_SMOOTHING: 0.1,     // share of a clock sample's error taken per snapshot
+  JITTER_SMOOTHING: 0.1,
   HEALTH_PING_MS: 5 * 60_000,
   HISTORY_TICKS: 8,
   MAX_PENDING_INPUTS: 30, // unacked inputs the client keeps for replay (1s)

@@ -3,6 +3,7 @@
 
 export const TICK_RATE = 30;
 export const DT = 1 / TICK_RATE;
+export const TICK_MS = 1000 / TICK_RATE;
 export const SNAPSHOT_RATE = 20;
 export const MAX_CATCHUP_TICKS = 3;
 
@@ -163,10 +164,20 @@ export const NET = {
   MAX_INPUTS_PER_SECOND: 60,
   INPUT_QUEUE_MAX: 2,
   INPUT_STARVE_TICKS: 4, // no input for this long: stop moving (stalled tab, lost connection)
-  LAG_COMP_MAX_MS: 100,
+  LAG_COMP_MAX_MS: 200,   // rewind cap: covers good and typical mobile connections; worse ones lead their targets
+  MAX_STAMP_STEP: 2,      // an input's view tick may advance at most this much past the previous one
   INTERP_MIN_MS: 100,
   INTERP_MAX_MS: 200,
+  INTERP_JITTER_SCALE: 3,   // interpolation delay = 2 ticks + this x jitter, clamped to the range above
+  INTERP_ADAPT: 0.1,        // share of the gap to the target delay closed per snapshot
+  INTERP_BUFFER_TICKS: 30,  // snapshots kept for interpolation
   MAX_EXTRAPOLATE_SNAPSHOTS: 2,
+  CLOCK_SNAP_TICKS: 6,      // a server clock sample this far off the estimate is a jump...
+  CLOCK_JUMP_CONFIRM: 3,    // ...taken once this many in a row agree (a lone one is ignored)
+  CLOCK_SMOOTHING: 0.1,     // share of a clock sample's error taken per snapshot
+  JITTER_SMOOTHING: 0.1,
   HEALTH_PING_MS: 5 * 60_000,
-  HISTORY_TICKS: 8,
+  MAX_PENDING_INPUTS: 30, // unacked inputs the client keeps for replay (1s)
+  SNAP_DISTANCE: 100,     // prediction corrections bigger than this snap instead of easing
+  CORRECTION_DECAY: 0.75, // share of an eased correction still showing after each tick
 };

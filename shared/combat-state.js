@@ -1,6 +1,7 @@
 import { COMBAT, BUTTONS } from './constants.js';
 import { stepBody } from './physics.js';
 import { bounceVelocity } from './arena.js';
+import { lerp } from './math.js';
 
 // Combat timing, shared by the server and client prediction: what a fighter is doing, for how
 // long, and what it may do next. Hit *detection* is server-only (server/game/combat.js); this
@@ -43,8 +44,6 @@ export function createCombat() {
     dir: 0,        // facing (or dash direction), locked when a move starts; follows aim while charging
   };
 }
-
-const lerp = (a, b, k) => a + (b - a) * k;
 
 // Timing and reach of the move being performed (no allocation), or null when not in a move.
 export function moveTiming(cs) {

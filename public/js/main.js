@@ -90,8 +90,14 @@ function onRoom(room) {
       show(matchScreen({
         playerId: me.playerId,
         onLeave: leaveRoom,
-        // Volatile: dropped while offline instead of replayed late after a reconnect.
-        sendInput: (input) => socket.volatile.emit('match:input', input),
+        // Never buffered while offline (no replay after a reconnect). Not volatile either:
+        // socket.io drops a volatile emit while the previous write is in flight, which loses
+        // the 2nd and 3rd input of a catch-up burst.
+        sendInput: (input) => {
+          if (!socket.connected) return false;
+          socket.emit('match:input', input);
+          return true;
+        },
         ping: async () => {
           const start = performance.now();
           const res = await call(socket, 'net:ping');

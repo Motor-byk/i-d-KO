@@ -2,11 +2,15 @@ import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK, BUTTONS } fr
 import { createBody, separateBodies } from '../../shared/physics.js';
 import { resolveCircle } from '../../shared/arena.js';
 import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
-import { assistAim, burstPush, resolveHits } from './combat.js';
+import { wrapAngle } from '../../shared/math.js';
+import { assistAim, burstPush, parryGrace, resolveHits } from './combat.js';
+import { PositionHistory, rewindTicks } from './lagcomp.js';
 
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 
 const round2 = (v) => Math.round(v * 100) / 100;
+// Facing replays into prediction (dash direction), so it gets more precision than positions.
+const round4 = (v) => Math.round(v * 10_000) / 10_000;
 
 // Returns a clean input or null. Shape: { seq, tick, move: {x, y}, aim, aimed, buttons }.
 // aimed: the player pointed the aim on purpose (mouse, drag); otherwise attacks get aim assist.
@@ -27,7 +31,7 @@ export function validateInput(raw) {
     seq,
     tick,
     move: { x: x * scale, y: y * scale },
-    aim: Math.atan2(Math.sin(aim), Math.cos(aim)),
+    aim: wrapAngle(aim),
     aimed: aimed === true,
     buttons,
   };
@@ -80,10 +84,13 @@ export class Match {
       aimed: false,
       cs: { ...createCombat(), dir: spawns[i].aim },
       hitIds: new Set(), // who the current move already hit
+      grace: null,       // hits a late parry can still undo (combat.js parryGrace)
+      rewind: 0,         // lag compensation for this fighter's attacks, in ticks
       hp: PLAYER.BASE_HP,
       alive: true,
       queue: [],
       lastSeq: -1,     // newest seq accepted
+      lastStamp: -1,   // view tick of the newest accepted input
       ackSeq: -1,      // newest seq applied by the sim
       move: { x: 0, y: 0 },
       starved: 0,      // ticks in a row with no input
@@ -94,6 +101,7 @@ export class Match {
     }));
     separateBodies(this.fighters.map((f) => f.body));
     this.byId = new Map(this.fighters.map((f) => [f.id, f]));
+    this.history = new PositionHistory();
   }
 
   // Queues one validated input. Returns false if it was rejected.
@@ -107,7 +115,13 @@ export class Match {
     input.pressed = input.buttons & ~f.queuedHeld;
     input.released = f.queuedHeld & ~input.buttons;
     f.queuedHeld = input.buttons;
+    // The view tick picks the lag comp rewind, so a client can't steer it: never in the future,
+    // never backwards, and at most MAX_STAMP_STEP ahead of the last one (a real view moves 1 per tick).
+    if (f.lastStamp >= 0) {
+      input.tick = Math.max(f.lastStamp, Math.min(input.tick, f.lastStamp + NET.MAX_STAMP_STEP));
+    }
     input.tick = Math.min(input.tick, this.tick);
+    f.lastStamp = input.tick;
     f.queue.push(input);
     // Too much buffered: fold the oldest into the next one (keep the newest move, OR the edges).
     while (f.queue.length > NET.INPUT_QUEUE_MAX) {
@@ -125,9 +139,11 @@ export class Match {
     f.queue = [];
     f.move = { x: 0, y: 0 };
     f.lastSeq = -1;
+    f.lastStamp = -1;
     f.ackSeq = -1;
     f.queuedHeld = 0;
     f.buttons = 0;
+    f.rewind = 0;
   }
 
   step() {
@@ -147,11 +163,14 @@ export class Match {
         f.pressed = input.pressed;
         f.released = input.released;
         f.buttons = input.buttons;
+        f.rewind = rewindTicks(this.tick, input.tick);
         f.starved = 0;
       } else if (++f.starved >= NET.INPUT_STARVE_TICKS) {
         // A late packet repeats the last move; a stalled client stops instead of running on.
         f.move = { x: 0, y: 0 };
       }
+      // A parry pressed just after getting hit can still win; then it's used up.
+      if (f.pressed & BUTTONS.PARRY && parryGrace(f, this.tick)) f.pressed &= ~BUTTONS.PARRY;
       const { move, pressed, released, buttons: held, aim } = f;
       const started = stepFighter(f.cs, f.body, { move, pressed, released, held, aim });
       if (started) f.hitIds.clear();
@@ -159,7 +178,8 @@ export class Match {
       if (f.cs.state === STATE.BURST && f.cs.t === 0) burstPush(f, this.fighters);
     }
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));
-    resolveHits(this.fighters);
+    this.history.record(this.tick, this.fighters);
+    resolveHits(this.fighters, { tick: this.tick, seen: this.history.seen(this.tick) });
     if (this.#snapshotDue()) this.emit('match:snapshot', this.snapshot(), { volatile: true });
   }
 
@@ -187,7 +207,7 @@ export class Match {
         aim: round2(aim),
         hp,
         alive,
-        cs: { ...cs, dir: round2(cs.dir) },
+        cs: { ...cs, dir: round4(cs.dir) },
       })),
     };
   }

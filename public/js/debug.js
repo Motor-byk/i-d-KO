@@ -11,6 +11,8 @@ export function debugOverlay({ ping }) {
   let rtt = null;
   let tickMs = null;
   let correction = null;
+  let interpMs = null;
+  let jitterMs = null;
   let lastArrival = null;
   let gaps = []; // [arrivalTime, gapMs]
   let lastTick = 0;
@@ -34,6 +36,7 @@ export function debugOverlay({ ping }) {
       `rtt      ${fmt(rtt)}`,
       `snap gap ${fmt(avg)} avg  ${fmt(values.length ? Math.max(...values) : null)} max  (${values.length}/s)`,
       `server   ${fmt(tickMs?.avg)} avg  ${fmt(tickMs?.max)} max per tick`,
+      `interp   ${fmt(interpMs)} delay  ${fmt(jitterMs)} jitter`,
       `correct  ${fmt(correction, 'u')}`,
       `tick     ${lastTick}`,
     ].join('\n');
@@ -50,6 +53,11 @@ export function debugOverlay({ ping }) {
     },
     // Size of the last prediction correction, in world units (from client prediction).
     setCorrection(units) { correction = units; },
+    // Interpolation delay for other players and the measured snapshot jitter.
+    setInterp(delay, jitter) {
+      interpMs = delay;
+      jitterMs = jitter;
+    },
     destroy() {
       clearInterval(pingTimer);
       clearInterval(refreshTimer);

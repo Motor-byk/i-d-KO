@@ -21,12 +21,11 @@
 - **Milestone D (steps 22–24): in progress** on branch `milestone-d-netcode`.
   - Step 22: `public/js/net.js` `createPredictor()` (no DOM, tested under node). Each local input runs through `stepFighter` at once and is kept until acked; each snapshot resets the fighter to the server's body + full `cs` and replays the unacked inputs. Corrections up to `NET.SNAP_DISTANCE` ease out via a draw offset (`CORRECTION_DECAY` per tick), bigger ones snap. An ack going backwards (rejoin) clears pending; `sendInput` returns false offline and the predictor resets. Snapshot `cs.dir` is now rounded to 4 decimals (dash replays drifted ~0.6 units at 2). Not predicted: jab aim assist (the fist direction corrects on the next snapshot). Your fighter is drawn at the newest predicted tick (no sub-tick smoothing yet).
   - Step 23: `createClock()` eases an estimate of (server tick − local time) toward each snapshot's sample and takes jumps over `CLOCK_SNAP_TICKS` at once (dropped server ticks, coming back from away); `jitterMs` is the smoothed sample error. `createInterpolator()` keeps `INTERP_BUFFER_TICKS` of snapshots and shows others at `clock − delay`, delay = 2 ticks + `INTERP_JITTER_SCALE`×jitter clamped to 100–200ms and eased per snapshot; positions lerp, aim takes the short way, discrete state comes from the nearer snapshot; past the newest it extrapolates along velocity for 2 snapshots (3 ticks), then holds. `createTicker()` runs the input step at a fixed 30 Hz off `performance.now()` (polled at 4× rate, max 3 catch-up steps, longer stalls skipped), and your fighter is drawn between its last two predicted ticks. Inputs now send the rendered tick (integer). The debug overlay shows the delay and jitter.
-- **Next: step 24** (`feat: lag compensation`).
+  - Step 24: `server/game/lagcomp.js` keeps `HISTORY_TICKS` of positions (recorded after body separation, before hits). Each applied input sets the attacker's `rewind` = server tick − input tick, clamped to [0, `LAG_COMP_MAX_MS`] (3 ticks); `resolveHits` checks reach against `seen(attacker, target)`, the rewound position unless the target is dashing, parrying or bursting now. Knockback direction uses current positions. **Parry grace (deviation from the plan's wording):** input stamps are render ticks (≥100ms in the past), so they can't be compared with the hit tick. Instead, enemy hits on an *idle* target keep an undo record (`target.grace`), and a parry press applied within `COMBAT.PARRY.grace` ticks undoes them (hp, combat state, knockback) and stuns every attacker in them. A KO is final.
+- **Next: Milestone D review** (simplify, bug check, networking), then a Chrome check against a bot.
 - Review notes to handle in later steps:
-  - Step 24: the parry grace window (`COMBAT.PARRY.grace`, still unread) belongs in `resolveHits`' parry check.
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
-  - Step 24: add the lower clamp on input `tick` (now − 100ms).
   - Later/optional: trim the input queue back to 1 when it sits at 2 (a late packet adds a permanent +33ms); shrink snapshots (omit zero knockback, send velocities only for your own fighter) once combat state doubles their size (~24 KB/s per client now).
 - Known open items:
   - SIGTERM handling is step 31.
@@ -103,7 +102,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] server/loop.js           global accumulator loop, per-room try/catch + tick timing
 [x] server/game/match.js     input queue/validation, spawns, sim step, 20 Hz snapshot broadcast
 [x] server/game/combat.js    hit detection + resolution (uses shared/combat-state.js), friendly knockback
-[ ] server/game/lagcomp.js   position rewind rules
+[x] server/game/lagcomp.js   position history + rewind rules (parry grace lives in combat.js)
 [x] shared/arena.js         walls, pillars, swept collision, wall-bounce reflection (shared: prediction needs it)
 [ ] server/game/ring.js      shrink schedule + outside damage
 [ ] server/game/balance.js   dark-horse multipliers
@@ -153,7 +152,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 21. [x] `feat: hitstun decay and combo burst` — + tests.
 22. [x] `feat: client prediction and reconciliation` — net.js using physics + combat-state + replay tests.
 23. [x] `feat: adaptive interpolation and clock sync`.
-24. `feat: lag compensation` — lagcomp.js (positions only, parry grace) + tests.
+24. [x] `feat: lag compensation` — lagcomp.js (positions only, parry grace) + tests.
 25. `feat: shrinking ring` — + tests.
 26. `feat: elimination mode and sudden death` — + tests (tie after ring damage).
 27. `feat: dark horse balancing` — + badge + tests.

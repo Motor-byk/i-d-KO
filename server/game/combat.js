@@ -1,5 +1,5 @@
 import { COMBAT, PLAYER } from '../../shared/constants.js';
-import { applyHit, applyLanded, applyParry, isParrying, moveFrames, phase } from '../../shared/combat-state.js';
+import { applyHit, applyLanded, applyParry, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, alive, hitIds }.
 
@@ -51,8 +51,11 @@ function push(from, target, speed, fallbackAngle) {
 // tick's hits, so a parry holds against several at once). Friendly fire ignores parries.
 // Several enemy hits on one target in the same tick all deal damage, but stun and push it
 // once, with the strongest of them, so they count as one combo step.
+// Reach is checked against seen(attacker, target): where the attacker saw the target (lag
+// compensation), the target's current position by default.
+// An enemy hit on an idle target keeps what it undid in target.grace for parryGrace().
 // Returns the hits as [{ attacker, target, damage, parried }].
-export function resolveHits(fighters) {
+export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}) {
   const hits = [];
   const parrying = new Set(fighters.filter((f) => f.alive && isParrying(f.cs)));
   for (const a of fighters) {
@@ -60,10 +63,18 @@ export function resolveHits(fighters) {
     const m = moveFrames(a.cs);
     for (const t of fighters) {
       if (t === a || !t.alive || t.cs.invuln > 0 || a.hitIds.has(t.id)) continue;
-      if (!inReach(a.body, t.body, a.cs.dir, m.reach)) continue;
+      if (!inReach(a.body, seen(a, t), a.cs.dir, m.reach)) continue;
       a.hitIds.add(t.id);
       hits.push({ attacker: a, target: t, move: m });
     }
+  }
+  for (const { attacker, target } of hits) {
+    if (attacker.teamId === target.teamId || parrying.has(target)) continue;
+    if (target.cs.state === STATE.IDLE && !inGrace(target, tick)) {
+      const { cs, hp, body: { kx, ky } } = target;
+      target.grace = { tick, cs: structuredClone(cs), hp, kx, ky, attackers: new Set() };
+    }
+    if (inGrace(target, tick)) target.grace.attackers.add(attacker);
   }
   const strongest = new Map(); // target -> the enemy hit that stuns it this tick
   const results = hits.map(({ attacker, target, move }) => {
@@ -90,6 +101,23 @@ export function resolveHits(fighters) {
     applyHit(target.cs, move);
   }
   return results;
+}
+
+const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.grace;
+
+// Parry grace: a parry pressed up to COMBAT.PARRY.grace ticks after enemy hits landed on an idle
+// fighter (so it could have parried) still parries them. The hits are undone (hp, combat
+// state, knockback) and every attacker in them is stunned. A KO is final. Returns true if it parried.
+export function parryGrace(f, tick) {
+  const grace = f.grace;
+  f.grace = null;
+  if (!f.alive || !grace || tick - grace.tick > COMBAT.PARRY.grace) return false;
+  Object.assign(f.cs, grace.cs);
+  f.hp = grace.hp;
+  f.body.kx = grace.kx;
+  f.body.ky = grace.ky;
+  for (const a of grace.attackers) applyParry(f.cs, a.cs);
+  return true;
 }
 
 // A fighter bursting out of a combo shoves everyone near it away (knockback only). The shove

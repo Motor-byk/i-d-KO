@@ -2,7 +2,8 @@ import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK, BUTTONS } fr
 import { createBody, separateBodies } from '../../shared/physics.js';
 import { resolveCircle } from '../../shared/arena.js';
 import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
-import { assistAim, burstPush, resolveHits } from './combat.js';
+import { assistAim, burstPush, parryGrace, resolveHits } from './combat.js';
+import { PositionHistory, rewindTicks } from './lagcomp.js';
 
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 
@@ -82,6 +83,8 @@ export class Match {
       aimed: false,
       cs: { ...createCombat(), dir: spawns[i].aim },
       hitIds: new Set(), // who the current move already hit
+      grace: null,       // hits a late parry can still undo (combat.js parryGrace)
+      rewind: 0,         // lag compensation for this fighter's attacks, in ticks
       hp: PLAYER.BASE_HP,
       alive: true,
       queue: [],
@@ -96,6 +99,7 @@ export class Match {
     }));
     separateBodies(this.fighters.map((f) => f.body));
     this.byId = new Map(this.fighters.map((f) => [f.id, f]));
+    this.history = new PositionHistory();
   }
 
   // Queues one validated input. Returns false if it was rejected.
@@ -130,6 +134,7 @@ export class Match {
     f.ackSeq = -1;
     f.queuedHeld = 0;
     f.buttons = 0;
+    f.rewind = 0;
   }
 
   step() {
@@ -149,11 +154,14 @@ export class Match {
         f.pressed = input.pressed;
         f.released = input.released;
         f.buttons = input.buttons;
+        f.rewind = rewindTicks(this.tick, input.tick);
         f.starved = 0;
       } else if (++f.starved >= NET.INPUT_STARVE_TICKS) {
         // A late packet repeats the last move; a stalled client stops instead of running on.
         f.move = { x: 0, y: 0 };
       }
+      // A parry pressed just after getting hit can still win; then it's used up.
+      if (f.pressed & BUTTONS.PARRY && parryGrace(f, this.tick)) f.pressed &= ~BUTTONS.PARRY;
       const { move, pressed, released, buttons: held, aim } = f;
       const started = stepFighter(f.cs, f.body, { move, pressed, released, held, aim });
       if (started) f.hitIds.clear();
@@ -161,7 +169,8 @@ export class Match {
       if (f.cs.state === STATE.BURST && f.cs.t === 0) burstPush(f, this.fighters);
     }
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));
-    resolveHits(this.fighters);
+    this.history.record(this.tick, this.fighters);
+    resolveHits(this.fighters, { tick: this.tick, seen: this.history.seen(this.tick) });
     if (this.#snapshotDue()) this.emit('match:snapshot', this.snapshot(), { volatile: true });
   }
 

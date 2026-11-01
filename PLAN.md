@@ -18,12 +18,13 @@
   - Review fixes: same-tick multi-hits on one target are one combo step (strongest hit stuns); a combo stays open through the tick its hitstun ends (no frame-perfect decay reset); wall bounce needs speed *into* the surface, and a burst push clears launches; touch heavy keeps its drag aim on release. Kept on purpose: the input buffer doesn't age during hitstop (presses during hitstop chain).
   - Checked in Chrome against a bot: jab string, heavy charge ring/launch, getting KO'd by a bot's jab strings (~6s standing still), spectator camera. Parry and touch weren't exercised in the browser (unit tests only).
 - After the review (user request): dash cooldown 20 → 60 ticks (2s); heavy recovery can no longer be dash-cancelled (jab recovery still can, and so can a heavy *charge*); landing all 3 jabs of one string on enemies (`cs.stringHits`, counted in `applyLanded`) resets the dash cooldown. Parried and friendly hits don't count. Your own fighter shows the dash cooldown as a vertical bar beside it (bright when ready); other players' cooldowns aren't drawn.
-- **Next: step 22** (`feat: client prediction and reconciliation`), the start of Milestone D.
+- **Milestone D (steps 22–24): in progress** on branch `milestone-d-netcode`.
+  - Step 22: `public/js/net.js` `createPredictor()` (no DOM, tested under node). Each local input runs through `stepFighter` at once and is kept until acked; each snapshot resets the fighter to the server's body + full `cs` and replays the unacked inputs. Corrections up to `NET.SNAP_DISTANCE` ease out via a draw offset (`CORRECTION_DECAY` per tick), bigger ones snap. An ack going backwards (rejoin) clears pending; `sendInput` returns false offline and the predictor resets. Snapshot `cs.dir` is now rounded to 4 decimals (dash replays drifted ~0.6 units at 2). Not predicted: jab aim assist (the fist direction corrects on the next snapshot). Your fighter is drawn at the newest predicted tick (no sub-tick smoothing yet).
+- **Next: step 23** (`feat: adaptive interpolation and clock sync`).
 - Review notes to handle in later steps:
-  - Step 22: prediction replays `stepFighter` (combat + movement), so restore the full `cs` from the snapshot. Hit detection and burst pushes stay server-only, so expect corrections on hits.
   - Step 24: the parry grace window (`COMBAT.PARRY.grace`, still unread) belongs in `resolveHits`' parry check.
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
-  - Step 22: clear pending inputs on reconnect/rejoin (the server's ack resets to -1). Expect small corrections when the server merges or starves inputs.
+  - Step 23: the input timer is still `setInterval`; move it onto the fixed-step clock, and draw your own fighter between its last two predicted ticks. Expect small corrections when the server merges or starves inputs.
   - Step 23: dropped loop ticks make the tick→time mapping jump; clock smoothing must tolerate it. The client sends `snap.tick` (newest received) for now; it must send the rendered tick, as an integer.
   - Step 24: add the lower clamp on input `tick` (now − 100ms).
   - Later/optional: trim the input queue back to 1 when it sits at 2 (a late packet adds a permanent +33ms); shrink snapshots (omit zero knockback, send velocities only for your own fighter) once combat state doubles their size (~24 KB/s per client now).
@@ -117,7 +118,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/ui/dom.js      h() element builder, logo(), error text table
 [x] public/js/ui/home.js     nickname + create/join
 [x] public/js/ui/lobby.js    options, team picking, host controls, share link
-[ ] public/js/net.js         clock estimate, prediction/reconciliation, adaptive interpolation
+[x] public/js/net.js         clock estimate, prediction/reconciliation, adaptive interpolation
 [x] public/js/render.js      circles w/ option names, fists, ring, pillars, juice
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
 [x] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
@@ -150,7 +151,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 19. [x] `feat: dash and dash-cancel`.
 20. [x] `feat: parry`.
 21. [x] `feat: hitstun decay and combo burst` — + tests.
-22. `feat: client prediction and reconciliation` — net.js using physics + combat-state + replay tests.
+22. [x] `feat: client prediction and reconciliation` — net.js using physics + combat-state + replay tests.
 23. `feat: adaptive interpolation and clock sync`.
 24. `feat: lag compensation` — lagcomp.js (positions only, parry grace) + tests.
 25. `feat: shrinking ring` — + tests.

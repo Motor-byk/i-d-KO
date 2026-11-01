@@ -4,9 +4,11 @@ import { createRenderer } from '../render.js';
 import { desktopInput } from '../input/desktop.js';
 import { touchInput } from '../input/touch.js';
 import { debugOverlay } from '../debug.js';
+import { createPredictor } from '../net.js';
 
 // Match screen: a full-screen canvas drawn every frame from the latest snapshot.
-// Samples input at the tick rate and hands it to sendInput(input) while you're fighting.
+// Samples input at the tick rate and hands it to sendInput(input) while you're fighting;
+// sendInput returns false when offline. Your own fighter is predicted (net.js).
 // ping() resolves to an RTT in ms for the debug overlay.
 // Returns { el, update(room), onSnapshot(snap), setError(), destroy() }.
 export function matchScreen({ playerId, onLeave, sendInput, ping }) {
@@ -25,12 +27,27 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   let snap = null;
   let options = new Map(); // id -> option, rebuilt when the room changes
   let players = new Map(); // id -> player
+  const predictor = createPredictor();
+  let aim = null; // last aim sent
+
+  // Your fighter as last seen by the server, alive, or null (spectating or KO'd).
+  const serverMe = () => snap?.fighters.find((f) => f.id === playerId && f.alive) ?? null;
+
+  // Your predicted fighter for drawing and aiming: server data with predicted position and combat state.
+  function myFighter() {
+    const me = serverMe();
+    const predicted = predictor.state;
+    if (!me || !predicted) return me;
+    return { ...me, ...predicted.body, ...predictor.drawn, aim: aim ?? me.aim, cs: predicted.cs };
+  }
 
   function view() {
+    const me = myFighter();
     return {
       meId: playerId,
       followId: playerId,
-      fighters: snap.fighters.map((f) => {
+      fighters: snap.fighters.map((server) => {
+        const f = server.id === playerId && me ? me : server;
         const player = players.get(f.id);
         const team = options.get(player?.teamId);
         return {
@@ -51,7 +68,6 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   };
   frameId = requestAnimationFrame(frame);
 
-  const myFighter = () => snap?.fighters.find((f) => f.id === playerId && f.alive);
   const desktop = desktopInput(el, {
     aimAt: (clientX, clientY) => {
       const me = myFighter();
@@ -61,14 +77,13 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   });
 
   let seq = 0;
-  let aim = null;
   const inputTimer = setInterval(() => {
     const me = myFighter();
     if (!me) return; // spectating or KO'd
     const keys = desktop.sample();
     const fingers = touch.sample();
     aim = fingers.aim ?? keys.aim ?? aim ?? me.aim;
-    sendInput({
+    const input = {
       seq: ++seq,
       tick: snap.tick,
       move: fingers.move ?? keys.move,
@@ -76,7 +91,10 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       // The mouse always aims on purpose; touch only when dragging.
       aimed: fingers.aim !== null ? fingers.aimed : keys.aim !== null,
       buttons: keys.buttons | fingers.buttons,
-    });
+    };
+    // Offline inputs never arrive, so don't predict them; start over from the next snapshot.
+    if (sendInput(input)) predictor.step(input);
+    else predictor.reset();
   }, 1000 / TICK_RATE);
 
   return {
@@ -88,8 +106,12 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       players = new Map(room.players.map((p) => [p.id, p]));
     },
     onSnapshot: (next) => {
+      if (snap && next.tick <= snap.tick) return; // stale
       snap = next;
       debug.onSnapshot(next);
+      const me = serverMe();
+      if (!me) predictor.reset();
+      else debug.setCorrection(predictor.reconcile(me, next.acks[playerId] ?? -1));
     },
     setError: () => {},
     destroy() {

@@ -7,6 +7,8 @@ import { assistAim, burstPush, resolveHits } from './combat.js';
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 
 const round2 = (v) => Math.round(v * 100) / 100;
+// Facing replays into prediction (dash direction), so it gets more precision than positions.
+const round4 = (v) => Math.round(v * 10_000) / 10_000;
 
 // Returns a clean input or null. Shape: { seq, tick, move: {x, y}, aim, aimed, buttons }.
 // aimed: the player pointed the aim on purpose (mouse, drag); otherwise attacks get aim assist.
@@ -187,7 +189,7 @@ export class Match {
         aim: round2(aim),
         hp,
         alive,
-        cs: { ...cs, dir: round2(cs.dir) },
+        cs: { ...cs, dir: round4(cs.dir) },
       })),
     };
   }

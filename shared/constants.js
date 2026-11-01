@@ -169,4 +169,7 @@ export const NET = {
   MAX_EXTRAPOLATE_SNAPSHOTS: 2,
   HEALTH_PING_MS: 5 * 60_000,
   HISTORY_TICKS: 8,
+  MAX_PENDING_INPUTS: 30, // unacked inputs the client keeps for replay (1s)
+  SNAP_DISTANCE: 100,     // prediction corrections bigger than this snap instead of easing
+  CORRECTION_DECAY: 0.75, // share of an eased correction still showing after each tick
 };

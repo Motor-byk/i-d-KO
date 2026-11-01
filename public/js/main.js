@@ -91,7 +91,11 @@ function onRoom(room) {
         playerId: me.playerId,
         onLeave: leaveRoom,
         // Volatile: dropped while offline instead of replayed late after a reconnect.
-        sendInput: (input) => socket.volatile.emit('match:input', input),
+        sendInput: (input) => {
+          if (!socket.connected) return false;
+          socket.volatile.emit('match:input', input);
+          return true;
+        },
         ping: async () => {
           const start = performance.now();
           const res = await call(socket, 'net:ping');

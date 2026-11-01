@@ -167,3 +167,10 @@ test('a grace parry keeps presses buffered after the hit', () => {
   parryGrace(b, 11);
   assert.equal(b.cs.buffer, BUTTONS.DASH);
 });
+
+test('a grace parry gives back only the damage of the hits it undoes', () => {
+  const { b } = hitAt10();
+  b.hp -= 7; // something else (the ring, later) hurt b in the meantime
+  parryGrace(b, 11);
+  assert.equal(b.hp, PLAYER.BASE_HP - 7);
+});

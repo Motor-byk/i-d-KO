@@ -72,8 +72,8 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
   for (const { attacker, target } of hits) {
     if (attacker.teamId === target.teamId || parrying.has(target)) continue;
     if (target.cs.state === STATE.IDLE && !inGrace(target, tick)) {
-      const { cs, hp, body: { kx, ky } } = target;
-      target.grace = { tick, cs: structuredClone(cs), hp, kx, ky, attackers: new Map() };
+      const { cs, body: { kx, ky } } = target;
+      target.grace = { tick, cs: structuredClone(cs), kx, ky, damage: 0, attackers: new Map() };
     }
     // The attacker's string credit, from before this hit counted (applyLanded).
     const { attackers } = target.grace ?? {};
@@ -94,6 +94,7 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
       push(attacker, target, move.knockback, attacker.cs.dir);
     } else {
       damage = move.damage;
+      if (inGrace(target, tick) && target.grace.attackers.has(attacker)) target.grace.damage += damage;
       target.hp = Math.max(0, target.hp - damage);
       if (target.hp === 0) target.alive = false;
       applyLanded(attacker.cs, move.hitstop);
@@ -121,7 +122,7 @@ export function parryGrace(f, tick) {
   if (!ok) return false;
   const { buffer, bufferAge } = f.cs;
   Object.assign(f.cs, grace.cs, { buffer, bufferAge });
-  f.hp = grace.hp;
+  f.hp += grace.damage; // only what the undone hits dealt, so other damage (the ring) stays
   f.body.kx = grace.kx;
   f.body.ky = grace.ky;
   const elapsed = tick - grace.tick;

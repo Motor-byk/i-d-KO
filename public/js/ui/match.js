@@ -1,10 +1,10 @@
-import { PLAYER } from '../../shared/constants.js';
+import { PLAYER, TICK_MS } from '../../shared/constants.js';
 import { h } from './dom.js';
 import { createRenderer } from '../render.js';
 import { desktopInput } from '../input/desktop.js';
 import { touchInput } from '../input/touch.js';
 import { debugOverlay } from '../debug.js';
-import { TICK_MS, createClock, createInterpolator, createPredictor, createTicker } from '../net.js';
+import { createClock, createInterpolator, createPredictor, createTicker } from '../net.js';
 
 // Match screen: a full-screen canvas drawn every frame. Other players are interpolated between
 // snapshots, a little in the past; your own fighter is predicted (net.js).

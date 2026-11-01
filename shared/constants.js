@@ -3,6 +3,7 @@
 
 export const TICK_RATE = 30;
 export const DT = 1 / TICK_RATE;
+export const TICK_MS = 1000 / TICK_RATE;
 export const SNAPSHOT_RATE = 20;
 export const MAX_CATCHUP_TICKS = 3;
 
@@ -174,7 +175,6 @@ export const NET = {
   CLOCK_SMOOTHING: 0.1,     // share of a clock sample's error taken per snapshot
   JITTER_SMOOTHING: 0.1,
   HEALTH_PING_MS: 5 * 60_000,
-  HISTORY_TICKS: 8,
   MAX_PENDING_INPUTS: 30, // unacked inputs the client keeps for replay (1s)
   SNAP_DISTANCE: 100,     // prediction corrections bigger than this snap instead of easing
   CORRECTION_DECAY: 0.75, // share of an eased correction still showing after each tick

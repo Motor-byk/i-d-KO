@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TICK_MS, createClock, createInterpolator, createTicker } from '../public/js/net.js';
-import { MAX_CATCHUP_TICKS, NET, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
+import { createClock, createInterpolator, createTicker } from '../public/js/net.js';
+import { MAX_CATCHUP_TICKS, NET, TICK_MS, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
 

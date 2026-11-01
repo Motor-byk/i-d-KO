@@ -1,7 +1,6 @@
 import { performance } from 'node:perf_hooks';
-import { TICK_RATE, MAX_CATCHUP_TICKS } from '../shared/constants.js';
+import { TICK_MS, MAX_CATCHUP_TICKS } from '../shared/constants.js';
 
-const TICK_MS = 1000 / TICK_RATE;
 const AVG_WEIGHT = 0.05; // EMA weight for per-room tick time
 
 // One fixed-step loop for every running match. Entities implement step().

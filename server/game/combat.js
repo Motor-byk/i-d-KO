@@ -1,9 +1,8 @@
 import { COMBAT, PLAYER } from '../../shared/constants.js';
+import { angleDiff } from '../../shared/math.js';
 import { applyHit, applyLanded, applyParry, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, alive, hitIds }.
-
-const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 
 // Un-aimed jabs snap to the nearest enemy inside the assist cone around aim; else aim is kept.
 export function assistAim(attacker, fighters, aim) {
@@ -44,6 +43,8 @@ function push(from, target, speed, fallbackAngle) {
   target.body.kx = nx * speed;
   target.body.ky = ny * speed;
 }
+
+const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.grace;
 
 // Finds every hit this tick, then applies them all, so two attacks that trade both land.
 // Each move hits a target at most once (attacker.hitIds is cleared when a move starts).
@@ -103,15 +104,14 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
   return results;
 }
 
-const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.grace;
-
 // Parry grace: a parry pressed up to COMBAT.PARRY.grace ticks after enemy hits landed on an idle
 // fighter (so it could have parried) still parries them. The hits are undone (hp, combat
 // state, knockback) and every attacker in them is stunned. A KO is final. Returns true if it parried.
 export function parryGrace(f, tick) {
   const grace = f.grace;
+  const ok = f.alive && inGrace(f, tick);
   f.grace = null;
-  if (!f.alive || !grace || tick - grace.tick > COMBAT.PARRY.grace) return false;
+  if (!ok) return false;
   Object.assign(f.cs, grace.cs);
   f.hp = grace.hp;
   f.body.kx = grace.kx;

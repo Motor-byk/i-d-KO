@@ -1,9 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GameLoop } from '../server/loop.js';
-import { TICK_RATE, MAX_CATCHUP_TICKS } from '../shared/constants.js';
-
-const TICK_MS = 1000 / TICK_RATE;
+import { TICK_MS, MAX_CATCHUP_TICKS } from '../shared/constants.js';
 
 function manualLoop(opts) {
   let t = 0;

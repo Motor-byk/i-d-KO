@@ -26,17 +26,18 @@ test('rewind is clamped to [0, LAG_COMP_MAX_MS]', () => {
   assert.equal(rewindTicks(100, 120), 0, 'never into the future');
 });
 
-test('position history keeps the last HISTORY_TICKS ticks of living fighters', () => {
+test('position history keeps just enough ticks to rewind, for living fighters', () => {
   const history = new PositionHistory();
   const f = fighter(1, 1, 0, 0);
   const dead = { ...fighter(2, 2, 0, 0), alive: false };
-  for (let tick = 1; tick <= NET.HISTORY_TICKS + 2; tick++) {
+  const last = MAX_REWIND_TICKS + 3;
+  for (let tick = 1; tick <= last; tick++) {
     f.body.x = tick;
     history.record(tick, [f, dead]);
   }
-  assert.equal(history.at(1, 1), null, 'evicted');
-  assert.deepEqual(history.at(NET.HISTORY_TICKS + 2, 1), { x: NET.HISTORY_TICKS + 2, y: 0 });
-  assert.equal(history.at(5, 2), null);
+  assert.equal(history.at(last - MAX_REWIND_TICKS - 1, 1), null, 'evicted');
+  assert.deepEqual(history.at(last - MAX_REWIND_TICKS, 1), { x: last - MAX_REWIND_TICKS, y: 0 });
+  assert.equal(history.at(last, 2), null);
 });
 
 // a jabs right at b. b was in reach two ticks ago, but has since walked out of it.

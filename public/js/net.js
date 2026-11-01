@@ -1,10 +1,9 @@
-import { NET, DT, PLAYER, TICK_RATE, SNAPSHOT_RATE, MAX_CATCHUP_TICKS } from '../../shared/constants.js';
+import { NET, DT, PLAYER, TICK_RATE, TICK_MS, SNAPSHOT_RATE, MAX_CATCHUP_TICKS } from '../../shared/constants.js';
 import { stepFighter } from '../../shared/combat-state.js';
 import { resolveCircle } from '../../shared/arena.js';
+import { lerp, lerpAngle } from '../../shared/math.js';
 
 // Client netcode. No DOM here, so tests can run it under node. Times are performance.now() ms.
-
-export const TICK_MS = 1000 / TICK_RATE;
 
 // Runs a fixed TICK_RATE step off the clock, not off frames: advance(now) returns how many
 // steps are due (at most MAX_CATCHUP_TICKS; a longer stall, like a background tab, is skipped).
@@ -33,9 +32,6 @@ export function createClock() {
   let offset = null;
   let jitter = 0;
   return {
-    get ready() {
-      return offset !== null;
-    },
     get jitterMs() {
       return jitter;
     },
@@ -55,9 +51,6 @@ export function createClock() {
     },
   };
 }
-
-const lerp = (a, b, k) => a + (b - a) * k;
-const lerpAngle = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
 
 // Shows other players a little in the past, between two snapshots, so they move smoothly
 // despite 20 Hz snapshots and jitter. The delay adapts to the measured jitter within
@@ -126,13 +119,23 @@ const bodyOf = ({ x, y, vx, vy, kx, ky }) => ({ x, y, vx, vy, kx, ky });
 // Hit detection, body pushes and burst pushes are server-only, so those arrive as corrections.
 // Small corrections are eased out through a visual offset; large ones snap.
 export function createPredictor() {
-  let body = null;
-  let cs = null;
-  let held = 0;      // buttons held as of the last input (edges are derived against it, as on the server)
-  let pending = [];  // applied inputs the server hasn't acked yet, oldest first
-  let lastAck = -1;
-  let offset = { x: 0, y: 0 }; // drawn position = body + offset
-  let prev = null;             // drawn position as of the previous tick
+  let body;
+  let cs;
+  let held;    // buttons held as of the last input (edges are derived against it, as on the server)
+  let pending; // applied inputs the server hasn't acked yet, oldest first
+  let lastAck;
+  let offset;  // drawn position = body + offset
+  let prev;    // drawn position as of the previous tick
+  function reset() {
+    body = null;
+    cs = null;
+    held = 0;
+    pending = [];
+    lastAck = -1;
+    offset = { x: 0, y: 0 };
+    prev = null;
+  }
+  reset();
 
   return {
     // { body, cs } of the predicted fighter, or null before the first snapshot.
@@ -184,14 +187,6 @@ export function createPredictor() {
     },
 
     // Forgets everything (KO, connection lost): the next snapshot starts prediction afresh.
-    reset() {
-      body = null;
-      cs = null;
-      held = 0;
-      pending = [];
-      lastAck = -1;
-      offset = { x: 0, y: 0 };
-      prev = null;
-    },
+    reset,
   };
 }

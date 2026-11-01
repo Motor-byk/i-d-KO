@@ -14,7 +14,7 @@ const NO_REWIND = new Set([STATE.DASH, STATE.PARRY, STATE.BURST]);
 export const rewindTicks = (serverTick, inputTick) =>
   Math.max(0, Math.min(MAX_REWIND_TICKS, serverTick - inputTick));
 
-// The last NET.HISTORY_TICKS ticks of fighter positions.
+// Fighter positions for the current tick and the MAX_REWIND_TICKS before it.
 export class PositionHistory {
   #ticks = []; // [{ tick, at: Map(id -> { x, y }) }], oldest first
 
@@ -22,7 +22,7 @@ export class PositionHistory {
     const at = new Map();
     for (const f of fighters) if (f.alive) at.set(f.id, { x: f.body.x, y: f.body.y });
     this.#ticks.push({ tick, at });
-    if (this.#ticks.length > NET.HISTORY_TICKS) this.#ticks.shift();
+    if (this.#ticks.length > MAX_REWIND_TICKS + 1) this.#ticks.shift();
   }
 
   // Where fighter id was at tick, or null if that tick isn't kept (or it wasn't alive).

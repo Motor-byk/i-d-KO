@@ -2,6 +2,7 @@ import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK, BUTTONS } fr
 import { createBody, separateBodies } from '../../shared/physics.js';
 import { resolveCircle } from '../../shared/arena.js';
 import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
+import { wrapAngle } from '../../shared/math.js';
 import { assistAim, burstPush, parryGrace, resolveHits } from './combat.js';
 import { PositionHistory, rewindTicks } from './lagcomp.js';
 
@@ -30,7 +31,7 @@ export function validateInput(raw) {
     seq,
     tick,
     move: { x: x * scale, y: y * scale },
-    aim: Math.atan2(Math.sin(aim), Math.cos(aim)),
+    aim: wrapAngle(aim),
     aimed: aimed === true,
     buttons,
   };

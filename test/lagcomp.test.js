@@ -174,3 +174,22 @@ test('a grace parry gives back only the damage of the hits it undoes', () => {
   parryGrace(b, 11);
   assert.equal(b.hp, PLAYER.BASE_HP - 7);
 });
+
+test('view ticks never go backwards, jump ahead or into the future', () => {
+  const players = new Map([[1, { id: 1, teamId: 1 }], [2, { id: 2, teamId: 2 }]]);
+  const match = new Match({ room: { players, options: [{ id: 1 }, { id: 2 }] }, emit: () => {}, onEmpty: () => {} });
+  for (let i = 0; i < 20; i++) match.step();
+  const f = match.byId.get(1);
+  const send = (seq, tick) => {
+    match.input(1, { seq, tick, move: { x: 0, y: 0 }, aim: 0, buttons: 0 });
+    return f.queue.at(-1).tick;
+  };
+  assert.equal(send(1, 10), 10);
+  assert.equal(send(2, 5), 10, 'not backwards');
+  assert.equal(send(3, 18), 10 + NET.MAX_STAMP_STEP, 'not a big jump');
+  match.step();
+  match.step();
+  assert.equal(send(4, 999), Math.min(match.tick, 12 + NET.MAX_STAMP_STEP), 'not past now');
+  match.resetInput(1);
+  assert.equal(send(1, 3), 3, 'a rejoined client starts over');
+});

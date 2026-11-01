@@ -88,7 +88,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 - **Clock:** the client estimates the server tick from snapshots (smoothed) and runs its own fixed 30 Hz step, not rAF-driven.
 - **Prediction:** the own player is predicted through `shared/physics.js` **plus the shared combat state machine** (`shared/combat-state.js`), so hitstun, knockback, dash and hitstop predict correctly. Reconcile from the acked seq by replaying through that state machine. Small errors are smoothed out, large ones snap. Hit *detection* stays server-only. Player-player body collision isn't predicted. "Shared, not bit-exact": fixed dt and fixed collision order.
 - **Interpolation:** other players render behind real time with an adaptive delay of 100–200ms based on measured jitter, extrapolating for up to 2 missing snapshots.
-- **Lag compensation:** rewinds **positions only** (never combat state). The input tick is clamped to [now − 100ms, now]. Targets that are dashing, parrying or bursting *now* are never rewound. Parry is judged on the server timeline with a **2-tick grace window** (a parry input stamped up to 2 ticks before a hit landed still wins).
+- **Lag compensation:** rewinds **positions only** (never combat state). The input tick is clamped to [now − 200ms, now] (raised from 100ms with the user: the client's view is always ≥100ms old from interpolation alone, so 100ms compensated no network latency), never goes backwards and advances at most `MAX_STAMP_STEP` per input. Targets that are dashing, parrying or bursting *now* are never rewound. Parry is judged on the server timeline with a **2-tick grace window** (a parry input stamped up to 2 ticks before a hit landed still wins).
 
 ## File layout
 `[x]` = exists, `[ ]` = planned.

@@ -94,7 +94,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
     const input = {
       seq: ++seq,
       // What you're looking at, for lag compensation.
-      tick: Math.max(0, Math.floor(renderTick(now))),
+      tick: Math.max(0, Math.round(renderTick(now))),
       move: fingers.move ?? keys.move,
       aim,
       // The mouse always aims on purpose; touch only when dragging.

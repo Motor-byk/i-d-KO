@@ -90,6 +90,7 @@ export class Match {
       alive: true,
       queue: [],
       lastSeq: -1,     // newest seq accepted
+      lastStamp: -1,   // view tick of the newest accepted input
       ackSeq: -1,      // newest seq applied by the sim
       move: { x: 0, y: 0 },
       starved: 0,      // ticks in a row with no input
@@ -114,7 +115,13 @@ export class Match {
     input.pressed = input.buttons & ~f.queuedHeld;
     input.released = f.queuedHeld & ~input.buttons;
     f.queuedHeld = input.buttons;
+    // The view tick picks the lag comp rewind, so a client can't steer it: never in the future,
+    // never backwards, and at most MAX_STAMP_STEP ahead of the last one (a real view moves 1 per tick).
+    if (f.lastStamp >= 0) {
+      input.tick = Math.max(f.lastStamp, Math.min(input.tick, f.lastStamp + NET.MAX_STAMP_STEP));
+    }
     input.tick = Math.min(input.tick, this.tick);
+    f.lastStamp = input.tick;
     f.queue.push(input);
     // Too much buffered: fold the oldest into the next one (keep the newest move, OR the edges).
     while (f.queue.length > NET.INPUT_QUEUE_MAX) {
@@ -132,6 +139,7 @@ export class Match {
     f.queue = [];
     f.move = { x: 0, y: 0 };
     f.lastSeq = -1;
+    f.lastStamp = -1;
     f.ackSeq = -1;
     f.queuedHeld = 0;
     f.buttons = 0;

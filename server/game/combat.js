@@ -73,9 +73,14 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
     if (attacker.teamId === target.teamId || parrying.has(target)) continue;
     if (target.cs.state === STATE.IDLE && !inGrace(target, tick)) {
       const { cs, hp, body: { kx, ky } } = target;
-      target.grace = { tick, cs: structuredClone(cs), hp, kx, ky, attackers: new Set() };
+      target.grace = { tick, cs: structuredClone(cs), hp, kx, ky, attackers: new Map() };
     }
-    if (inGrace(target, tick)) target.grace.attackers.add(attacker);
+    // The attacker's string credit, from before this hit counted (applyLanded).
+    const { attackers } = target.grace ?? {};
+    if (inGrace(target, tick) && !attackers.has(attacker)) {
+      const { stringHits, dashCooldown } = attacker.cs;
+      attackers.set(attacker, { stringHits, dashCooldown });
+    }
   }
   const strongest = new Map(); // target -> the enemy hit that stuns it this tick
   const results = hits.map(({ attacker, target, move }) => {
@@ -106,17 +111,25 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
 
 // Parry grace: a parry pressed up to COMBAT.PARRY.grace ticks after enemy hits landed on an idle
 // fighter (so it could have parried) still parries them. The hits are undone (hp, combat
-// state, knockback) and every attacker in them is stunned. A KO is final. Returns true if it parried.
+// state, knockback; presses buffered since are kept) and every attacker in them is stunned and
+// loses the jab string credit they earned (a parried hit never counts). A KO is final.
+// Hitstop (at least the grace on every hit) froze the target, so it hasn't moved. Returns true if it parried.
 export function parryGrace(f, tick) {
   const grace = f.grace;
   const ok = f.alive && inGrace(f, tick);
   f.grace = null;
   if (!ok) return false;
-  Object.assign(f.cs, grace.cs);
+  const { buffer, bufferAge } = f.cs;
+  Object.assign(f.cs, grace.cs, { buffer, bufferAge });
   f.hp = grace.hp;
   f.body.kx = grace.kx;
   f.body.ky = grace.ky;
-  for (const a of grace.attackers) applyParry(f.cs, a.cs);
+  const elapsed = tick - grace.tick;
+  for (const [a, before] of grace.attackers) {
+    a.cs.stringHits = before.stringHits;
+    a.cs.dashCooldown = Math.max(a.cs.dashCooldown, before.dashCooldown - elapsed);
+    applyParry(f.cs, a.cs);
+  }
   return true;
 }
 

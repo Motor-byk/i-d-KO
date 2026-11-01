@@ -145,3 +145,25 @@ test('in a match, a late parry press undoes the hit and stuns the attacker', () 
   assert.equal(b.hp, PLAYER.BASE_HP);
   assert.equal(a.cs.state, STATE.STUNNED);
 });
+
+test('a grace parry takes back the jab string credit and its dash recharge', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 560, 500);
+  a.cs.chain = COMBAT.JAB_CHAIN_WINDOW;
+  a.cs.jab = COMBAT.JAB.length - 2; // the next jab is the finisher
+  a.cs.stringHits = COMBAT.JAB.length - 1;
+  a.cs.dashCooldown = 40;
+  jabActive(a);
+  resolveHits([a, b], { tick: 10 });
+  assert.equal(a.cs.dashCooldown, 0, 'the full string recharged the dash');
+  parryGrace(b, 11);
+  assert.equal(a.cs.stringHits, COMBAT.JAB.length - 1);
+  assert.ok(a.cs.dashCooldown >= 40 - 1 - 5, `cooldown ${a.cs.dashCooldown} restored`);
+});
+
+test('a grace parry keeps presses buffered after the hit', () => {
+  const { b } = hitAt10();
+  stepCombat(b.cs, { pressed: BUTTONS.DASH });
+  parryGrace(b, 11);
+  assert.equal(b.cs.buffer, BUTTONS.DASH);
+});

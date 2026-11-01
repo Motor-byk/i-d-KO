@@ -6,18 +6,10 @@ const SERVER = window.GAME_SERVER_URL || window.location.origin;
 const SESSION_KEY = 'idko-session';
 const WAKE_GIVE_UP_MS = 90_000;
 
-async function healthOk() {
-  try {
-    const res = await fetch(`${SERVER}/health`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-// Opens and closes a bare websocket. Some browsers get a 503 on cross-origin HTTP to the
-// Render server (seen in Chrome) while websockets go through, and the game only needs those.
-function socketOpens() {
+// Opens and closes a bare websocket: the server is awake if the handshake completes.
+// Not a fetch of /health: on Render, Chrome gets a 503 on cross-origin HTTP to the server
+// while websockets go through, and websockets are all the game needs.
+function serverAwake() {
   return new Promise((resolve) => {
     const url = `${SERVER.replace(/^http/, 'ws')}/socket.io/?EIO=4&transport=websocket`;
     let ws;
@@ -39,11 +31,7 @@ function socketOpens() {
   });
 }
 
-async function serverAwake() {
-  return (await healthOk()) || socketOpens();
-}
-
-// Render free instances sleep; poll /health until it answers. onAttempt(n) drives the UI.
+// Render free instances sleep; probe until the server answers. onAttempt(n) drives the UI.
 // Resolves false after ~90s so a misconfigured URL doesn't look like an endless nap.
 export async function wakeServer(onAttempt) {
   const deadline = Date.now() + WAKE_GIVE_UP_MS;

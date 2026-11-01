@@ -24,7 +24,7 @@ npm test      # node --test "test/**/*.test.js"
 `test/helpers.js` has `startServer(t)`, `call()` and `nextEvent()` for socket tests.
 
 ## Hosting (Render free tier)
-- Two services in `render.yaml`: the client is a static site (never sleeps) and the server is a free web service (sleeps, cold starts in 30–60s). The client shows "Waking server…" while it polls `/health`.
+- Two services in `render.yaml`: the client is a static site (never sleeps) and the server is a free web service (sleeps, cold starts in 30–60s). The client shows "Waking server…" while it probes the server with a bare websocket (browsers can get a 503 on cross-origin HTTP to it; `/health` is for Render's health check and curl).
 - `autoDeploy: false` on purpose: rooms live in memory, so a deploy kills live matches.
 - Env vars: `GAME_SERVER_URL` (client build) and `CLIENT_ORIGIN` (server, required in production). Websocket Origin is enforced via `allowRequest`, because CORS doesn't cover upgrades.
 

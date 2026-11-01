@@ -9,7 +9,7 @@ services:
     buildCommand: npm ci --omit=dev
     startCommand: npm start
     # Health checks don't count as traffic, so they don't keep the free instance awake;
-    # open clients ping /health for that (public/js/connection.js keepAwake).
+    # open clients open a probe websocket for that (public/js/connection.js keepAwake).
     healthCheckPath: /health
     autoDeploy: false
     envVars:

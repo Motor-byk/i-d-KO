@@ -1,4 +1,4 @@
-import { PLAYER, TICK_MS } from '../../shared/constants.js';
+import { TICK_MS } from '../../shared/constants.js';
 import { h } from './dom.js';
 import { createRenderer } from '../render.js';
 import { desktopInput } from '../input/desktop.js';
@@ -68,7 +68,6 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
         const team = options.get(player?.teamId);
         return {
           ...f,
-          darkHorse: f.maxHp > PLAYER.BASE_HP,
           color: team?.color ?? '#888888',
           label: team?.name ?? '?',
           nickname: player?.nickname ?? '',

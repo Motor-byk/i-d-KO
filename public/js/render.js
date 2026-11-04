@@ -63,7 +63,7 @@ function fistExtension(cs) {
   return cs.jab % 2 ? [0, k] : [k, 0];
 }
 
-// Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, darkHorse, alive,
+// Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
 // cs, color, label, nickname }], meId, followId, ring, floats, shake }. Camera follows followId, or
 // fits the arena if null. ring is the shrinking ring's radius; floats and shake come from juice.js.
 export function createRenderer(canvas) {
@@ -263,7 +263,7 @@ export function createRenderer(canvas) {
     ctx.fillStyle = COLORS.name;
     ctx.font = `600 ${RENDER.NAME_FONT}px system-ui, sans-serif`;
     ctx.textBaseline = 'bottom';
-    ctx.fillText(f.darkHorse ? `🐴 ${f.nickname}` : f.nickname, f.x, barY - 3);
+    ctx.fillText(f.maxHp > PLAYER.BASE_HP ? `🐴 ${f.nickname}` : f.nickname, f.x, barY - 3);
 
     // Hits taken in the running combo.
     if (f.cs.combo >= 2) outlinedText(`${f.cs.combo} HITS`, f.x, f.y + r + JUICE.COMBO_FONT, JUICE.COMBO_FONT, COLORS.combo);

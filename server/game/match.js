@@ -84,9 +84,10 @@ export class Match {
     const sizes = teams.map((t) => t.length);
     const spawns = spawnPoints(sizes);
     const largest = Math.max(...sizes);
+    const buffsByTeam = new Map(room.options.map((o, i) => [o.id, teamBuffs(sizes[i], largest)]));
     // Stable order (team, then join order) keeps body separation repeatable.
     this.fighters = teams.flat().map((p, i) => {
-      const buffs = teamBuffs(sizes[room.options.findIndex((o) => o.id === p.teamId)], largest);
+      const buffs = buffsByTeam.get(p.teamId);
       const maxHp = Math.round(PLAYER.BASE_HP * buffs.hp);
       return {
         id: p.id,

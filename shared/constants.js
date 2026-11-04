@@ -151,6 +151,23 @@ export const RENDER = {
   FIST_SPREAD: 0.6,   // radians either side of aim
 };
 
+// Client-only effects. Fonts and distances in world units, durations in ticks.
+export const JUICE = {
+  DAMAGE_MIN: 1,         // HP lost between snapshots below this is the ring's burn, not a hit
+  FLOAT_TICKS: 24,
+  FLOAT_RISE: 1.5,       // per tick
+  FLOAT_SPREAD: 14,      // random sideways offset, so a combo's numbers don't stack
+  DAMAGE_FONT: 20,
+  KO_FONT: 36,
+  COMBO_FONT: 14,
+  SHAKE_PER_DAMAGE: 0.8,
+  SHAKE_OTHERS: 0.3,     // someone else's hit shakes this much of your own
+  SHAKE_KO: 8,
+  SHAKE_MAX: 14,
+  SHAKE_DECAY: 0.8,      // share left after each tick
+  SHAKE_MIN: 0.2,        // below this it stops
+};
+
 // Touch controls, in CSS pixels.
 export const TOUCH = {
   STICK_RADIUS: 60,   // joystick throw; full speed at the rim

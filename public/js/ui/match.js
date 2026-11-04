@@ -5,6 +5,7 @@ import { desktopInput } from '../input/desktop.js';
 import { touchInput } from '../input/touch.js';
 import { debugOverlay } from '../debug.js';
 import { createClock, createInterpolator, createPredictor, createTicker } from '../net.js';
+import { createJuice } from '../juice.js';
 
 // Match screen: a full-screen canvas drawn every frame. Other players are interpolated between
 // snapshots, a little in the past; your own fighter is predicted (net.js).
@@ -34,6 +35,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   const clock = createClock();
   const interp = createInterpolator();
   const ticker = createTicker(performance.now());
+  const juice = createJuice();
   let aim = null; // last aim sent
 
   // The (fractional) server tick other players are shown at.
@@ -53,11 +55,14 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
 
   function view(now) {
     const me = myFighter(now);
+    const tick = renderTick(now);
     return {
       meId: playerId,
       followId: playerId,
       ring: snap.ring, // moves a fraction of a unit per snapshot: no need to interpolate
-      fighters: interp.sample(renderTick(now)).map((other) => {
+      floats: juice.floatsAt(tick),
+      shake: juice.shakeAt(now),
+      fighters: interp.sample(tick).map((other) => {
         const f = other.id === playerId && me ? me : other;
         const player = players.get(f.id);
         const team = options.get(player?.teamId);
@@ -131,6 +136,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       debug.onSnapshot(next);
       debug.setInterp(interp.delayMs, clock.jitterMs);
       notice.hidden = !next.suddenDeath;
+      juice.onSnapshot(next, playerId);
       const me = serverMe();
       if (!me) predictor.reset();
       else debug.setCorrection(predictor.reconcile(me, next.acks[playerId] ?? -1));

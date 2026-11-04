@@ -1,4 +1,4 @@
-import { ARENA, PLAYER, RENDER, COMBAT } from '../shared/constants.js';
+import { ARENA, PLAYER, RENDER, COMBAT, JUICE } from '../shared/constants.js';
 import { STATE, moveTiming, phase, chargeFraction, isParrying } from '../shared/combat-state.js';
 
 const COLORS = {
@@ -25,6 +25,10 @@ const COLORS = {
   dashReady: '#9be7ff',
   zone: 'rgba(239, 71, 111, 0.22)',  // outside the ring
   zoneEdge: '#ef476f',
+  damage: '#ffffff',
+  ko: '#ffd166',
+  combo: '#ffd166',
+  floatOutline: 'rgba(0, 0, 0, 0.7)',
 };
 const STUN_DOTS = 3;
 const INVULN_ALPHA = 0.55;
@@ -60,8 +64,8 @@ function fistExtension(cs) {
 }
 
 // Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, darkHorse, alive,
-// cs, color, label, nickname }], meId, followId, ring }. Camera follows followId, or fits the arena if
-// null. ring is the shrinking ring's radius.
+// cs, color, label, nickname }], meId, followId, ring, floats, shake }. Camera follows followId, or
+// fits the arena if null. ring is the shrinking ring's radius; floats and shake come from juice.js.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   let dpr = 1;
@@ -260,6 +264,28 @@ export function createRenderer(canvas) {
     ctx.font = `600 ${RENDER.NAME_FONT}px system-ui, sans-serif`;
     ctx.textBaseline = 'bottom';
     ctx.fillText(f.darkHorse ? `🐴 ${f.nickname}` : f.nickname, f.x, barY - 3);
+
+    // Hits taken in the running combo.
+    if (f.cs.combo >= 2) outlinedText(`${f.cs.combo} HITS`, f.x, f.y + r + JUICE.COMBO_FONT, JUICE.COMBO_FONT, COLORS.combo);
+  }
+
+  function outlinedText(text, x, y, size, color) {
+    ctx.font = labelFont(size);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = COLORS.floatOutline;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  function drawFloats(floats) {
+    for (const t of floats) {
+      ctx.globalAlpha = t.alpha;
+      outlinedText(t.text, t.x, t.y, t.ko ? JUICE.KO_FONT : JUICE.DAMAGE_FONT, t.ko ? COLORS.ko : COLORS.damage);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function draw(view) {
@@ -270,12 +296,13 @@ export function createRenderer(canvas) {
     ctx.fillRect(0, 0, cam.cw, cam.ch);
     ctx.setTransform(
       dpr * cam.scale, 0, 0, dpr * cam.scale,
-      dpr * (cam.cw / 2 - cam.x * cam.scale), dpr * (cam.ch / 2 - cam.y * cam.scale),
+      dpr * (cam.cw / 2 - (cam.x + view.shake.x) * cam.scale), dpr * (cam.ch / 2 - (cam.y + view.shake.y) * cam.scale),
     );
     drawArena();
     drawZone(view.ring);
     const alive = view.fighters.filter((f) => f.alive).sort((a, b) => a.y - b.y);
     for (const f of alive) drawFighter(f, f.id === view.meId);
+    drawFloats(view.floats);
   }
 
   // Screen (client) coordinates -> world coordinates, using the last drawn frame's camera.

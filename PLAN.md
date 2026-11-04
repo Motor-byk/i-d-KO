@@ -29,6 +29,7 @@
   - Step 26: `server/game/modes/elimination.js` is the mode interface (`onStart`, `onTick`, `checkWinner`, plus `publicState` for extra snapshot fields); `Match` takes `mode`. A tie is everyone alive at the last check falling on one tick, after ring damage. Revive = clean slate through `match.revive` (input stream reset and lag comp history cleared, so nobody is hit at their old position). **Added beyond the plan's wording:** the sudden death ring keeps closing (200 → 0 over 20s), so a stall can't last. The deciding KO holds on screen for `MATCH.END_DELAY_TICKS` (1.5s); ring damage stops then. The match end goes out after the tick's snapshot. A match with nobody left to win gives `{ teamId: null }`.
   - Step 27: `server/game/balance.js` `teamBuffs(size, largest)` from team sizes at the start. Fighters carry `maxHp` (rounded) and `damageMult`; a sudden death revive stays at 1 HP. Snapshots carry `maxHp`, and the client shows 🐴 beside the nickname when it's above base.
   - Step 28: a decided match puts the room in state `results` with `result: { optionId }` (`rooms.finishMatch`), sent via `room:update`, so it's reliable, arrives after the last snapshot, and a rejoin lands on the same screen. The room stays locked until everyone has left (Back to home = `room:leave`); a crash still goes to the lobby (`rooms.endMatch`).
+  - Step 29: `public/js/juice.js` (no DOM, tested under node) works out effects from snapshot changes: damage numbers (HP lost ≥ `JUICE.DAMAGE_MIN`, so the ring's burn floats nothing) and KO pops, timed to the interpolated view; screen shake from hits (others' hits at `SHAKE_OTHERS`) and KOs, offsetting the camera. The combo counter under a fighter reads `cs.combo` from the snapshot. No new server data.
 - Review notes to handle in later steps:
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
@@ -128,6 +129,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/ui/lobby.js    options, team picking, host controls, share link
 [x] public/js/net.js         clock estimate, prediction/reconciliation, adaptive interpolation
 [x] public/js/render.js      circles w/ option names, fists, ring, pillars, juice
+[x] public/js/juice.js       client-only effects from snapshot changes: damage numbers, KO pops, shake
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
 [x] public/js/ui/results.js  winner reveal, back to home
 [x] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
@@ -167,7 +169,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 26. [x] `feat: elimination mode and sudden death` — + tests (tie after ring damage).
 27. [x] `feat: dark horse balancing` — + badge + tests.
 28. [x] `feat: results screen`.
-29. `feat: game juice` — shake, damage numbers, combo counter.
+29. [x] `feat: game juice` — shake, damage numbers, combo counter.
 30. `feat: mid-match disconnect handling` — idle hittable circle, KO when grace runs out.
 31. `feat: graceful shutdown` — SIGTERM → `server:restarting`.
 32. `chore: bot clients script` — scripts/bots.js with latency injection.

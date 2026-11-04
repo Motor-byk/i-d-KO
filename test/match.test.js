@@ -2,26 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, validateInput, spawnPoints } from '../server/game/match.js';
 import { ARENA, PLAYER, BUTTONS, NET, RING, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
-import { startServer, call, nextEvent } from './helpers.js';
-
-const input = (seq, over = {}) => ({ seq, tick: 0, move: { x: 0, y: 0 }, aim: 0, buttons: 0, ...over });
-
-function fakeMatch(teamSizes = [1, 1]) {
-  const players = new Map();
-  let id = 1;
-  const options = teamSizes.map((size, i) => {
-    for (let k = 0; k < size; k++, id++) players.set(id, { id, teamId: i + 1 });
-    return { id: i + 1 };
-  });
-  const sent = [];
-  let empty = 0;
-  const match = new Match({
-    room: { players, options },
-    emit: (event, payload) => sent.push([event, payload]),
-    onEmpty: () => empty++,
-  });
-  return { match, players, sent, emptyCalls: () => empty };
-}
+import { startServer, call, nextEvent, input, fakeMatch, startedMatch } from './helpers.js';
 
 test('validateInput rejects malformed input and normalizes the rest', () => {
   assert.ok(validateInput(input(1)));
@@ -122,23 +103,6 @@ test('spawn points stay inside the arena, clear of pillars, and do not overlap',
   }
   assert.equal(spawnPoints([2, 2]).length, 4);
 });
-
-// Two players on two teams, match started. Returns the server, both sockets, and ids.
-async function startedMatch(t) {
-  const server = await startServer(t);
-  const a = await server.client();
-  const b = await server.client();
-  const { room, playerId } = await call(a, 'room:create', { nickname: 'Ana' });
-  await call(b, 'room:join', { code: room.code, nickname: 'Ben' });
-  await call(a, 'option:add', { name: 'Tacos' });
-  const update = nextEvent(a, 'room:update');
-  await call(a, 'option:add', { name: 'Sushi' });
-  const { options } = await update;
-  await call(a, 'team:pick', { optionId: options[0].id });
-  await call(b, 'team:pick', { optionId: options[1].id });
-  assert.deepEqual(await call(a, 'match:start'), { ok: true });
-  return { ...server, a, b, code: room.code, playerId };
-}
 
 test('over sockets: starting a match streams snapshots that ack inputs', async (t) => {
   const { a, b, playerId } = await startedMatch(t);

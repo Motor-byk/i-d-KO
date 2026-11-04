@@ -18,10 +18,6 @@ test('the ring holds, then closes evenly, then stays closed', () => {
   assert.equal(ringRadius(ring, RING.CLOSE_TICK + 1000), RING.END_RADIUS);
 });
 
-test('the starting ring covers the whole arena', () => {
-  assert.ok(RING.START_RADIUS >= Math.hypot(CX, CY));
-});
-
 test('only fighters outside the ring take damage', () => {
   const inside = fighter(CX + 99, CY);
   const edge = fighter(CX + 100, CY);

@@ -1,31 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Match } from '../server/game/match.js';
 import { ARENA, BUTTONS, DT, MATCH, PLAYER, RING } from '../shared/constants.js';
-import { startServer, call, nextEvent } from './helpers.js';
+import { call, nextEvent, input, fakeMatch, startedMatch } from './helpers.js';
 
 const CX = ARENA.WIDTH / 2;
 const CY = ARENA.HEIGHT / 2;
-const input = (seq, over = {}) => ({ seq, tick: 0, move: { x: 0, y: 0 }, aim: 0, buttons: 0, ...over });
-
-function fakeMatch(teamSizes = [1, 1]) {
-  const players = new Map();
-  let id = 1;
-  const options = teamSizes.map((size, i) => {
-    for (let k = 0; k < size; k++, id++) players.set(id, { id, teamId: i + 1 });
-    return { id: i + 1 };
-  });
-  const sent = [];
-  const ended = [];
-  const match = new Match({
-    room: { players, options },
-    emit: (_event, payload) => sent.push(payload),
-    onEmpty: () => {},
-    onEnd: (result) => ended.push(result),
-  });
-  return { match, players, sent, ended };
-}
-
 // About to burn out: one more tick outside the ring is a KO.
 function burnNextTick(f) {
   f.body.x = PLAYER.RADIUS;
@@ -50,7 +29,7 @@ test('the last team standing wins, and the match ends after a short delay', () =
     match.step();
   }
   assert.deepEqual(ended, [{ teamId: a.teamId }]);
-  assert.equal(sent.at(-1).fighters.find((f) => f.id === b.id).alive, false);
+  assert.equal(sent.at(-1)[1].fighters.find((f) => f.id === b.id).alive, false);
 });
 
 test('the winner stops burning once the match is decided', () => {
@@ -95,8 +74,8 @@ test('all remaining teams falling on one tick is sudden death: revived at 1 HP i
     assert.ok(Math.hypot(f.body.x - CX, f.body.y - CY) < RING.SUDDEN_DEATH_RADIUS);
   }
   match.step();
-  assert.equal(sent.at(-1).suddenDeath, 1);
-  assert.ok(sent.at(-1).ring <= RING.SUDDEN_DEATH_RADIUS);
+  assert.equal(sent.at(-1)[1].suddenDeath, 1);
+  assert.ok(sent.at(-1)[1].ring <= RING.SUDDEN_DEATH_RADIUS);
 });
 
 test('a hit and the ring KOing the last two on one tick is a tie too (ring runs after hits)', () => {
@@ -157,13 +136,12 @@ test('only the tied fighters come back; earlier KOs stay out', () => {
 });
 
 test('someone leaving on the tied tick is not tied: the team still in the room wins', () => {
-  const { match } = fakeMatch([2, 1]);
+  const { match, players } = fakeMatch([2, 1]);
   const [a1, a2, b] = match.fighters;
   closeRing(match);
   burnNextTick(a1);
   burnNextTick(a2);
   burnNextTick(b);
-  const { players } = match.room;
   players.delete(b.id); // left on the same tick: not tied, just gone
   match.step();
   assert.deepEqual(match.result, { teamId: a1.teamId });
@@ -242,39 +220,29 @@ test('a revive keeps the input stream: acks hold, and a button held through it i
 });
 
 test('over sockets: when the match is decided the room shows the winner and stays locked', async (t) => {
-  const { client, rooms, loop } = await startServer(t);
-  const a = await client();
-  const b = await client();
-  const { room, token } = await call(a, 'room:create', { nickname: 'Ana' });
-  await call(b, 'room:join', { code: room.code, nickname: 'Ben' });
-  await call(a, 'option:add', { name: 'Tacos' });
-  await call(a, 'option:add', { name: 'Sushi' });
-  const { options } = rooms.getRoom(room.code);
-  await call(a, 'team:pick', { optionId: options[0].id });
-  await call(b, 'team:pick', { optionId: options[1].id });
-  await call(a, 'match:start');
-  const { match } = rooms.getRoom(room.code);
+  const { client, rooms, loop, a, b, code, token, options } = await startedMatch(t);
+  const { match } = rooms.getRoom(code);
   await call(b, 'room:leave');
   let update;
   do update = await nextEvent(a, 'room:update');
   while (update.state !== 'results');
   assert.deepEqual(update.result, { optionId: options[0].id });
-  assert.equal(rooms.getRoom(room.code).match, null);
+  assert.equal(rooms.getRoom(code).match, null);
   assert.equal(loop.stats(match), undefined);
 
   // Locked: no new players, no lobby actions, no second match.
   const c = await client();
-  assert.equal((await call(c, 'room:join', { code: room.code, nickname: 'Cy' })).error, 'ROOM_LOCKED');
+  assert.equal((await call(c, 'room:join', { code: code, nickname: 'Cy' })).error, 'ROOM_LOCKED');
   assert.equal((await call(a, 'match:start')).error, 'ROOM_LOCKED');
 
   // A reload lands back on the same result.
   a.disconnect();
   const again = await client();
-  const rejoined = await call(again, 'room:rejoin', { code: room.code, token });
+  const rejoined = await call(again, 'room:rejoin', { code: code, token });
   assert.equal(rejoined.room.state, 'results');
   assert.deepEqual(rejoined.room.result, { optionId: options[0].id });
 
   // The last player out deletes the room.
   await call(again, 'room:leave');
-  assert.equal(rooms.getRoom(room.code), undefined);
+  assert.equal(rooms.getRoom(code), undefined);
 });

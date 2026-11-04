@@ -2,7 +2,7 @@ import { COMBAT, PLAYER } from '../../shared/constants.js';
 import { angleDiff } from '../../shared/math.js';
 import { applyHit, applyLanded, applyParry, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
 
-// Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, alive, hitIds }.
+// Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, damageMult, alive, hitIds }.
 
 // Un-aimed jabs snap to the nearest enemy inside the assist cone around aim; else aim is kept.
 export function assistAim(attacker, fighters, aim) {
@@ -93,7 +93,7 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
       // Friendly fire is knockback only: no damage, hitstun or hitstop.
       push(attacker, target, move.knockback, attacker.cs.dir);
     } else {
-      damage = move.damage;
+      damage = move.damage * attacker.damageMult;
       if (inGrace(target, tick) && target.grace.attackers.has(attacker)) target.grace.damage += damage;
       target.hp = Math.max(0, target.hp - damage);
       if (target.hp === 0) target.alive = false;

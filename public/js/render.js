@@ -59,8 +59,8 @@ function fistExtension(cs) {
   return cs.jab % 2 ? [0, k] : [k, 0];
 }
 
-// Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive, cs,
-// color, label, nickname }], meId, followId, ring }. Camera follows followId, or fits the arena if
+// Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, darkHorse, alive,
+// cs, color, label, nickname }], meId, followId, ring }. Camera follows followId, or fits the arena if
 // null. ring is the shrinking ring's radius.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
@@ -259,7 +259,7 @@ export function createRenderer(canvas) {
     ctx.fillStyle = COLORS.name;
     ctx.font = `600 ${RENDER.NAME_FONT}px system-ui, sans-serif`;
     ctx.textBaseline = 'bottom';
-    ctx.fillText(f.nickname, f.x, barY - 3);
+    ctx.fillText(f.darkHorse ? `🐴 ${f.nickname}` : f.nickname, f.x, barY - 3);
   }
 
   function draw(view) {

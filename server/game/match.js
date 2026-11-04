@@ -5,6 +5,7 @@ import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
 import { round2, wrapAngle } from '../../shared/math.js';
 import { assistAim, burstPush, parryGrace, resolveHits } from './combat.js';
 import { PositionHistory, rewindTicks } from './lagcomp.js';
+import { teamBuffs } from './balance.js';
 import { eliminationMode } from './modes/elimination.js';
 
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
@@ -80,31 +81,39 @@ export class Match {
     this.endsIn = MATCH.END_DELAY_TICKS;
 
     const teams = room.options.map((o) => [...room.players.values()].filter((p) => p.teamId === o.id));
-    const spawns = spawnPoints(teams.map((t) => t.length));
+    const sizes = teams.map((t) => t.length);
+    const spawns = spawnPoints(sizes);
+    const largest = Math.max(...sizes);
     // Stable order (team, then join order) keeps body separation repeatable.
-    this.fighters = teams.flat().map((p, i) => ({
-      id: p.id,
-      teamId: p.teamId,
-      body: createBody(spawns[i].x, spawns[i].y),
-      aim: spawns[i].aim,
-      aimed: false,
-      cs: { ...createCombat(), dir: spawns[i].aim },
-      hitIds: new Set(), // who the current move already hit
-      grace: null,       // hits a late parry can still undo (combat.js parryGrace)
-      rewind: 0,         // lag compensation for this fighter's attacks, in ticks
-      hp: PLAYER.BASE_HP,
-      alive: true,
-      queue: [],
-      lastSeq: -1,     // newest seq accepted
-      lastStamp: -1,   // view tick of the newest accepted input
-      ackSeq: -1,      // newest seq applied by the sim
-      move: { x: 0, y: 0 },
-      starved: 0,      // ticks in a row with no input
-      queuedHeld: 0,   // buttons held as of the last queued input (edges are derived against it)
-      buttons: 0,      // buttons held as of the applied input
-      pressed: 0,      // buttons pressed this tick
-      released: 0,     // buttons released this tick
-    }));
+    this.fighters = teams.flat().map((p, i) => {
+      const buffs = teamBuffs(sizes[room.options.findIndex((o) => o.id === p.teamId)], largest);
+      const maxHp = Math.round(PLAYER.BASE_HP * buffs.hp);
+      return {
+        id: p.id,
+        teamId: p.teamId,
+        body: createBody(spawns[i].x, spawns[i].y),
+        aim: spawns[i].aim,
+        aimed: false,
+        cs: { ...createCombat(), dir: spawns[i].aim },
+        hitIds: new Set(), // who the current move already hit
+        grace: null,       // hits a late parry can still undo (combat.js parryGrace)
+        rewind: 0,         // lag compensation for this fighter's attacks, in ticks
+        maxHp,
+        hp: maxHp,
+        damageMult: buffs.damage,
+        alive: true,
+        queue: [],
+        lastSeq: -1,     // newest seq accepted
+        lastStamp: -1,   // view tick of the newest accepted input
+        ackSeq: -1,      // newest seq applied by the sim
+        move: { x: 0, y: 0 },
+        starved: 0,      // ticks in a row with no input
+        queuedHeld: 0,   // buttons held as of the last queued input (edges are derived against it)
+        buttons: 0,      // buttons held as of the applied input
+        pressed: 0,      // buttons pressed this tick
+        released: 0,     // buttons released this tick
+      };
+    });
     separateBodies(this.fighters.map((f) => f.body));
     this.byId = new Map(this.fighters.map((f) => [f.id, f]));
     this.history = new PositionHistory();
@@ -224,7 +233,7 @@ export class Match {
       acks,
       ...this.mode.publicState(this),
       ...(perf && { tickMs: { avg: round2(perf.avgMs), max: round2(perf.maxMs) } }),
-      fighters: this.fighters.map(({ id, body, aim, cs, hp, alive }) => ({
+      fighters: this.fighters.map(({ id, body, aim, cs, hp, maxHp, alive }) => ({
         id,
         x: round2(body.x),
         y: round2(body.y),
@@ -234,6 +243,7 @@ export class Match {
         ky: round2(body.ky),
         aim: round2(aim),
         hp: round2(hp), // fractional once the ring burns
+        maxHp,
         alive,
         cs: { ...cs, dir: round4(cs.dir) },
       })),

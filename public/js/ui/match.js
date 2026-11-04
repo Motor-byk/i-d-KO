@@ -63,7 +63,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
         const team = options.get(player?.teamId);
         return {
           ...f,
-          maxHp: PLAYER.BASE_HP,
+          darkHorse: f.maxHp > PLAYER.BASE_HP,
           color: team?.color ?? '#888888',
           label: team?.name ?? '?',
           nickname: player?.nickname ?? '',

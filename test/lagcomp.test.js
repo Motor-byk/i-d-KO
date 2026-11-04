@@ -8,7 +8,7 @@ import { createBody } from '../shared/physics.js';
 import { BUTTONS, COMBAT, NET, PLAYER, TICK_RATE } from '../shared/constants.js';
 
 const fighter = (id, teamId, x, y) => ({
-  id, teamId, body: createBody(x, y), cs: createCombat(), hp: PLAYER.BASE_HP, alive: true,
+  id, teamId, body: createBody(x, y), cs: createCombat(), hp: PLAYER.BASE_HP, damageMult: 1, alive: true,
   hitIds: new Set(), grace: null, rewind: 0,
 });
 

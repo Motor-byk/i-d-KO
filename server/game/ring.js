@@ -1,5 +1,6 @@
 import { ARENA, DT, RING } from '../../shared/constants.js';
 import { lerp } from '../../shared/math.js';
+import { hurt } from './combat.js';
 
 // The shrinking ring: a circle around the arena's center. A schedule says when it closes and
 // between which radii, so a mode can swap it (sudden death). Fighters outside take damage.
@@ -29,7 +30,6 @@ export function applyRingDamage(fighters, radius) {
   for (const f of fighters) {
     if (!f.alive) continue;
     if (Math.hypot(f.body.x - ARENA.WIDTH / 2, f.body.y - ARENA.HEIGHT / 2) <= radius) continue;
-    f.hp = Math.max(0, f.hp - RING.DAMAGE_PER_SECOND * DT);
-    if (f.hp === 0) f.alive = false;
+    hurt(f, RING.DAMAGE_PER_SECOND * DT);
   }
 }

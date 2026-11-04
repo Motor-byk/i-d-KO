@@ -32,6 +32,13 @@ test('only fighters outside the ring take damage', () => {
   assert.equal(outside.hp, PLAYER.BASE_HP - RING.DAMAGE_PER_SECOND * DT);
 });
 
+test('a float crumb of HP is a KO, not a fighter at 0.00', () => {
+  const f = fighter(CX + 500, CY, RING.DAMAGE_PER_SECOND * DT + 1e-12);
+  applyRingDamage([f], 100);
+  assert.equal(f.hp, 0);
+  assert.equal(f.alive, false);
+});
+
 test('the ring can KO, and leaves the dead alone', () => {
   const f = fighter(CX + 500, CY, RING.DAMAGE_PER_SECOND * DT);
   applyRingDamage([f], 100);

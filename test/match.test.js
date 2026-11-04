@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, validateInput, spawnPoints } from '../server/game/match.js';
-import { ARENA, PLAYER, BUTTONS, NET, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
+import { ARENA, PLAYER, BUTTONS, NET, RING, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
 import { startServer, call, nextEvent } from './helpers.js';
 
 const input = (seq, over = {}) => ({ seq, tick: 0, move: { x: 0, y: 0 }, aim: 0, buttons: 0, ...over });
@@ -245,6 +245,19 @@ test('release edges survive input merging', () => {
   match.input(1, input(3, { buttons: 0 }));
   const released = match.byId.get(1).queue.reduce((acc, i) => acc | i.released, 0);
   assert.equal(released, BUTTONS.HEAVY);
+});
+
+test('once the ring closes in, fighters outside burn and snapshots carry its radius', () => {
+  const { match, sent } = fakeMatch();
+  const [a, b] = match.fighters;
+  a.body.x = ARENA.WIDTH / 2 - 150; a.body.y = ARENA.HEIGHT / 2; // inside, by the center pillar
+  b.body.x = PLAYER.RADIUS; b.body.y = PLAYER.RADIUS;            // in a corner
+  match.tick = RING.START_TICK + (RING.CLOSE_TICK - RING.START_TICK) / 2;
+  for (let i = 0; i < 2; i++) match.step();
+  assert.equal(a.hp, PLAYER.BASE_HP);
+  assert.ok(b.hp < PLAYER.BASE_HP);
+  const snap = sent.at(-1)[1];
+  assert.ok(snap.ring > 0 && snap.ring < RING.START_RADIUS);
 });
 
 test('a mashed jab string is a true combo: all three hits land in one combo', () => {

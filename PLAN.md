@@ -24,7 +24,8 @@
   - Step 24: `server/game/lagcomp.js` keeps `MAX_REWIND_TICKS + 1` ticks of positions (recorded after body separation, before hits). Each applied input sets the attacker's `rewind` = server tick − input tick, clamped to [0, `LAG_COMP_MAX_MS`]; `resolveHits` checks reach against `seen(attacker, target)`, the rewound position unless the target is dashing, parrying or bursting now. Knockback direction uses current positions. **Parry grace (deviation from the plan's wording):** input stamps are render ticks (≥100ms in the past), so they can't be compared with the hit tick. Instead, enemy hits on an *idle* target keep an undo record (`target.grace`), and a parry press applied within `COMBAT.PARRY.grace` ticks undoes them (gives back their damage, restores combat state and knockback, keeps presses buffered since) and stuns every attacker in them, taking back their jab string credit. A KO is final.
   - Review fixes: inputs use a plain emit (socket.io dropped volatile emits while a write was in flight, losing catch-up inputs); a clock jump needs `CLOCK_JUMP_CONFIRM` snapshots in a row (a lone late one only counts toward jitter); grace parry fixes above. **Lag comp cap 100 → 200ms (user decision):** the view is always ≥100ms old from interpolation alone, so a 100ms cap compensated no ping at all; 200ms covers good and typical mobile connections, worse ones lead their targets. View ticks can't go backwards, jump more than `MAX_STAMP_STEP` per input, or pass the server tick, so a client can't pick its rewind.
   - Checked in Chrome against a bot: snapshots at 20/s, interp delay 100ms, no console errors. Zero prediction corrections while walking and dashing, on localhost and with ~97ms RTT simulated by delaying the page's WebSocket sends; a forced reconnect mid-match rejoined cleanly. Got KO'd by the bot's jabs. Corrections from server-only events (hits, body pushes) weren't observed: on localhost hitstop hides them, and with latency I didn't get into contact. Touch still untested on a real phone.
-- **Next: Milestone E** (step 25, `feat: shrinking ring`), on a new branch off `main` once D is merged.
+- **Milestone E (steps 25–29): in progress** on branch `milestone-e-match-flow`.
+  - Step 25: `server/game/ring.js` is a schedule (`matchRing`) + `ringRadius(ring, tick)` + `applyRingDamage`, run after hits so ties can be checked after ring damage. Snapshots carry the radius (`ring`); the client tints outside it. `START_RADIUS` is now derived from the arena so the ring starts just covering the corners, instead of spending ~10s invisible. HP is fractional (rounded to 2 decimals in snapshots).
 - Review notes to handle in later steps:
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
@@ -109,7 +110,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] server/game/combat.js    hit detection + resolution (uses shared/combat-state.js), friendly knockback
 [x] server/game/lagcomp.js   position history + rewind rules (parry grace lives in combat.js)
 [x] shared/arena.js         walls, pillars, swept collision, wall-bounce reflection (shared: prediction needs it)
-[ ] server/game/ring.js      shrink schedule + outside damage
+[x] server/game/ring.js      shrink schedule + outside damage
 [ ] server/game/balance.js   dark-horse multipliers
 [ ] server/game/modes/elimination.js   win check, tie -> sudden death
 [x] shared/constants.js      every tunable: ticks, frame data, room limits, ring, balance, net
@@ -158,7 +159,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 22. [x] `feat: client prediction and reconciliation` — net.js using physics + combat-state + replay tests.
 23. [x] `feat: adaptive interpolation and clock sync`.
 24. [x] `feat: lag compensation` — lagcomp.js (positions only, parry grace) + tests.
-25. `feat: shrinking ring` — + tests.
+25. [x] `feat: shrinking ring` — + tests.
 26. `feat: elimination mode and sudden death` — + tests (tie after ring damage).
 27. `feat: dark horse balancing` — + badge + tests.
 28. `feat: results screen`.

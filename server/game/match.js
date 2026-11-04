@@ -5,6 +5,7 @@ import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
 import { wrapAngle } from '../../shared/math.js';
 import { assistAim, burstPush, parryGrace, resolveHits } from './combat.js';
 import { PositionHistory, rewindTicks } from './lagcomp.js';
+import { matchRing, ringRadius, applyRingDamage } from './ring.js';
 
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 
@@ -102,6 +103,7 @@ export class Match {
     separateBodies(this.fighters.map((f) => f.body));
     this.byId = new Map(this.fighters.map((f) => [f.id, f]));
     this.history = new PositionHistory();
+    this.ring = matchRing();
   }
 
   // Queues one validated input. Returns false if it was rejected.
@@ -180,6 +182,7 @@ export class Match {
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));
     this.history.record(this.tick, this.fighters);
     resolveHits(this.fighters, { tick: this.tick, seen: this.history.seen(this.tick) });
+    applyRingDamage(this.fighters, ringRadius(this.ring, this.tick));
     if (this.#snapshotDue()) this.emit('match:snapshot', this.snapshot(), { volatile: true });
   }
 
@@ -195,6 +198,7 @@ export class Match {
     return {
       tick: this.tick,
       acks,
+      ring: round2(ringRadius(this.ring, this.tick)),
       ...(perf && { tickMs: { avg: round2(perf.avgMs), max: round2(perf.maxMs) } }),
       fighters: this.fighters.map(({ id, body, aim, cs, hp, alive }) => ({
         id,
@@ -205,7 +209,7 @@ export class Match {
         kx: round2(body.kx),
         ky: round2(body.ky),
         aim: round2(aim),
-        hp,
+        hp: round2(hp), // fractional once the ring burns
         alive,
         cs: { ...cs, dir: round4(cs.dir) },
       })),

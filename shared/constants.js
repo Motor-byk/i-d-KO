@@ -120,7 +120,7 @@ export const COMBAT = {
 export const RING = {
   START_TICK: 45 * TICK_RATE,
   CLOSE_TICK: 150 * TICK_RATE,
-  START_RADIUS: 1000,
+  START_RADIUS: Math.ceil(Math.hypot(ARENA.WIDTH, ARENA.HEIGHT) / 2), // just covers the corners
   END_RADIUS: 0,
   DAMAGE_PER_SECOND: 8,
   SUDDEN_DEATH_RADIUS: 200,

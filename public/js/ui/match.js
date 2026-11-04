@@ -54,6 +54,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
     return {
       meId: playerId,
       followId: playerId,
+      ring: snap.ring, // moves a fraction of a unit per snapshot: no need to interpolate
       fighters: interp.sample(renderTick(now)).map((other) => {
         const f = other.id === playerId && me ? me : other;
         const player = players.get(f.id);

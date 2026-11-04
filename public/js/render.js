@@ -23,6 +23,8 @@ const COLORS = {
   burst: 'rgba(255, 255, 255, 0.5)',
   dashCharging: '#5c6b80',
   dashReady: '#9be7ff',
+  zone: 'rgba(239, 71, 111, 0.22)',  // outside the ring
+  zoneEdge: '#ef476f',
 };
 const STUN_DOTS = 3;
 const INVULN_ALPHA = 0.55;
@@ -58,7 +60,8 @@ function fistExtension(cs) {
 }
 
 // Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive, cs,
-// color, label, nickname }], meId, followId }. Camera follows followId, or fits the arena if null.
+// color, label, nickname }], meId, followId, ring }. Camera follows followId, or fits the arena if
+// null. ring is the shrinking ring's radius.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   let dpr = 1;
@@ -128,6 +131,23 @@ export function createRenderer(canvas) {
       ctx.fillStyle = COLORS.pillarTop;
       ctx.fillRect(p.x + 8, p.y + 8, p.w - 16, p.h - 16);
     }
+  }
+
+  // Tints everything outside the shrinking ring and marks its edge. Drawn over the floor, under fighters.
+  function drawZone(radius) {
+    const cx = ARENA.WIDTH / 2;
+    const cy = ARENA.HEIGHT / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
+    ctx.clip();
+    ctx.beginPath();
+    ctx.rect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = COLORS.zone;
+    ctx.fill('evenodd');
+    ring(cx, cy, radius, 6, COLORS.zoneEdge);
+    ctx.restore();
   }
 
   function ring(x, y, radius, width, color, from = 0, to = Math.PI * 2) {
@@ -253,6 +273,7 @@ export function createRenderer(canvas) {
       dpr * (cam.cw / 2 - cam.x * cam.scale), dpr * (cam.ch / 2 - cam.y * cam.scale),
     );
     drawArena();
+    drawZone(view.ring);
     const alive = view.fighters.filter((f) => f.alive).sort((a, b) => a.y - b.y);
     for (const f of alive) drawFighter(f, f.id === view.meId);
   }

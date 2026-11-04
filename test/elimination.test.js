@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ARENA, BUTTONS, DT, MATCH, PLAYER, RING } from '../shared/constants.js';
+import { eliminationMode } from '../server/game/modes/elimination.js';
 import { call, nextEvent, input, fakeMatch, startedMatch } from './helpers.js';
 
 const CX = ARENA.WIDTH / 2;
@@ -165,6 +166,26 @@ test('sudden death repeats on another tie, then the first hit decides it', () =>
   match.input(a.id, input(1, { aim: 0, aimed: true, buttons: BUTTONS.JAB }));
   for (let i = 0; i < 10 && !match.result; i++) match.step();
   assert.deepEqual(match.result, { teamId: a.teamId });
+});
+
+test('tied again after the last sudden death: a random tied team wins, each team equally likely', () => {
+  // Three teams, the first with two fighters: it must not get better odds for its size.
+  const winnerFor = (roll) => {
+    const { match } = fakeMatch([2, 1, 1], { mode: eliminationMode({ random: () => roll }) });
+    closeRing(match);
+    for (let round = 0; round <= RING.MAX_SUDDEN_DEATHS; round++) {
+      assert.equal(match.result, null);
+      assert.equal(match.mode.publicState(match).suddenDeath, round);
+      match.fighters.forEach(burnNextTick);
+      match.step();
+    }
+    assert.equal(match.mode.publicState(match).suddenDeath, RING.MAX_SUDDEN_DEATHS);
+    assert.ok(match.fighters.every((f) => !f.alive), 'nobody revives this time');
+    return match.result.teamId;
+  };
+  assert.equal(winnerFor(0), 1);
+  assert.equal(winnerFor(0.49), 2);
+  assert.equal(winnerFor(0.99), 3);
 });
 
 test('the sudden death ring closes, so a stall ends with whoever stays inside longest', () => {

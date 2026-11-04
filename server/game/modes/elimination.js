@@ -23,8 +23,9 @@ function suddenDeathSpawn(index, count) {
 
 // Elimination: one life, the ring closes, the last team standing wins. If the last fighters of
 // every remaining team fall on the same tick, they fight on in sudden death: 1 HP in a tiny ring
-// that keeps closing, so a stall can't last. Repeats if they tie again.
-export function eliminationMode() {
+// that keeps closing, so a stall can't last. Repeats if they tie again, up to MAX_SUDDEN_DEATHS;
+// a tie after that goes to a random tied team, so a match always ends.
+export function eliminationMode({ random = Math.random } = {}) {
   let ring = matchRing();
   let suddenDeaths = 0;
   let standing = []; // who was alive at the last check: on a tie, these are the tied fighters
@@ -48,7 +49,11 @@ export function eliminationMode() {
       }
       // Whoever just left the room isn't tied, they're gone.
       const tied = standing.filter((f) => match.room.players.has(f.id));
-      if (teamsOf(tied).size < 2) return { teamId: tied[0]?.teamId ?? null };
+      const tiedTeams = [...teamsOf(tied)];
+      if (tiedTeams.length < 2) return { teamId: tiedTeams[0] ?? null };
+      if (suddenDeaths >= RING.MAX_SUDDEN_DEATHS) {
+        return { teamId: tiedTeams[Math.floor(random() * tiedTeams.length)] };
+      }
       ring = suddenDeathRing(match.tick);
       suddenDeaths++;
       tied.forEach((f, i) => match.revive(f, suddenDeathSpawn(i, tied.length), RING.SUDDEN_DEATH_HP));

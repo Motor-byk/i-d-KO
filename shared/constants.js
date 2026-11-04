@@ -127,6 +127,7 @@ export const RING = {
   SUDDEN_DEATH_CLOSE_TICKS: 20 * TICK_RATE, // it keeps closing, so a stall can't last
   SUDDEN_DEATH_SPAWN_RADIUS: 130,           // clear of the center pillar, inside the ring
   SUDDEN_DEATH_HP: 1,
+  MAX_SUDDEN_DEATHS: 5,                     // tied again after this many: a random tied team wins
 };
 
 export const MATCH = {

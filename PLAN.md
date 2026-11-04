@@ -32,7 +32,7 @@
   - Step 29: `public/js/juice.js` (no DOM, tested under node) works out effects from snapshot changes: damage numbers (HP lost ≥ `JUICE.DAMAGE_MIN`, so the ring's burn floats nothing) and KO pops, timed to the interpolated view; screen shake from hits (others' hits at `SHAKE_OTHERS`) and KOs, offsetting the camera. The combo counter under a fighter reads `cs.combo` from the snapshot. No new server data.
   - Review fixes: a tie revives on the tick of the KO, so no snapshot shows the fighters dead; the client spots the new `suddenDeath` count and shows a KO where they stood (not a big hit), and others teleport instead of gliding. A revive keeps the input stream (seq, acks, held buttons), so a button held through it doesn't fire. `hurt()` in combat.js is the one place HP drops, and a float crumb of HP counts as a KO. Kept on purpose: shake isn't applied to `toWorld`, so mouse aim stays steady under the cursor; results rooms live until everyone has left or lost their seat.
   - Checked without a browser (no browser tools in that session): `npm test`, full simulated matches, and the draw path against a stub canvas. **The ring tint, floats, combo text, 🐴 badge, sudden death notice and results screen have not been seen rendered,** and it hasn't been played by hand.
-  - Open question for the user: two connected players who both do nothing tie at equal distance from the ring forever (about 30 sudden deaths in 5 minutes). Any input or leaving ends it.
+  - **Tie cap (user decision):** two connected players who both do nothing tied at equal distance from the ring forever, so sudden death is capped at `RING.MAX_SUDDEN_DEATHS` (5). A tie after the fifth goes to a random tied team, equal odds per team. The results screen doesn't say it was random.
 - **Next: Milestone F** (step 30, `feat: mid-match disconnect handling`), on a new branch off `main` once E is merged.
 - Review notes to handle in later steps:
   - Reliable discrete events must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
@@ -71,7 +71,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 - One life, single round, shrinking ring. It starts closing at ~45s and fully closes by ~2:30. Outside the ring = damage over time.
 - **Arena:** walled rectangle + 3–5 solid pillars (wall bounces, line-of-sight breaks).
 - **Friendly fire:** knockback only.
-- **Ties** (last players of all remaining teams die on the same tick, checked **after** the ring damage step): instant sudden death. The tied players revive at 1 HP in a tiny ring, and the first hit wins. Repeat if tied again.
+- **Ties** (last players of all remaining teams die on the same tick, checked **after** the ring damage step): instant sudden death. The tied players revive at 1 HP in a tiny ring, and the first hit wins. Repeat if tied again, up to 5 sudden deaths; a tie after that goes to a random tied team.
 - **Results:** the winner reveal only, then back to home.
 - Mode interface (`onStart`, `onTick`, `checkWinner`) so more modes can be added later.
 

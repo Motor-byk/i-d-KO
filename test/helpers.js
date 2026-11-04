@@ -36,7 +36,7 @@ export const nextEvent = (socket, event) =>
 export const input = (seq, over = {}) => ({ seq, tick: 0, move: { x: 0, y: 0 }, aim: 0, buttons: 0, ...over });
 
 // A Match with no sockets: sent is [event, payload] pairs, ended is onEnd's results.
-export function fakeMatch(teamSizes = [1, 1]) {
+export function fakeMatch(teamSizes = [1, 1], matchOptions = {}) {
   const players = new Map();
   let id = 1;
   const options = teamSizes.map((size, i) => {
@@ -51,6 +51,7 @@ export function fakeMatch(teamSizes = [1, 1]) {
     emit: (event, payload) => sent.push([event, payload]),
     onEmpty: () => empty++,
     onEnd: (result) => ended.push(result),
+    ...matchOptions,
   });
   return { match, players, sent, ended, emptyCalls: () => empty };
 }

@@ -146,6 +146,7 @@ export const RENDER = {
   // The camera follows your fighter and shows at least this much of the arena (world units).
   VIEW_WIDTH: 1100,
   VIEW_HEIGHT: 620,
+  EDGE_MARGIN: 90,  // shown past the arena's edge, so the walls and a name beside them stay on screen
   LABEL_FONT: 15,     // option name inside the circle, world units; shrinks to fit
   LABEL_FONT_MIN: 8,
   NAME_FONT: 13,      // nickname above the HP bar

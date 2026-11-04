@@ -83,13 +83,16 @@ export function createRenderer(canvas) {
   function camera(follow) {
     const cw = canvas.width / dpr;
     const ch = canvas.height / dpr;
+    const margin = RENDER.EDGE_MARGIN;
     if (!follow) {
-      const scale = Math.min(cw / ARENA.WIDTH, ch / ARENA.HEIGHT);
+      const scale = Math.min(cw / (ARENA.WIDTH + 2 * margin), ch / (ARENA.HEIGHT + 2 * margin));
       return { scale, x: ARENA.WIDTH / 2, y: ARENA.HEIGHT / 2, cw, ch };
     }
     const scale = Math.min(cw / RENDER.VIEW_WIDTH, ch / RENDER.VIEW_HEIGHT);
-    // Keep the arena edge at the screen edge where possible; center it if it's smaller than the view.
-    const clampAxis = (pos, view, size) => (view >= size ? size / 2 : Math.max(view / 2, Math.min(size - view / 2, pos)));
+    // Stop panning a margin past the arena's edge; center the arena if it fits in the view with both margins.
+    const clampAxis = (pos, view, size) => (view >= size + 2 * margin
+      ? size / 2
+      : Math.max(view / 2 - margin, Math.min(size - view / 2 + margin, pos)));
     return {
       scale,
       x: clampAxis(follow.x, cw / scale, ARENA.WIDTH),

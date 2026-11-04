@@ -222,6 +222,25 @@ test('a revived fighter is not hit where it used to be (lag comp history is clea
   for (const f of [a, b]) assert.equal(match.history.at(match.tick, f.id), null);
 });
 
+test('a revive keeps the input stream: acks hold, and a button held through it is no new press', () => {
+  const { match } = fakeMatch();
+  const [a, b] = match.fighters;
+  closeRing(match);
+  a.hp = b.hp = 1e9;
+  match.input(a.id, input(1, { buttons: BUTTONS.JAB }));
+  match.step();
+  burnNextTick(a);
+  burnNextTick(b);
+  match.step();
+  assert.equal(match.mode.publicState(match).suddenDeath, 1);
+  assert.equal(a.ackSeq, 1);
+  assert.equal(match.input(a.id, input(1)), false, 'old seqs stay rejected');
+  match.input(a.id, input(2, { buttons: BUTTONS.JAB }));
+  assert.equal(a.queue[0].pressed, 0);
+  match.step();
+  assert.equal(a.cs.state, 'idle', 'no jab fired by itself');
+});
+
 test('over sockets: when the match is decided the room shows the winner and stays locked', async (t) => {
   const { client, rooms, loop } = await startServer(t);
   const a = await client();

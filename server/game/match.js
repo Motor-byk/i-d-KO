@@ -162,7 +162,8 @@ export class Match {
     f.rewind = 0;
   }
 
-  // Puts a KO'd fighter back in the fight at a spawn { x, y, aim }, from a clean slate.
+  // Puts a KO'd fighter back in the fight at a spawn { x, y, aim }, from a clean slate. The input
+  // stream carries on: the client never stopped, and a button held through it isn't a new press.
   revive(f, { x, y, aim }, hp) {
     f.body = createBody(x, y);
     f.aim = aim;
@@ -172,7 +173,10 @@ export class Match {
     f.grace = null;
     f.hp = hp;
     f.alive = true;
-    this.resetInput(f.id);
+    f.queue = [];
+    f.move = { x: 0, y: 0 };
+    f.buttons = f.queuedHeld;
+    f.rewind = 0;
     this.history.clear();
   }
 

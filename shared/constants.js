@@ -120,10 +120,18 @@ export const COMBAT = {
 export const RING = {
   START_TICK: 45 * TICK_RATE,
   CLOSE_TICK: 150 * TICK_RATE,
-  START_RADIUS: 1000,
+  START_RADIUS: Math.ceil(Math.hypot(ARENA.WIDTH, ARENA.HEIGHT) / 2), // just covers the corners
   END_RADIUS: 0,
   DAMAGE_PER_SECOND: 8,
   SUDDEN_DEATH_RADIUS: 200,
+  SUDDEN_DEATH_CLOSE_TICKS: 20 * TICK_RATE, // it keeps closing, so a stall can't last
+  SUDDEN_DEATH_SPAWN_RADIUS: 130,           // clear of the center pillar, inside the ring
+  SUDDEN_DEATH_HP: 1,
+  MAX_SUDDEN_DEATHS: 5,                     // tied again after this many: a random tied team wins
+};
+
+export const MATCH = {
+  END_DELAY_TICKS: 45, // from the deciding KO to the results, so everyone sees it land
 };
 
 export const BALANCE = {
@@ -138,10 +146,28 @@ export const RENDER = {
   // The camera follows your fighter and shows at least this much of the arena (world units).
   VIEW_WIDTH: 1100,
   VIEW_HEIGHT: 620,
+  EDGE_MARGIN: 90,  // shown past the arena's edge, so the walls and a name beside them stay on screen
   LABEL_FONT: 15,     // option name inside the circle, world units; shrinks to fit
   LABEL_FONT_MIN: 8,
   NAME_FONT: 13,      // nickname above the HP bar
   FIST_SPREAD: 0.6,   // radians either side of aim
+};
+
+// Client-only effects. Fonts and distances in world units, durations in ticks.
+export const JUICE = {
+  DAMAGE_MIN: 1,         // HP lost between snapshots below this is the ring's burn, not a hit
+  FLOAT_TICKS: 24,
+  FLOAT_RISE: 1.5,       // per tick
+  FLOAT_SPREAD: 14,      // random sideways offset, so a combo's numbers don't stack
+  DAMAGE_FONT: 20,
+  KO_FONT: 36,
+  COMBO_FONT: 14,
+  SHAKE_PER_DAMAGE: 0.8,
+  SHAKE_OTHERS: 0.3,     // someone else's hit shakes this much of your own
+  SHAKE_KO: 8,
+  SHAKE_MAX: 14,
+  SHAKE_DECAY: 0.8,      // share left after each tick
+  SHAKE_MIN: 0.2,        // below this it stops
 };
 
 // Touch controls, in CSS pixels.

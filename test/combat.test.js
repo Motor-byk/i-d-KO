@@ -6,7 +6,7 @@ import { createBody } from '../shared/physics.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
 
 const fighter = (id, teamId, x, y) => ({
-  id, teamId, body: createBody(x, y), cs: createCombat(), hp: PLAYER.BASE_HP, alive: true, hitIds: new Set(),
+  id, teamId, body: createBody(x, y), cs: createCombat(), hp: PLAYER.BASE_HP, damageMult: 1, alive: true, hitIds: new Set(),
 });
 
 // Starts a jab facing dir and steps it into its active frames.

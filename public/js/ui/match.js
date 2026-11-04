@@ -1,10 +1,11 @@
-import { PLAYER, TICK_MS } from '../../shared/constants.js';
+import { TICK_MS } from '../../shared/constants.js';
 import { h } from './dom.js';
 import { createRenderer } from '../render.js';
 import { desktopInput } from '../input/desktop.js';
 import { touchInput } from '../input/touch.js';
 import { debugOverlay } from '../debug.js';
 import { createClock, createInterpolator, createPredictor, createTicker } from '../net.js';
+import { createJuice } from '../juice.js';
 
 // Match screen: a full-screen canvas drawn every frame. Other players are interpolated between
 // snapshots, a little in the past; your own fighter is predicted (net.js).
@@ -16,9 +17,11 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   const canvas = h('canvas.arena');
   const touch = touchInput();
   const debug = debugOverlay({ ping });
+  const notice = h('div.match-notice', { hidden: true }, 'Sudden death: first hit wins!');
   const el = h('main.match', {},
     canvas,
     touch.el,
+    notice,
     debug.el,
     h('button.small.ghost.match-leave', { onclick: onLeave, 'aria-label': 'Leave match' }, '✕'),
     h('div.rotate-hint', {}, 'Turn your phone sideways to fight'),
@@ -32,6 +35,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   const clock = createClock();
   const interp = createInterpolator();
   const ticker = createTicker(performance.now());
+  const juice = createJuice();
   let aim = null; // last aim sent
 
   // The (fractional) server tick other players are shown at.
@@ -51,16 +55,19 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
 
   function view(now) {
     const me = myFighter(now);
+    const tick = renderTick(now);
     return {
       meId: playerId,
       followId: playerId,
-      fighters: interp.sample(renderTick(now)).map((other) => {
+      ring: snap.ring, // moves a fraction of a unit per snapshot: no need to interpolate
+      floats: juice.floatsAt(tick),
+      shake: juice.shakeAt(now),
+      fighters: interp.sample(tick).map((other) => {
         const f = other.id === playerId && me ? me : other;
         const player = players.get(f.id);
         const team = options.get(player?.teamId);
         return {
           ...f,
-          maxHp: PLAYER.BASE_HP,
           color: team?.color ?? '#888888',
           label: team?.name ?? '?',
           nickname: player?.nickname ?? '',
@@ -127,6 +134,8 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       interp.push(next, clock.jitterMs);
       debug.onSnapshot(next);
       debug.setInterp(interp.delayMs, clock.jitterMs);
+      notice.hidden = !next.suddenDeath;
+      juice.onSnapshot(next, playerId);
       const me = serverMe();
       if (!me) predictor.reset();
       else debug.setCorrection(predictor.reconcile(me, next.acks[playerId] ?? -1));

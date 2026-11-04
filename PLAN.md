@@ -24,9 +24,20 @@
   - Step 24: `server/game/lagcomp.js` keeps `MAX_REWIND_TICKS + 1` ticks of positions (recorded after body separation, before hits). Each applied input sets the attacker's `rewind` = server tick − input tick, clamped to [0, `LAG_COMP_MAX_MS`]; `resolveHits` checks reach against `seen(attacker, target)`, the rewound position unless the target is dashing, parrying or bursting now. Knockback direction uses current positions. **Parry grace (deviation from the plan's wording):** input stamps are render ticks (≥100ms in the past), so they can't be compared with the hit tick. Instead, enemy hits on an *idle* target keep an undo record (`target.grace`), and a parry press applied within `COMBAT.PARRY.grace` ticks undoes them (gives back their damage, restores combat state and knockback, keeps presses buffered since) and stuns every attacker in them, taking back their jab string credit. A KO is final.
   - Review fixes: inputs use a plain emit (socket.io dropped volatile emits while a write was in flight, losing catch-up inputs); a clock jump needs `CLOCK_JUMP_CONFIRM` snapshots in a row (a lone late one only counts toward jitter); grace parry fixes above. **Lag comp cap 100 → 200ms (user decision):** the view is always ≥100ms old from interpolation alone, so a 100ms cap compensated no ping at all; 200ms covers good and typical mobile connections, worse ones lead their targets. View ticks can't go backwards, jump more than `MAX_STAMP_STEP` per input, or pass the server tick, so a client can't pick its rewind.
   - Checked in Chrome against a bot: snapshots at 20/s, interp delay 100ms, no console errors. Zero prediction corrections while walking and dashing, on localhost and with ~97ms RTT simulated by delaying the page's WebSocket sends; a forced reconnect mid-match rejoined cleanly. Got KO'd by the bot's jabs. Corrections from server-only events (hits, body pushes) weren't observed: on localhost hitstop hides them, and with latency I didn't get into contact. Touch still untested on a real phone.
-- **Next: Milestone E** (step 25, `feat: shrinking ring`), on a new branch off `main` once D is merged.
+- **Milestone E (steps 25–29): done**, merged into `main` from `milestone-e-match-flow`. Review pass done. Fixes are in the commits after `feat: game juice`.
+  - Step 25: `server/game/ring.js` is a schedule (`matchRing`) + `ringRadius(ring, tick)` + `applyRingDamage`, run after hits so ties can be checked after ring damage. Snapshots carry the radius (`ring`); the client tints outside it. `START_RADIUS` is now derived from the arena so the ring starts just covering the corners, instead of spending ~10s invisible. HP is fractional (rounded to 2 decimals in snapshots).
+  - Step 26: `server/game/modes/elimination.js` is the mode interface (`onStart`, `onTick`, `checkWinner`, plus `publicState` for extra snapshot fields); `Match` takes `mode`. A tie is everyone alive at the last check falling on one tick, after ring damage. Revive = clean slate through `match.revive` (input stream reset and lag comp history cleared, so nobody is hit at their old position). **Added beyond the plan's wording:** the sudden death ring keeps closing (200 → 0 over 20s), so a stall can't last. The deciding KO holds on screen for `MATCH.END_DELAY_TICKS` (1.5s); ring damage stops then. The match end goes out after the tick's snapshot. A match with nobody left to win gives `{ teamId: null }`.
+  - Step 27: `server/game/balance.js` `teamBuffs(size, largest)` from team sizes at the start. Fighters carry `maxHp` (rounded) and `damageMult`; a sudden death revive stays at 1 HP. Snapshots carry `maxHp`, and the client shows 🐴 beside the nickname when it's above base.
+  - Step 28: a decided match puts the room in state `results` with `result: { optionId }` (`rooms.finishMatch`), sent via `room:update`, so it's reliable, arrives after the last snapshot, and a rejoin lands on the same screen. The room stays locked until everyone has left (Back to home = `room:leave`); a crash still goes to the lobby (`rooms.endMatch`).
+  - Step 29: `public/js/juice.js` (no DOM, tested under node) works out effects from snapshot changes: damage numbers (HP lost ≥ `JUICE.DAMAGE_MIN`, so the ring's burn floats nothing) and KO pops, timed to the interpolated view; screen shake from hits (others' hits at `SHAKE_OTHERS`) and KOs, offsetting the camera. The combo counter under a fighter reads `cs.combo` from the snapshot. No new server data.
+  - Review fixes: a tie revives on the tick of the KO, so no snapshot shows the fighters dead; the client spots the new `suddenDeath` count and shows a KO where they stood (not a big hit), and others teleport instead of gliding. A revive keeps the input stream (seq, acks, held buttons), so a button held through it doesn't fire. `hurt()` in combat.js is the one place HP drops, and a float crumb of HP counts as a KO. Kept on purpose: shake isn't applied to `toWorld`, so mouse aim stays steady under the cursor; results rooms live until everyone has left or lost their seat.
+  - Checked in headless Chromium (Playwright driving real pages against `npm run dev`; the Chrome extension wasn't connected). Idle 1v1, one desktop page and one phone-sized touch page: ring tint and burn, tie at ~90s, 5 sudden deaths ~7s apart with the notice and KO pop, random winner on both pages, reload lands back on results, Back to home. Solo vs 2 with real keyboard and mouse: 🐴 and 110 HP, damage 5.25/9.45, combo counter, KO pops, spectator view, natural win. No page errors (only a missing favicon 404). Not exercised: pressing touch buttons, parry and heavy in this flow, how the shake feels (stills can't show it), a real phone. Cosmetic: a KO pop near the view's edge can clip, and a sudden death KO appears at the old position, which can be near the screen edge.
+  - **Tie cap (user decision):** two connected players who both do nothing tied at equal distance from the ring forever, so sudden death is capped at `RING.MAX_SUDDEN_DEATHS` (5). A tie after the fifth goes to a random tied team, equal odds per team. The results screen doesn't say it was random.
+  - Checked in real Chrome (extension connected) against scripted bots, no page errors: lobby, reload on results, Back to home. Solo vs 2: 🐴 badge, lost to a KO. 2v2: parries stunned a hunter 4 times, a charge was interrupted by a hit, full arena spectator view after my KO, ring tint, ring burn ending the match. 1v1: jab string 5/5/9 with combo 1→2→3, full-charge heavy 22, won by KO. Idle 1v1 with the tie cap: both fighters down at sudden death 5 (t=3743, ~125s), resolved to a winner; that run's sudden death notice and results screen weren't seen (the numbers come from a bot's snapshot log, and it only logged the last sudden death). Movement, parry timing, jab strings and the heavy hold were scripted DOM events on the game's own handlers, not trusted input. Not exercised: a wall bounce in this flow, how the shake feels, the KO pop on screen, touch buttons, a real phone. 
+  - Fix from that check: the camera stopped flush with the arena's edge, so a wall could be off screen and a name clipped. Both views now show `RENDER.EDGE_MARGIN` (90) past the edge, enough for the widest label (16 W's and 🐴, 236 units wide with Chrome's system font on this machine). Seen in Chrome: portrait and landscape in a corner, and the spectator view.
+- **Next: Milestone F** (step 30, `feat: mid-match disconnect handling`), on a new branch off `main`.
 - Review notes to handle in later steps:
-  - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
+  - Reliable discrete events must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
   - Later/optional (from the D review): a snapshot is ~3.3 KB at 10 players (~65 KB/s per client); others' `cs` only needs state/t/len/dir/hitstop/charge. `INPUT_QUEUE_MAX` 2 may starve-then-merge on 50–100ms mobile jitter (consider 3). Between reconnect and rejoin, inputs count as sent but the server drops them (a brief replay of phantom inputs; the ack-backwards reset cleans it up). Launched targets could join the no-rewind set. Jab aim assist isn't predicted (the fist direction corrects on the next snapshot).
   - Later/optional: trim the input queue back to 1 when it sits at 2 (a late packet adds a permanent +33ms); shrink snapshots (omit zero knockback, send velocities only for your own fighter) once combat state doubles their size (~24 KB/s per client now).
@@ -62,7 +73,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 - One life, single round, shrinking ring. It starts closing at ~45s and fully closes by ~2:30. Outside the ring = damage over time.
 - **Arena:** walled rectangle + 3–5 solid pillars (wall bounces, line-of-sight breaks).
 - **Friendly fire:** knockback only.
-- **Ties** (last players of all remaining teams die on the same tick, checked **after** the ring damage step): instant sudden death. The tied players revive at 1 HP in a tiny ring, and the first hit wins. Repeat if tied again.
+- **Ties** (last players of all remaining teams die on the same tick, checked **after** the ring damage step): instant sudden death. The tied players revive at 1 HP in a tiny ring, and the first hit wins. Repeat if tied again, up to 5 sudden deaths; a tie after that goes to a random tied team.
 - **Results:** the winner reveal only, then back to home.
 - Mode interface (`onStart`, `onTick`, `checkWinner`) so more modes can be added later.
 
@@ -109,9 +120,9 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] server/game/combat.js    hit detection + resolution (uses shared/combat-state.js), friendly knockback
 [x] server/game/lagcomp.js   position history + rewind rules (parry grace lives in combat.js)
 [x] shared/arena.js         walls, pillars, swept collision, wall-bounce reflection (shared: prediction needs it)
-[ ] server/game/ring.js      shrink schedule + outside damage
-[ ] server/game/balance.js   dark-horse multipliers
-[ ] server/game/modes/elimination.js   win check, tie -> sudden death
+[x] server/game/ring.js      shrink schedule + outside damage
+[x] server/game/balance.js   dark-horse multipliers
+[x] server/game/modes/elimination.js   win check, tie -> sudden death
 [x] shared/constants.js      every tunable: ticks, frame data, room limits, ring, balance, net
 [x] shared/physics.js        shared movement/dash step (fixed dt, ordered collisions), server-only body separation
 [x] shared/combat-state.js   state machine timing: states, timers, input buffer, hitstop, hitstun decay, burst
@@ -124,7 +135,9 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/ui/lobby.js    options, team picking, host controls, share link
 [x] public/js/net.js         clock estimate, prediction/reconciliation, adaptive interpolation
 [x] public/js/render.js      circles w/ option names, fists, ring, pillars, juice
+[x] public/js/juice.js       client-only effects from snapshot changes: damage numbers, KO pops, shake
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
+[x] public/js/ui/results.js  winner reveal, back to home
 [x] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
 [x] public/js/input/touch.js move stick (left half) + aim stick (right half) + top-right buttons (Jab taps; facing follows the aim stick, else the move stick)
 [x] public/js/input/desktop.js keyboard + mouse
@@ -158,11 +171,11 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 22. [x] `feat: client prediction and reconciliation` — net.js using physics + combat-state + replay tests.
 23. [x] `feat: adaptive interpolation and clock sync`.
 24. [x] `feat: lag compensation` — lagcomp.js (positions only, parry grace) + tests.
-25. `feat: shrinking ring` — + tests.
-26. `feat: elimination mode and sudden death` — + tests (tie after ring damage).
-27. `feat: dark horse balancing` — + badge + tests.
-28. `feat: results screen`.
-29. `feat: game juice` — shake, damage numbers, combo counter.
+25. [x] `feat: shrinking ring` — + tests.
+26. [x] `feat: elimination mode and sudden death` — + tests (tie after ring damage).
+27. [x] `feat: dark horse balancing` — + badge + tests.
+28. [x] `feat: results screen`.
+29. [x] `feat: game juice` — shake, damage numbers, combo counter.
 30. `feat: mid-match disconnect handling` — idle hittable circle, KO when grace runs out.
 31. `feat: graceful shutdown` — SIGTERM → `server:restarting`.
 32. `chore: bot clients script` — scripts/bots.js with latency injection.

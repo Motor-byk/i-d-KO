@@ -130,3 +130,10 @@ test('out-of-order snapshots are ignored and old ones are trimmed', () => {
   for (let t = 11; t <= 100; t++) interp.push(snap(t, [fighter(1, t)]), 0);
   assert.equal(interp.sample(0)[0].x, 100 - NET.INTERP_BUFFER_TICKS);
 });
+
+test('fighters revived for sudden death teleport instead of gliding', () => {
+  const interp = createInterpolator();
+  interp.push({ tick: 10, suddenDeath: 0, fighters: [fighter(1, 100)] }, 0);
+  interp.push({ tick: 12, suddenDeath: 1, fighters: [fighter(1, 700)] }, 0);
+  assert.equal(interp.sample(11)[0].x, 700);
+});

@@ -25,6 +25,11 @@ export class PositionHistory {
     if (this.#ticks.length > MAX_REWIND_TICKS + 1) this.#ticks.shift();
   }
 
+  // Forgets every position: a fighter teleported, so its past no longer applies.
+  clear() {
+    this.#ticks = [];
+  }
+
   // Where fighter id was at tick, or null if that tick isn't kept (or it wasn't alive).
   at(tick, id) {
     return this.#ticks.find((t) => t.tick === tick)?.at.get(id) ?? null;

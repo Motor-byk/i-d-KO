@@ -1,14 +1,15 @@
-import { ARENA, PLAYER, NET, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK, BUTTONS } from '../../shared/constants.js';
+import { ARENA, PLAYER, NET, MATCH, TICK_RATE, SNAPSHOT_RATE, BUTTON_MASK, BUTTONS } from '../../shared/constants.js';
 import { createBody, separateBodies } from '../../shared/physics.js';
 import { resolveCircle } from '../../shared/arena.js';
 import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
-import { wrapAngle } from '../../shared/math.js';
+import { round2, wrapAngle } from '../../shared/math.js';
 import { assistAim, burstPush, parryGrace, resolveHits } from './combat.js';
 import { PositionHistory, rewindTicks } from './lagcomp.js';
+import { teamBuffs } from './balance.js';
+import { eliminationMode } from './modes/elimination.js';
 
 const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 
-const round2 = (v) => Math.round(v * 100) / 100;
 // Facing replays into prediction (dash direction), so it gets more precision than positions.
 const round4 = (v) => Math.round(v * 10_000) / 10_000;
 
@@ -64,44 +65,60 @@ export function spawnPoints(teamSizes) {
 
 // One running match. The global loop calls step(); socket.js feeds input().
 // emit(event, payload, { volatile }) broadcasts to the room; onEmpty() is called once nobody is left.
+// onEnd({ teamId }) is called once the match is decided and END_DELAY_TICKS have passed.
 // perf() returns the loop's tick timing for this match ({ avgMs, maxMs }), sent once a second.
+// mode is the game mode (interface in modes/elimination.js).
 export class Match {
-  constructor({ room, emit, onEmpty, perf = () => null }) {
+  constructor({ room, emit, onEmpty, onEnd = () => {}, perf = () => null, mode = eliminationMode() }) {
     this.room = room;
     this.emit = emit;
     this.onEmpty = onEmpty;
+    this.onEnd = onEnd;
     this.perf = perf;
+    this.mode = mode;
     this.tick = 0;
+    this.result = null;  // set once the mode decides the match
+    this.endsIn = MATCH.END_DELAY_TICKS;
 
     const teams = room.options.map((o) => [...room.players.values()].filter((p) => p.teamId === o.id));
-    const spawns = spawnPoints(teams.map((t) => t.length));
+    const sizes = teams.map((t) => t.length);
+    const spawns = spawnPoints(sizes);
+    const largest = Math.max(...sizes);
+    const buffsByTeam = new Map(room.options.map((o, i) => [o.id, teamBuffs(sizes[i], largest)]));
     // Stable order (team, then join order) keeps body separation repeatable.
-    this.fighters = teams.flat().map((p, i) => ({
-      id: p.id,
-      teamId: p.teamId,
-      body: createBody(spawns[i].x, spawns[i].y),
-      aim: spawns[i].aim,
-      aimed: false,
-      cs: { ...createCombat(), dir: spawns[i].aim },
-      hitIds: new Set(), // who the current move already hit
-      grace: null,       // hits a late parry can still undo (combat.js parryGrace)
-      rewind: 0,         // lag compensation for this fighter's attacks, in ticks
-      hp: PLAYER.BASE_HP,
-      alive: true,
-      queue: [],
-      lastSeq: -1,     // newest seq accepted
-      lastStamp: -1,   // view tick of the newest accepted input
-      ackSeq: -1,      // newest seq applied by the sim
-      move: { x: 0, y: 0 },
-      starved: 0,      // ticks in a row with no input
-      queuedHeld: 0,   // buttons held as of the last queued input (edges are derived against it)
-      buttons: 0,      // buttons held as of the applied input
-      pressed: 0,      // buttons pressed this tick
-      released: 0,     // buttons released this tick
-    }));
+    this.fighters = teams.flat().map((p, i) => {
+      const buffs = buffsByTeam.get(p.teamId);
+      const maxHp = Math.round(PLAYER.BASE_HP * buffs.hp);
+      return {
+        id: p.id,
+        teamId: p.teamId,
+        body: createBody(spawns[i].x, spawns[i].y),
+        aim: spawns[i].aim,
+        aimed: false,
+        cs: { ...createCombat(), dir: spawns[i].aim },
+        hitIds: new Set(), // who the current move already hit
+        grace: null,       // hits a late parry can still undo (combat.js parryGrace)
+        rewind: 0,         // lag compensation for this fighter's attacks, in ticks
+        maxHp,
+        hp: maxHp,
+        damageMult: buffs.damage,
+        alive: true,
+        queue: [],
+        lastSeq: -1,     // newest seq accepted
+        lastStamp: -1,   // view tick of the newest accepted input
+        ackSeq: -1,      // newest seq applied by the sim
+        move: { x: 0, y: 0 },
+        starved: 0,      // ticks in a row with no input
+        queuedHeld: 0,   // buttons held as of the last queued input (edges are derived against it)
+        buttons: 0,      // buttons held as of the applied input
+        pressed: 0,      // buttons pressed this tick
+        released: 0,     // buttons released this tick
+      };
+    });
     separateBodies(this.fighters.map((f) => f.body));
     this.byId = new Map(this.fighters.map((f) => [f.id, f]));
     this.history = new PositionHistory();
+    this.mode.onStart(this);
   }
 
   // Queues one validated input. Returns false if it was rejected.
@@ -146,6 +163,24 @@ export class Match {
     f.rewind = 0;
   }
 
+  // Puts a KO'd fighter back in the fight at a spawn { x, y, aim }, from a clean slate. The input
+  // stream carries on: the client never stopped, and a button held through it isn't a new press.
+  revive(f, { x, y, aim }, hp) {
+    f.body = createBody(x, y);
+    f.aim = aim;
+    f.aimed = false;
+    f.cs = { ...createCombat(), dir: aim };
+    f.hitIds.clear();
+    f.grace = null;
+    f.hp = hp;
+    f.alive = true;
+    f.queue = [];
+    f.move = { x: 0, y: 0 };
+    f.buttons = f.queuedHeld;
+    f.rewind = 0;
+    this.history.clear();
+  }
+
   step() {
     if (!this.room.players.size) return this.onEmpty();
     this.tick++;
@@ -180,7 +215,13 @@ export class Match {
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));
     this.history.record(this.tick, this.fighters);
     resolveHits(this.fighters, { tick: this.tick, seen: this.history.seen(this.tick) });
+    if (!this.result) {
+      this.mode.onTick(this);
+      this.result = this.mode.checkWinner(this);
+    }
     if (this.#snapshotDue()) this.emit('match:snapshot', this.snapshot(), { volatile: true });
+    // After the snapshot: a reliable emit just before a volatile one can make clients drop it.
+    if (this.result && this.endsIn-- === 0) this.onEnd(this.result);
   }
 
   #snapshotDue() {
@@ -195,8 +236,9 @@ export class Match {
     return {
       tick: this.tick,
       acks,
+      ...this.mode.publicState(this),
       ...(perf && { tickMs: { avg: round2(perf.avgMs), max: round2(perf.maxMs) } }),
-      fighters: this.fighters.map(({ id, body, aim, cs, hp, alive }) => ({
+      fighters: this.fighters.map(({ id, body, aim, cs, hp, maxHp, alive }) => ({
         id,
         x: round2(body.x),
         y: round2(body.y),
@@ -205,7 +247,8 @@ export class Match {
         kx: round2(body.kx),
         ky: round2(body.ky),
         aim: round2(aim),
-        hp,
+        hp: round2(hp), // fractional once the ring burns
+        maxHp,
         alive,
         cs: { ...cs, dir: round4(cs.dir) },
       })),

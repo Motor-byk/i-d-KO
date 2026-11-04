@@ -36,6 +36,7 @@ export class RoomManager {
       nextOptionId: 1,
       joinCounter: 0,
       match: null, // the running Match (server/game/match.js), set by socket.js
+      result: null, // { optionId } once a match is decided (state 'results')
     };
     this.rooms.set(room.code, room);
     const player = this.#addPlayer(room, name);
@@ -165,7 +166,18 @@ export class RoomManager {
     return { room, teams };
   }
 
-  // Unlocks the room after a match ends (or crashes) so the group can go again.
+  // The match was decided: the room shows who won until everyone has left. It stays locked.
+  // winnerId is the winning option's id, or null if nobody was left to win.
+  finishMatch(code, winnerId) {
+    const room = this.getRoom(code);
+    if (!room) return { error: 'ROOM_NOT_FOUND' };
+    room.state = 'results';
+    room.result = { optionId: winnerId };
+    room.match = null;
+    return { room };
+  }
+
+  // Unlocks the room after a match crashes so the group can go again.
   endMatch(code) {
     const room = this.getRoom(code);
     if (!room) return { error: 'ROOM_NOT_FOUND' };
@@ -218,6 +230,7 @@ export function publicRoom(room) {
     state: room.state,
     hostId: room.hostId,
     options: room.options,
+    result: room.result,
     players: players(room).map(({ id, nickname, teamId, connected }) => ({
       id, nickname, teamId, connected,
     })),

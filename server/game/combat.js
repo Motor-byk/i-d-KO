@@ -2,7 +2,9 @@ import { COMBAT, PLAYER } from '../../shared/constants.js';
 import { angleDiff } from '../../shared/math.js';
 import { applyHit, applyLanded, applyParry, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
 
-// Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, alive, hitIds }.
+// Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, damageMult, alive, hitIds }.
+
+const KO_EPSILON = 1e-6;
 
 // Un-aimed jabs snap to the nearest enemy inside the assist cone around aim; else aim is kept.
 export function assistAim(attacker, fighters, aim) {
@@ -42,6 +44,15 @@ function push(from, target, speed, fallbackAngle) {
   const [nx, ny] = d > 1e-6 ? [dx / d, dy / d] : [Math.cos(fallbackAngle), Math.sin(fallbackAngle)];
   target.body.kx = nx * speed;
   target.body.ky = ny * speed;
+}
+
+// Takes HP away, and KOs at (nearly) none: fractional damage can leave a float crumb behind.
+export function hurt(f, damage) {
+  f.hp -= damage;
+  if (f.hp < KO_EPSILON) {
+    f.hp = 0;
+    f.alive = false;
+  }
 }
 
 const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.grace;
@@ -93,10 +104,9 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
       // Friendly fire is knockback only: no damage, hitstun or hitstop.
       push(attacker, target, move.knockback, attacker.cs.dir);
     } else {
-      damage = move.damage;
+      damage = move.damage * attacker.damageMult;
       if (inGrace(target, tick) && target.grace.attackers.has(attacker)) target.grace.damage += damage;
-      target.hp = Math.max(0, target.hp - damage);
-      if (target.hp === 0) target.alive = false;
+      hurt(target, damage);
       applyLanded(attacker.cs, move.hitstop);
       const best = strongest.get(target);
       if (!best || move.hitstun > best.move.hitstun) strongest.set(target, { attacker, move });

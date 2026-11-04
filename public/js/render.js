@@ -1,4 +1,4 @@
-import { ARENA, PLAYER, RENDER, COMBAT } from '../shared/constants.js';
+import { ARENA, PLAYER, RENDER, COMBAT, JUICE } from '../shared/constants.js';
 import { STATE, moveTiming, phase, chargeFraction, isParrying } from '../shared/combat-state.js';
 
 const COLORS = {
@@ -23,6 +23,12 @@ const COLORS = {
   burst: 'rgba(255, 255, 255, 0.5)',
   dashCharging: '#5c6b80',
   dashReady: '#9be7ff',
+  zone: 'rgba(239, 71, 111, 0.22)',  // outside the ring
+  zoneEdge: '#ef476f',
+  damage: '#ffffff',
+  ko: '#ffd166',
+  combo: '#ffd166',
+  floatOutline: 'rgba(0, 0, 0, 0.7)',
 };
 const STUN_DOTS = 3;
 const INVULN_ALPHA = 0.55;
@@ -57,8 +63,9 @@ function fistExtension(cs) {
   return cs.jab % 2 ? [0, k] : [k, 0];
 }
 
-// Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive, cs,
-// color, label, nickname }], meId, followId }. Camera follows followId, or fits the arena if null.
+// Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
+// cs, color, label, nickname }], meId, followId, ring, floats, shake }. Camera follows followId, or
+// fits the arena if null. ring is the shrinking ring's radius; floats and shake come from juice.js.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   let dpr = 1;
@@ -76,13 +83,16 @@ export function createRenderer(canvas) {
   function camera(follow) {
     const cw = canvas.width / dpr;
     const ch = canvas.height / dpr;
+    const margin = RENDER.EDGE_MARGIN;
     if (!follow) {
-      const scale = Math.min(cw / ARENA.WIDTH, ch / ARENA.HEIGHT);
+      const scale = Math.min(cw / (ARENA.WIDTH + 2 * margin), ch / (ARENA.HEIGHT + 2 * margin));
       return { scale, x: ARENA.WIDTH / 2, y: ARENA.HEIGHT / 2, cw, ch };
     }
     const scale = Math.min(cw / RENDER.VIEW_WIDTH, ch / RENDER.VIEW_HEIGHT);
-    // Keep the arena edge at the screen edge where possible; center it if it's smaller than the view.
-    const clampAxis = (pos, view, size) => (view >= size ? size / 2 : Math.max(view / 2, Math.min(size - view / 2, pos)));
+    // Stop panning a margin past the arena's edge; center the arena if it fits in the view with both margins.
+    const clampAxis = (pos, view, size) => (view >= size + 2 * margin
+      ? size / 2
+      : Math.max(view / 2 - margin, Math.min(size - view / 2 + margin, pos)));
     return {
       scale,
       x: clampAxis(follow.x, cw / scale, ARENA.WIDTH),
@@ -128,6 +138,23 @@ export function createRenderer(canvas) {
       ctx.fillStyle = COLORS.pillarTop;
       ctx.fillRect(p.x + 8, p.y + 8, p.w - 16, p.h - 16);
     }
+  }
+
+  // Tints everything outside the shrinking ring and marks its edge. Drawn over the floor, under fighters.
+  function drawZone(radius) {
+    const cx = ARENA.WIDTH / 2;
+    const cy = ARENA.HEIGHT / 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
+    ctx.clip();
+    ctx.beginPath();
+    ctx.rect(0, 0, ARENA.WIDTH, ARENA.HEIGHT);
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = COLORS.zone;
+    ctx.fill('evenodd');
+    ring(cx, cy, radius, 6, COLORS.zoneEdge);
+    ctx.restore();
   }
 
   function ring(x, y, radius, width, color, from = 0, to = Math.PI * 2) {
@@ -239,7 +266,29 @@ export function createRenderer(canvas) {
     ctx.fillStyle = COLORS.name;
     ctx.font = `600 ${RENDER.NAME_FONT}px system-ui, sans-serif`;
     ctx.textBaseline = 'bottom';
-    ctx.fillText(f.nickname, f.x, barY - 3);
+    ctx.fillText(f.maxHp > PLAYER.BASE_HP ? `🐴 ${f.nickname}` : f.nickname, f.x, barY - 3);
+
+    // Hits taken in the running combo.
+    if (f.cs.combo >= 2) outlinedText(`${f.cs.combo} HITS`, f.x, f.y + r + JUICE.COMBO_FONT, JUICE.COMBO_FONT, COLORS.combo);
+  }
+
+  function outlinedText(text, x, y, size, color) {
+    ctx.font = labelFont(size);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = COLORS.floatOutline;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  function drawFloats(floats) {
+    for (const t of floats) {
+      ctx.globalAlpha = t.alpha;
+      outlinedText(t.text, t.x, t.y, t.ko ? JUICE.KO_FONT : JUICE.DAMAGE_FONT, t.ko ? COLORS.ko : COLORS.damage);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function draw(view) {
@@ -250,11 +299,13 @@ export function createRenderer(canvas) {
     ctx.fillRect(0, 0, cam.cw, cam.ch);
     ctx.setTransform(
       dpr * cam.scale, 0, 0, dpr * cam.scale,
-      dpr * (cam.cw / 2 - cam.x * cam.scale), dpr * (cam.ch / 2 - cam.y * cam.scale),
+      dpr * (cam.cw / 2 - (cam.x + view.shake.x) * cam.scale), dpr * (cam.ch / 2 - (cam.y + view.shake.y) * cam.scale),
     );
     drawArena();
+    drawZone(view.ring);
     const alive = view.fighters.filter((f) => f.alive).sort((a, b) => a.y - b.y);
     for (const f of alive) drawFighter(f, f.id === view.meId);
+    drawFloats(view.floats);
   }
 
   // Screen (client) coordinates -> world coordinates, using the last drawn frame's camera.

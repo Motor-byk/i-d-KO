@@ -3,6 +3,7 @@ import { h, errorText, logo } from './ui/dom.js';
 import { homeScreen } from './ui/home.js';
 import { lobbyScreen } from './ui/lobby.js';
 import { matchScreen } from './ui/match.js';
+import { resultsScreen } from './ui/results.js';
 
 const app = document.getElementById('app');
 const banner = h('div.banner', { hidden: true });
@@ -84,6 +85,9 @@ function onRoom(room) {
   if (!me || room.code !== me.code) return;
   if (room.state === 'lobby') {
     if (screen?.kind !== 'lobby') showLobby();
+    screen.update(room);
+  } else if (room.state === 'results') {
+    if (screen?.kind !== 'results') show(resultsScreen({ onHome: leaveRoom }));
     screen.update(room);
   } else {
     if (screen?.kind !== 'match') {

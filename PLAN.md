@@ -26,6 +26,7 @@
   - Checked in Chrome against a bot: snapshots at 20/s, interp delay 100ms, no console errors. Zero prediction corrections while walking and dashing, on localhost and with ~97ms RTT simulated by delaying the page's WebSocket sends; a forced reconnect mid-match rejoined cleanly. Got KO'd by the bot's jabs. Corrections from server-only events (hits, body pushes) weren't observed: on localhost hitstop hides them, and with latency I didn't get into contact. Touch still untested on a real phone.
 - **Milestone E (steps 25–29): in progress** on branch `milestone-e-match-flow`.
   - Step 25: `server/game/ring.js` is a schedule (`matchRing`) + `ringRadius(ring, tick)` + `applyRingDamage`, run after hits so ties can be checked after ring damage. Snapshots carry the radius (`ring`); the client tints outside it. `START_RADIUS` is now derived from the arena so the ring starts just covering the corners, instead of spending ~10s invisible. HP is fractional (rounded to 2 decimals in snapshots).
+  - Step 26: `server/game/modes/elimination.js` is the mode interface (`onStart`, `onTick`, `checkWinner`, plus `publicState` for extra snapshot fields); `Match` takes `mode`. A tie is everyone alive at the last check falling on one tick, after ring damage. Revive = clean slate through `match.revive` (input stream reset and lag comp history cleared, so nobody is hit at their old position). **Added beyond the plan's wording:** the sudden death ring keeps closing (200 → 0 over 20s), so a stall can't last. The deciding KO holds on screen for `MATCH.END_DELAY_TICKS` (1.5s); ring damage stops then. The match end goes out after the tick's snapshot. For now the room returns to the lobby (results in step 28). A match with nobody left to win gives `{ teamId: null }`.
 - Review notes to handle in later steps:
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
@@ -112,7 +113,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] shared/arena.js         walls, pillars, swept collision, wall-bounce reflection (shared: prediction needs it)
 [x] server/game/ring.js      shrink schedule + outside damage
 [ ] server/game/balance.js   dark-horse multipliers
-[ ] server/game/modes/elimination.js   win check, tie -> sudden death
+[x] server/game/modes/elimination.js   win check, tie -> sudden death
 [x] shared/constants.js      every tunable: ticks, frame data, room limits, ring, balance, net
 [x] shared/physics.js        shared movement/dash step (fixed dt, ordered collisions), server-only body separation
 [x] shared/combat-state.js   state machine timing: states, timers, input buffer, hitstop, hitstun decay, burst
@@ -160,7 +161,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 23. [x] `feat: adaptive interpolation and clock sync`.
 24. [x] `feat: lag compensation` — lagcomp.js (positions only, parry grace) + tests.
 25. [x] `feat: shrinking ring` — + tests.
-26. `feat: elimination mode and sudden death` — + tests (tie after ring damage).
+26. [x] `feat: elimination mode and sudden death` — + tests (tie after ring damage).
 27. `feat: dark horse balancing` — + badge + tests.
 28. `feat: results screen`.
 29. `feat: game juice` — shake, damage numbers, combo counter.

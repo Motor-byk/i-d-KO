@@ -124,6 +124,13 @@ export const RING = {
   END_RADIUS: 0,
   DAMAGE_PER_SECOND: 8,
   SUDDEN_DEATH_RADIUS: 200,
+  SUDDEN_DEATH_CLOSE_TICKS: 20 * TICK_RATE, // it keeps closing, so a stall can't last
+  SUDDEN_DEATH_SPAWN_RADIUS: 130,           // clear of the center pillar, inside the ring
+  SUDDEN_DEATH_HP: 1,
+};
+
+export const MATCH = {
+  END_DELAY_TICKS: 45, // from the deciding KO to the results, so everyone sees it land
 };
 
 export const BALANCE = {

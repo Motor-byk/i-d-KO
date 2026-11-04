@@ -55,12 +55,16 @@ export function attachSocketHandlers(io, rooms) {
   const sweepTimer = setInterval(() => rooms.sweep().forEach(broadcastRoom), 1000);
   sweepTimer.unref();
 
+  const toLobby = (room) => {
+    const res = rooms.endMatch(room.code);
+    if (!res.error) broadcastRoom(res.room);
+  };
+
   // A crashed match sends its room back to the lobby instead of taking the server down.
   const loop = new GameLoop({
     onError: (match, err) => {
       console.error(`match in room ${match.room.code} failed, ending it`, err);
-      const res = rooms.endMatch(match.room.code);
-      if (!res.error) broadcastRoom(res.room);
+      toLobby(match.room);
     },
   });
 
@@ -70,6 +74,10 @@ export function attachSocketHandlers(io, rooms) {
       room,
       emit: (event, payload, { volatile = false } = {}) => (volatile ? target.volatile : target).emit(event, payload),
       onEmpty: () => loop.remove(match),
+      onEnd: () => {
+        loop.remove(match);
+        toLobby(room);
+      },
       perf: () => loop.stats(match),
     });
     room.match = match;

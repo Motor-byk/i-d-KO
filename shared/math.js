@@ -2,6 +2,8 @@
 
 export const lerp = (a, b, k) => a + (b - a) * k;
 
+export const round2 = (v) => Math.round(v * 100) / 100;
+
 // Wraps an angle to [-pi, pi].
 export const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 

@@ -11,6 +11,13 @@ export const matchRing = () => ({
   toRadius: RING.END_RADIUS,
 });
 
+export const suddenDeathRing = (tick) => ({
+  fromTick: tick,
+  toTick: tick + RING.SUDDEN_DEATH_CLOSE_TICKS,
+  fromRadius: RING.SUDDEN_DEATH_RADIUS,
+  toRadius: RING.END_RADIUS,
+});
+
 export function ringRadius({ fromTick, toTick, fromRadius, toRadius }, tick) {
   const k = Math.max(0, Math.min(1, (tick - fromTick) / (toTick - fromTick)));
   return lerp(fromRadius, toRadius, k);

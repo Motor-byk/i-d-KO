@@ -16,9 +16,11 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   const canvas = h('canvas.arena');
   const touch = touchInput();
   const debug = debugOverlay({ ping });
+  const notice = h('div.match-notice', { hidden: true }, 'Sudden death: first hit wins!');
   const el = h('main.match', {},
     canvas,
     touch.el,
+    notice,
     debug.el,
     h('button.small.ghost.match-leave', { onclick: onLeave, 'aria-label': 'Leave match' }, '✕'),
     h('div.rotate-hint', {}, 'Turn your phone sideways to fight'),
@@ -128,6 +130,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       interp.push(next, clock.jitterMs);
       debug.onSnapshot(next);
       debug.setInterp(interp.delayMs, clock.jitterMs);
+      notice.hidden = !next.suddenDeath;
       const me = serverMe();
       if (!me) predictor.reset();
       else debug.setCorrection(predictor.reconcile(me, next.acks[playerId] ?? -1));

@@ -222,11 +222,11 @@ test('a revived fighter is not hit where it used to be (lag comp history is clea
   for (const f of [a, b]) assert.equal(match.history.at(match.tick, f.id), null);
 });
 
-test('over sockets: when the match is decided the room goes back to the lobby', async (t) => {
+test('over sockets: when the match is decided the room shows the winner and stays locked', async (t) => {
   const { client, rooms, loop } = await startServer(t);
   const a = await client();
   const b = await client();
-  const { room } = await call(a, 'room:create', { nickname: 'Ana' });
+  const { room, token } = await call(a, 'room:create', { nickname: 'Ana' });
   await call(b, 'room:join', { code: room.code, nickname: 'Ben' });
   await call(a, 'option:add', { name: 'Tacos' });
   await call(a, 'option:add', { name: 'Sushi' });
@@ -238,7 +238,24 @@ test('over sockets: when the match is decided the room goes back to the lobby', 
   await call(b, 'room:leave');
   let update;
   do update = await nextEvent(a, 'room:update');
-  while (update.state !== 'lobby');
+  while (update.state !== 'results');
+  assert.deepEqual(update.result, { optionId: options[0].id });
   assert.equal(rooms.getRoom(room.code).match, null);
   assert.equal(loop.stats(match), undefined);
+
+  // Locked: no new players, no lobby actions, no second match.
+  const c = await client();
+  assert.equal((await call(c, 'room:join', { code: room.code, nickname: 'Cy' })).error, 'ROOM_LOCKED');
+  assert.equal((await call(a, 'match:start')).error, 'ROOM_LOCKED');
+
+  // A reload lands back on the same result.
+  a.disconnect();
+  const again = await client();
+  const rejoined = await call(again, 'room:rejoin', { code: room.code, token });
+  assert.equal(rejoined.room.state, 'results');
+  assert.deepEqual(rejoined.room.result, { optionId: options[0].id });
+
+  // The last player out deletes the room.
+  await call(again, 'room:leave');
+  assert.equal(rooms.getRoom(room.code), undefined);
 });

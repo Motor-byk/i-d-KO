@@ -74,9 +74,10 @@ export function attachSocketHandlers(io, rooms) {
       room,
       emit: (event, payload, { volatile = false } = {}) => (volatile ? target.volatile : target).emit(event, payload),
       onEmpty: () => loop.remove(match),
-      onEnd: () => {
+      onEnd: ({ teamId }) => {
         loop.remove(match);
-        toLobby(room);
+        const res = rooms.finishMatch(room.code, teamId);
+        if (!res.error) broadcastRoom(res.room);
       },
       perf: () => loop.stats(match),
     });

@@ -26,8 +26,9 @@
   - Checked in Chrome against a bot: snapshots at 20/s, interp delay 100ms, no console errors. Zero prediction corrections while walking and dashing, on localhost and with ~97ms RTT simulated by delaying the page's WebSocket sends; a forced reconnect mid-match rejoined cleanly. Got KO'd by the bot's jabs. Corrections from server-only events (hits, body pushes) weren't observed: on localhost hitstop hides them, and with latency I didn't get into contact. Touch still untested on a real phone.
 - **Milestone E (steps 25–29): in progress** on branch `milestone-e-match-flow`.
   - Step 25: `server/game/ring.js` is a schedule (`matchRing`) + `ringRadius(ring, tick)` + `applyRingDamage`, run after hits so ties can be checked after ring damage. Snapshots carry the radius (`ring`); the client tints outside it. `START_RADIUS` is now derived from the arena so the ring starts just covering the corners, instead of spending ~10s invisible. HP is fractional (rounded to 2 decimals in snapshots).
-  - Step 26: `server/game/modes/elimination.js` is the mode interface (`onStart`, `onTick`, `checkWinner`, plus `publicState` for extra snapshot fields); `Match` takes `mode`. A tie is everyone alive at the last check falling on one tick, after ring damage. Revive = clean slate through `match.revive` (input stream reset and lag comp history cleared, so nobody is hit at their old position). **Added beyond the plan's wording:** the sudden death ring keeps closing (200 → 0 over 20s), so a stall can't last. The deciding KO holds on screen for `MATCH.END_DELAY_TICKS` (1.5s); ring damage stops then. The match end goes out after the tick's snapshot. For now the room returns to the lobby (results in step 28). A match with nobody left to win gives `{ teamId: null }`.
+  - Step 26: `server/game/modes/elimination.js` is the mode interface (`onStart`, `onTick`, `checkWinner`, plus `publicState` for extra snapshot fields); `Match` takes `mode`. A tie is everyone alive at the last check falling on one tick, after ring damage. Revive = clean slate through `match.revive` (input stream reset and lag comp history cleared, so nobody is hit at their old position). **Added beyond the plan's wording:** the sudden death ring keeps closing (200 → 0 over 20s), so a stall can't last. The deciding KO holds on screen for `MATCH.END_DELAY_TICKS` (1.5s); ring damage stops then. The match end goes out after the tick's snapshot. A match with nobody left to win gives `{ teamId: null }`.
   - Step 27: `server/game/balance.js` `teamBuffs(size, largest)` from team sizes at the start. Fighters carry `maxHp` (rounded) and `damageMult`; a sudden death revive stays at 1 HP. Snapshots carry `maxHp`, and the client shows 🐴 beside the nickname when it's above base.
+  - Step 28: a decided match puts the room in state `results` with `result: { optionId }` (`rooms.finishMatch`), sent via `room:update`, so it's reliable, arrives after the last snapshot, and a rejoin lands on the same screen. The room stays locked until everyone has left (Back to home = `room:leave`); a crash still goes to the lobby (`rooms.endMatch`).
 - Review notes to handle in later steps:
   - Step 18/26: a normal match end must `loop.remove(match)` as well as `rooms.endMatch`. Reliable discrete events (KO, match end) must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
@@ -128,6 +129,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/net.js         clock estimate, prediction/reconciliation, adaptive interpolation
 [x] public/js/render.js      circles w/ option names, fists, ring, pillars, juice
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
+[x] public/js/ui/results.js  winner reveal, back to home
 [x] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
 [x] public/js/input/touch.js move stick (left half) + aim stick (right half) + top-right buttons (Jab taps; facing follows the aim stick, else the move stick)
 [x] public/js/input/desktop.js keyboard + mouse
@@ -164,7 +166,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 25. [x] `feat: shrinking ring` — + tests.
 26. [x] `feat: elimination mode and sudden death` — + tests (tie after ring damage).
 27. [x] `feat: dark horse balancing` — + badge + tests.
-28. `feat: results screen`.
+28. [x] `feat: results screen`.
 29. `feat: game juice` — shake, damage numbers, combo counter.
 30. `feat: mid-match disconnect handling` — idle hittable circle, KO when grace runs out.
 31. `feat: graceful shutdown` — SIGTERM → `server:restarting`.

@@ -4,7 +4,7 @@ import { createJuice } from '../public/js/juice.js';
 import { DT, JUICE, RING, SNAPSHOT_RATE, TICK_MS, TICK_RATE } from '../shared/constants.js';
 
 const fighter = (id, hp, alive = true) => ({ id, x: 100, y: 200, hp, alive });
-const snap = (tick, ...fighters) => ({ tick, fighters });
+const snap = (tick, ...fighters) => ({ tick, suddenDeath: 0, fighters });
 const juice = () => createJuice({ random: () => 0.5 }); // 0.5: no float spread
 
 test('losing HP floats a damage number; gaining it does not', () => {
@@ -28,14 +28,28 @@ test('the slow burn of the ring floats nothing, even over a late snapshot', () =
   assert.deepEqual(j.floatsAt(2), []);
 });
 
-test('a KO floats once, and a sudden death revive is no new number', () => {
+test('a KO floats once', () => {
   const j = juice();
   j.onSnapshot(snap(1, fighter(1, 5)), 0);
   j.onSnapshot(snap(2, fighter(1, 0, false)), 0);
   assert.deepEqual(j.floatsAt(2).map((f) => [f.text, f.ko]), [['5', false], ['KO!', true]]);
   j.onSnapshot(snap(3, fighter(1, 0, false)), 0);
-  j.onSnapshot(snap(4, fighter(1, 1)), 0);
-  assert.equal(j.floatsAt(4).length, 2);
+  assert.equal(j.floatsAt(3).length, 2);
+});
+
+test('a sudden death start is a KO where they stood, not a big hit, and only for the tied', () => {
+  const j = juice();
+  const quiet = () => Math.hypot(...Object.values(j.shakeAt(0)));
+  j.onSnapshot(snap(1, fighter(1, 60), fighter(2, 0, false)), 1);
+  // Revived on the tick they fell, so no snapshot shows them dead. Fighter 2 fell earlier and stays out.
+  j.onSnapshot({ tick: 2, suddenDeath: 1, fighters: [{ ...fighter(1, 1), x: 800 }, fighter(2, 0, false)] }, 1);
+  const floats = j.floatsAt(2);
+  assert.deepEqual(floats.map((f) => f.text), ['KO!']);
+  assert.equal(floats[0].x, 100, 'where it fell, not where it respawned');
+  assert.ok(Math.abs(quiet() - JUICE.SHAKE_KO) < 1e-9);
+  // From here on it's business as usual.
+  j.onSnapshot({ tick: 3, suddenDeath: 1, fighters: [{ ...fighter(1, 0, false), x: 800 }, fighter(2, 0, false)] }, 1);
+  assert.deepEqual(j.floatsAt(3).map((f) => f.text), ['KO!', '1', 'KO!']);
 });
 
 test('floats wait for the interpolated view, rise, fade and expire', () => {

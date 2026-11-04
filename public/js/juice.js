@@ -7,6 +7,7 @@ export function createJuice({ random = Math.random } = {}) {
   let floats = [];      // { tick, x, y, text, ko }
   let trauma = 0;       // how far the screen shakes, in world units
   let lastShake = null;
+  let lastRound = 0;    // sudden death rounds as of the previous snapshot
 
   const addFloat = (tick, f, text, ko) => floats.push({
     tick,
@@ -21,9 +22,18 @@ export function createJuice({ random = Math.random } = {}) {
 
   return {
     onSnapshot(snap, meId) {
+      // A tie revives fighters on the tick they fell, so no snapshot shows them dead: this one
+      // shows HP dropping to 1 and a teleport. Everyone still up just went KO, where they stood.
+      const tied = snap.suddenDeath !== lastRound;
+      lastRound = snap.suddenDeath;
       for (const f of snap.fighters) {
         const before = last.get(f.id);
         if (!before?.alive) continue;
+        if (tied) {
+          addFloat(snap.tick, before, 'KO!', true);
+          addShake(JUICE.SHAKE_KO);
+          continue;
+        }
         const lost = before.hp - f.hp;
         // Below the minimum it's the ring's slow burn, not a hit.
         if (lost >= JUICE.DAMAGE_MIN) {

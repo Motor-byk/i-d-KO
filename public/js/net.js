@@ -106,6 +106,7 @@ export function createInterpolator() {
       if (i === 0) return snaps[0].fighters;
       const a = snaps[i - 1];
       const b = snaps[i];
+      if (a.suddenDeath !== b.suddenDeath) return b.fighters; // revived fighters teleport, not glide
       const k = (tick - a.tick) / (b.tick - a.tick);
       const before = new Map(a.fighters.map((f) => [f.id, f]));
       return b.fighters.map((fb) => {

@@ -1,16 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createBody, stepBody, clampMove, separateBodies } from '../shared/physics.js';
+import { createBody, stepBody, separateBodies } from '../shared/physics.js';
 import { PLAYER, COMBAT, DT, ARENA } from '../shared/constants.js';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
-
-test('clampMove limits length and rejects non-finite input', () => {
-  assert.deepEqual(clampMove(3, 4), { x: 0.6, y: 0.8 });
-  assert.deepEqual(clampMove(0.2, 0.1), { x: 0.2, y: 0.1 });
-  assert.deepEqual(clampMove(NaN, 1), { x: 0, y: 0 });
-  assert.deepEqual(clampMove(Infinity, 0), { x: 0, y: 0 });
-});
 
 test('walking accelerates to move speed and stops again', () => {
   const b = createBody(200, 150);

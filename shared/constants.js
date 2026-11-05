@@ -203,6 +203,7 @@ export const NET = {
   CLOCK_SMOOTHING: 0.1,     // share of a clock sample's error taken per snapshot
   JITTER_SMOOTHING: 0.1,
   HEALTH_PING_MS: 5 * 60_000,
+  SHUTDOWN_FLUSH_MS: 100, // on SIGTERM, time for the restart warning to leave before the process exits
   MAX_PENDING_INPUTS: 30, // unacked inputs the client keeps for replay (1s)
   SNAP_DISTANCE: 100,     // prediction corrections bigger than this snap instead of easing
   CORRECTION_DECAY: 0.75, // share of an eased correction still showing after each tick

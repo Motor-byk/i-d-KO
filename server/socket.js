@@ -185,5 +185,11 @@ export function attachSocketHandlers(io, rooms) {
     });
   });
 
-  return { loop };
+  // The process is about to exit: no new rooms, and warn everyone. Rooms live in memory, so they're lost.
+  const announceShutdown = () => {
+    rooms.closing = true;
+    io.emit('server:restarting');
+  };
+
+  return { loop, announceShutdown };
 }

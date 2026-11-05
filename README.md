@@ -31,3 +31,5 @@ The repo has a `render.yaml` Blueprint with two services:
 4. Share the client URL with your friends.
 
 **Auto-deploy is off.** All rooms live in server memory, so any deploy or restart ends matches in progress. Deploy manually with **Manual Deploy** when nobody is playing.
+
+**Known limitation: a restart loses every room.** On SIGTERM the server stops creating rooms, warns connected clients and exits right away, without waiting for live matches. Players see the warning and land back on the home screen once the server is up.

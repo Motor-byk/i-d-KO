@@ -37,14 +37,14 @@
   - Fix from that check: the camera stopped flush with the arena's edge, so a wall could be off screen and a name clipped. Both views now show `RENDER.EDGE_MARGIN` (90) past the edge, enough for the widest label (16 W's and 🐴, 236 units wide with Chrome's system font on this machine). Seen in Chrome: portrait and landscape in a corner, and the spectator view.
 - **Milestone F (steps 30–32): in progress** on branch `milestone-f-resilience`.
   - Step 30: the server already kept a dropped fighter idle and hittable and KO'd it when grace ran out (`rooms.sweep` removes the player, `Match.step` flags the KO); `test/disconnect.test.js` now locks that in. New on the client: a `disconnected` tag above the name, read from the room's `connected` flag. It's a tag rather than a see-through body, because see-through means hits pass. The match screen keeps leavers in its player map, since the room drops them before the delayed view reaches their KO (they'd draw as a grey "?"). Kept on purpose: a heavy being charged at the moment of the drop fires once (the held button resets to released).
-- **Next:** step 31, `feat: graceful shutdown`.
+  - Step 31: SIGTERM → `announceShutdown` (`rooms.closing` refuses new rooms with `SERVER_RESTARTING`, `server:restarting` goes to everyone), then exit after `NET.SHUTDOWN_FLUSH_MS` so the warning actually leaves. `test/shutdown.test.js` checks this on a spawned server process. The client shows the warning as a banner, keeps it through the disconnect, and on reconnect says the room is gone instead of "you were away too long". Rejoining stays open, since a live room isn't affected in the moment before exit.
+- **Next:** step 32, `chore: bot clients script`.
 - Review notes to handle in later steps:
   - Reliable discrete events must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
   - Later/optional (from the D review): a snapshot is ~3.3 KB at 10 players (~65 KB/s per client); others' `cs` only needs state/t/len/dir/hitstop/charge. `INPUT_QUEUE_MAX` 2 may starve-then-merge on 50–100ms mobile jitter (consider 3). Between reconnect and rejoin, inputs count as sent but the server drops them (a brief replay of phantom inputs; the ack-backwards reset cleans it up). Launched targets could join the no-rewind set. Jab aim assist isn't predicted (the fist direction corrects on the next snapshot).
   - Later/optional: trim the input queue back to 1 when it sits at 2 (a late packet adds a permanent +33ms); shrink snapshots (omit zero knockback, send velocities only for your own fighter) once combat state doubles their size (~24 KB/s per client now).
 - Known open items:
-  - SIGTERM handling is step 31.
   - Verify Render passes `cf-connecting-ip` (otherwise the rate-limit IP falls back to the spoofable X-Forwarded-For). Log the headers once after the first deploy.
   - A real phone test on Render needs the user's account.
 - **First Render deploy (branch `fix-wake-check`):** in Chrome, every cross-origin HTTP request from the static site to the server gets a 503 (curl and same-origin get 200; the cause wasn't pinned down, possibly connection reuse across the shared `*.onrender.com` cert and IPs), while websockets open fine. The wake check now falls back to a bare websocket open when `/health` fails. Then the client dropped `/health` and uses only the websocket probe (branch `ws-wake-probe`).
@@ -179,7 +179,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 28. [x] `feat: results screen`.
 29. [x] `feat: game juice` — shake, damage numbers, combo counter.
 30. [x] `feat: mid-match disconnect handling` — idle hittable circle with a disconnected indicator (user decision; the client already gets each player's `connected` flag), KO when grace runs out.
-31. `feat: graceful shutdown` — SIGTERM → stop creating rooms, `server:restarting` → client warns players, exit right away (user decision).
+31. [x] `feat: graceful shutdown` — SIGTERM → stop creating rooms, `server:restarting` → client warns players, exit right away (user decision).
 32. `chore: bot clients script` — scripts/bots.js with latency injection. Developer testing tool only (user decision): run by hand from the command line, connecting like ordinary players. Players can't add bots: no bot UI and no bot-specific server code.
 
 ## Review checkpoints

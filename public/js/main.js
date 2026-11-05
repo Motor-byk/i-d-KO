@@ -12,6 +12,7 @@ document.body.append(banner);
 let socket;
 let me = null;       // { playerId, code }
 let screen = null;   // current screen object
+let restarting = false; // the server warned it's going down, until we reconnect
 
 // Rejoin errors that mean the seat is really gone; anything else (timeout, offline) is retried.
 const SEAT_GONE = new Set(['BAD_TOKEN', 'ROOM_NOT_FOUND']);
@@ -167,15 +168,21 @@ async function boot() {
   socket.on('room:update', onRoom);
   socket.on('room:kicked', showMovedTab);
   socket.on('match:snapshot', (snap) => screen?.onSnapshot?.(snap));
+  socket.on('server:restarting', () => {
+    restarting = true;
+    setBanner('The server is restarting, so any room in progress is lost. Reconnecting…');
+  });
   socket.on('disconnect', (reason) => {
     // A server-initiated disconnect (kick) does not auto-reconnect, so don't promise it will.
-    if (reason !== 'io server disconnect') setBanner('Connection lost. Reconnecting…');
+    if (reason !== 'io server disconnect' && !restarting) setBanner('Connection lost. Reconnecting…');
   });
   socket.on('connect', async () => {
     setBanner('');
     const wasInRoom = me !== null;
+    const restarted = restarting;
+    restarting = false;
     if (await tryRejoin()) return;
-    if (wasInRoom) showHome('You were away too long and lost your seat.');
+    if (wasInRoom) showHome(restarted ? 'The server restarted, so your room is gone. Sorry!' : 'You were away too long and lost your seat.');
     else if (screen?.kind !== 'home') showHome();
   });
 }

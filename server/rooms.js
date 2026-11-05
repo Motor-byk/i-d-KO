@@ -21,11 +21,13 @@ export class RoomManager {
     this.now = now;
     this.rooms = new Map();
     this.nextPlayerId = 1;
+    this.closing = false; // the server is shutting down: no new rooms
   }
 
   createRoom(nickname) {
     const name = cleanText(nickname, ROOM.MAX_NICKNAME_LENGTH);
     if (!name) return { error: 'BAD_NICKNAME' };
+    if (this.closing) return { error: 'SERVER_RESTARTING' };
     if (this.rooms.size >= ROOM.MAX_ROOMS) return { error: 'SERVER_FULL' };
     const room = {
       code: this.#newCode(),

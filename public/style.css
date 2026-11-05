@@ -134,7 +134,7 @@ button.ghost { background: transparent; color: var(--muted); }
   bottom: max(30px, env(safe-area-inset-bottom));
 }
 .stick.aim .stick-knob { background: rgba(255, 183, 3, 0.6); }
-/* Action buttons: an arc from the top-right corner, each one offset by touch.js. */
+/* Action buttons: an askew diamond in the top right, each one offset by touch.js. */
 .touch-buttons {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));

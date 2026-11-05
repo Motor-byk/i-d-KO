@@ -30,7 +30,7 @@ test('once shutting down, no new rooms can be created but everyone is warned', a
 test('SIGTERM warns connected clients and exits cleanly', async (t) => {
   const port = await freePort();
   const server = spawn(process.execPath, [SERVER_FILE], {
-    env: { ...process.env, PORT: String(port), NODE_ENV: 'development' },
+    env: { ...process.env, PORT: String(port), NODE_ENV: 'development', CLIENT_ORIGIN: '*' },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
   t.after(() => server.kill('SIGKILL'));

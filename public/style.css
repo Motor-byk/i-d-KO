@@ -117,20 +117,15 @@ button.ghost { background: transparent; color: var(--muted); }
 .touch { position: absolute; inset: 0; touch-action: none; display: none; }
 @media (pointer: coarse) { .touch { display: block; } }
 .stick {
-  position: absolute; width: 120px; height: 120px;
+  position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px;
   border-radius: 50%; background: rgba(255, 255, 255, 0.08); border: 2px solid rgba(255, 255, 255, 0.25);
   pointer-events: none;
 }
-.stick.move { margin: -60px 0 0 -60px; } /* centered on the finger */
 .stick-knob {
   position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
   border-radius: 50%; background: rgba(255, 255, 255, 0.45);
 }
-.stick.aim {
-  border-color: rgba(255, 183, 3, 0.5);
-  right: max(30px, env(safe-area-inset-right));
-  bottom: max(30px, env(safe-area-inset-bottom));
-}
+.stick.aim { border-color: rgba(255, 183, 3, 0.5); }
 .stick.aim .stick-knob { background: rgba(255, 183, 3, 0.6); }
 /* Action buttons: an askew diamond in the top right, each one offset by touch.js. */
 .touch-buttons {

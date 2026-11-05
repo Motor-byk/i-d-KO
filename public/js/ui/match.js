@@ -88,15 +88,14 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
   frameId = requestAnimationFrame(frame);
 
   const desktop = desktopInput(el, {
-    aimAt: (clientX, clientY) => {
-      const me = myFighter();
-      const target = me && renderer.toWorld(clientX, clientY);
-      return target ? Math.atan2(target.y - me.y, target.x - me.x) : null;
-    },
+    aimAt: (clientX, clientY) => (serverMe() ? renderer.aimAngle(clientX, clientY) : null),
   });
 
   let seq = 0;
   function sendTick(now) {
+    // Sampled even when nothing gets sent, so a press made while you can't act doesn't fire later.
+    const keys = desktop.sample();
+    const fingers = touch.sample();
     // No walking around a frozen world, and no burst of stale inputs if the link comes back.
     if (stalled) {
       predictor.reset();
@@ -104,8 +103,6 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
     }
     const me = myFighter(now);
     if (!me) return; // spectating or KO'd
-    const keys = desktop.sample();
-    const fingers = touch.sample();
     aim = fingers.aim ?? keys.aim ?? aim ?? me.aim;
     const input = {
       seq: ++seq,
@@ -164,6 +161,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
       cancelAnimationFrame(frameId);
       clearInterval(inputTimer);
       desktop.destroy();
+      touch.destroy();
       debug.destroy();
       renderer.destroy();
     },

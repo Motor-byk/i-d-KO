@@ -66,13 +66,12 @@ function fistExtension(cs) {
 }
 
 // Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
-// cs, color, label, nickname, connected, away }], meId, followId, ring, floats, shake }. Camera follows followId, or
+// cs, color, label, nickname, connected, away }], meId, followId, ring, floats, shake }. Camera stays centered on followId, or
 // fits the arena if null. ring is the shrinking ring's radius; floats and shake come from juice.js.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   let dpr = 1;
   const labelFits = new Map(); // label -> { size, text }, measured once per label
-  let cam = null; // camera used for the last frame, for toWorld()
 
   const resize = () => {
     dpr = window.devicePixelRatio || 1;
@@ -85,23 +84,13 @@ export function createRenderer(canvas) {
   function camera(follow) {
     const cw = canvas.width / dpr;
     const ch = canvas.height / dpr;
-    const margin = RENDER.EDGE_MARGIN;
     if (!follow) {
+      const margin = RENDER.EDGE_MARGIN;
       const scale = Math.min(cw / (ARENA.WIDTH + 2 * margin), ch / (ARENA.HEIGHT + 2 * margin));
       return { scale, x: ARENA.WIDTH / 2, y: ARENA.HEIGHT / 2, cw, ch };
     }
-    const scale = Math.min(cw / RENDER.VIEW_WIDTH, ch / RENDER.VIEW_HEIGHT);
-    // Stop panning a margin past the arena's edge; center the arena if it fits in the view with both margins.
-    const clampAxis = (pos, view, size) => (view >= size + 2 * margin
-      ? size / 2
-      : Math.max(view / 2 - margin, Math.min(size - view / 2 + margin, pos)));
-    return {
-      scale,
-      x: clampAxis(follow.x, cw / scale, ARENA.WIDTH),
-      y: clampAxis(follow.y, ch / scale, ARENA.HEIGHT),
-      cw,
-      ch,
-    };
+    const scale = (RENDER.FIGHTER_SCREEN_SHARE * Math.min(cw, ch)) / (2 * PLAYER.RADIUS);
+    return { scale, x: follow.x, y: follow.y, cw, ch };
   }
 
   // Shrinks the font until the label fits inside the circle, then truncates as a last resort.
@@ -300,7 +289,7 @@ export function createRenderer(canvas) {
 
   function draw(view) {
     const follow = view.fighters.find((f) => f.id === view.followId && f.alive);
-    cam = camera(follow);
+    const cam = camera(follow);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = COLORS.void;
     ctx.fillRect(0, 0, cam.cw, cam.ch);
@@ -315,15 +304,12 @@ export function createRenderer(canvas) {
     drawFloats(view.floats);
   }
 
-  // Screen (client) coordinates -> world coordinates, using the last drawn frame's camera.
-  function toWorld(clientX, clientY) {
-    if (!cam) return null;
+  // Screen (client) coordinates -> aim angle for the followed fighter, who is always drawn at the canvas center.
+  // Ignores shake, so aim stays steady under the cursor.
+  function aimAngle(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    return {
-      x: cam.x + (clientX - rect.left - cam.cw / 2) / cam.scale,
-      y: cam.y + (clientY - rect.top - cam.ch / 2) / cam.scale,
-    };
+    return Math.atan2(clientY - rect.top - rect.height / 2, clientX - rect.left - rect.width / 2);
   }
 
-  return { draw, toWorld, destroy: () => resizer.disconnect() };
+  return { draw, aimAngle, destroy: () => resizer.disconnect() };
 }

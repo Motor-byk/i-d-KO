@@ -64,10 +64,10 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 - Join attempts are rate-limited per IP (anti brute-force).
 - Any player can add options (2–10; ≤ 20 chars; case-insensitive dedupe). The host can remove options. Each option gets a distinct team color.
 - Free team picking in the lobby. At start, options with 0 players are dropped. At least 2 populated teams are needed.
-- **Rejoin:** a random token is issued at join and stored in `sessionStorage`. Grace is **60s in the lobby, 20s mid-match**. In a match, the circle stays idle and hittable during grace, and when grace runs out it's a KO. A room is deleted only when it's empty and nobody is in grace.
+- **Rejoin:** a random token is issued at join and stored in `sessionStorage`. Grace is **60s in the lobby, 20s mid-match**. In a match, the circle stays idle and hittable during grace, shows a disconnected indicator so nobody reads it as AFK, and when grace runs out it's a KO. A room is deleted only when it's empty and nobody is in grace.
 - **Host migration:** host = earliest joiner still connected. Migrates when the host's grace runs out (not on a socket blip). If the old host rejoins, they don't get host back. Host-only actions check host status when the server handles them.
 - **Waking server:** the static client loads instantly, probes the game server with a bare websocket handshake ("Waking server…" UI), then connects. Clients probe again every ~5 min while open, in case traffic on a long-lived WebSocket doesn't count against the idle timer. Not `/health`: on Render, Chrome gets a 503 on cross-origin HTTP to the server; `/health` stays for Render's health check.
-- **Shutdown:** on SIGTERM, stop creating rooms and emit `server:restarting` to clients. Documented as a known limitation (in-memory rooms are lost on restart).
+- **Shutdown:** on SIGTERM, stop creating rooms, emit `server:restarting` so clients can warn players, and exit right away (no waiting for live matches to finish: Render's shutdown window is short and most would be cut off anyway). Documented as a known limitation (in-memory rooms are lost on restart).
 
 ### Match (default mode: Elimination)
 - One life, single round, shrinking ring. It starts closing at ~45s and fully closes by ~2:30. Outside the ring = damage over time.
@@ -176,9 +176,9 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 27. [x] `feat: dark horse balancing` — + badge + tests.
 28. [x] `feat: results screen`.
 29. [x] `feat: game juice` — shake, damage numbers, combo counter.
-30. `feat: mid-match disconnect handling` — idle hittable circle, KO when grace runs out.
-31. `feat: graceful shutdown` — SIGTERM → `server:restarting`.
-32. `chore: bot clients script` — scripts/bots.js with latency injection.
+30. `feat: mid-match disconnect handling` — idle hittable circle with a disconnected indicator (user decision; the client already gets each player's `connected` flag), KO when grace runs out.
+31. `feat: graceful shutdown` — SIGTERM → stop creating rooms, `server:restarting` → client warns players, exit right away (user decision).
+32. `chore: bot clients script` — scripts/bots.js with latency injection. Developer testing tool only (user decision): run by hand from the command line, connecting like ordinary players. Players can't add bots: no bot UI and no bot-specific server code.
 
 ## Review checkpoints
 After each major milestone, stop implementing and run three review subagents in parallel over the code built so far (focused on that milestone's diff):

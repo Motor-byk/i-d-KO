@@ -65,7 +65,7 @@ export function createAppServer({ clientOrigin = CLIENT_ORIGIN } = {}) {
     transports: ['websocket'],
     perMessageDeflate: false,
     maxHttpBufferSize: 8 * 1024,
-    // Detect dead mobile connections well inside the 20s match grace (default is ~45s).
+    // Detect dead mobile connections within 15s (default is ~45s). The match grace starts after that.
     pingInterval: 10_000,
     pingTimeout: 5_000,
     cors: { origin: clientOrigin },

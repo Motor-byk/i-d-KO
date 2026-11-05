@@ -175,12 +175,12 @@ export const TOUCH = {
   STICK_DEADZONE: 8,
   AIM_DEADZONE: 18,   // push the aim stick farther than this to aim manually
   AIM_CATCH_RADIUS: 90, // a touch this close to the aim stick's center grabs it
-  // Action buttons, an askew diamond: each spot is its offset in from the screen's top-right corner.
-  // Rows are 100 apart, not 88, so parry and heavy don't nearly touch across the diamond's short side.
+  // Action buttons: each spot is its offset from the top-right corner of the safe area (negative = above it).
+  // Parry and dash sit 72 left of light and heavy, half a button (32) higher.
   BUTTON_SPOTS: {
-    parry: { right: 185, top: 23 },
+    parry: { right: 157, top: -9 },
     jab: { right: 85, top: 23 },
-    dash: { right: 247, top: 85 },
+    dash: { right: 219, top: 53 },
     heavy: { right: 147, top: 85 },
   },
 };

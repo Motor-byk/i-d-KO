@@ -123,6 +123,8 @@ export function touchInput() {
     };
   }
 
+  // Stops the browser's long-press gestures (text selection, callouts), which pointerdown's preventDefault doesn't.
+  el.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
   el.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse') return; // desktop input handles the mouse
     e.preventDefault();

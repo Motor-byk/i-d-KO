@@ -99,7 +99,11 @@ button.ghost { background: transparent; color: var(--muted); }
   color: var(--team); overflow-wrap: anywhere;
 }
 
-.match { position: fixed; inset: 0; overflow: hidden; }
+/* Nothing here is selectable: a long press on a stick would otherwise select the nearest text and steal the finger. */
+.match {
+  position: fixed; inset: 0; overflow: hidden;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
 .match canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .match-leave { position: absolute; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); }
 
@@ -111,7 +115,7 @@ button.ghost { background: transparent; color: var(--muted); }
 .match-notice[hidden] { display: none; }
 
 /* Touch controls: hidden on mouse-only devices. */
-.touch { position: absolute; inset: 0; touch-action: none; user-select: none; -webkit-user-select: none; display: none; }
+.touch { position: absolute; inset: 0; touch-action: none; display: none; }
 @media (pointer: coarse) { .touch { display: block; } }
 .stick {
   position: absolute; width: 120px; height: 120px;

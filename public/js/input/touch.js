@@ -77,8 +77,13 @@ export function touchInput() {
     };
   }
 
-  // Stops the browser's long-press gestures (text selection, callouts), which pointerdown's preventDefault doesn't.
-  el.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+  el.addEventListener('touchstart', (e) => {
+    // Stops the browser's long-press gestures (text selection, callouts), which pointerdown's preventDefault doesn't.
+    e.preventDefault();
+    // Every finger on the controls is tracked, so more tracked than on screen means a lift never arrived.
+    // Which one is unknown, so free them all: the next touch works, even on a stuck stick.
+    if (pointers.size > e.touches.length) releaseAll();
+  }, { passive: false });
   el.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse') return; // desktop input handles the mouse
     e.preventDefault();
@@ -91,13 +96,17 @@ export function touchInput() {
     } catch {
       return;
     }
-    // One finger per button and per stick, and the newest wins: if the browser never reports a
-    // finger's lift, touching that control again frees it. The old finger's events stop counting.
-    for (const [id, pointer] of pointers) {
-      if (pointer.owner === owner) {
-        pointer.up();
-        pointers.delete(id);
-      }
+    const holder = [...pointers].find(([, pointer]) => pointer.owner === owner);
+    if (holder && !control) {
+      // A held stick stays put: a stray touch on its half only gets tracked, so the finger count stays right.
+      pointers.set(e.pointerId, { owner: null, move() {}, up() {} });
+      return;
+    }
+    // One finger per button, and the newest wins: if the browser never reports a finger's lift,
+    // touching that button again frees it. The old finger's events stop counting.
+    if (holder) {
+      holder[1].up();
+      pointers.delete(holder[0]);
     }
     pointers.set(e.pointerId, { owner, ...(control ? startButton(control, btnEl) : owner.start(e)) });
   });

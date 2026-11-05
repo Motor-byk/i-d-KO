@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ARENA, BUTTONS, DT, MATCH, PLAYER, RING } from '../shared/constants.js';
 import { eliminationMode } from '../server/game/modes/elimination.js';
-import { call, nextEvent, input, fakeMatch, startedMatch } from './helpers.js';
+import { call, roomUpdate, input, fakeMatch, startedMatch } from './helpers.js';
 
 const CX = ARENA.WIDTH / 2;
 const CY = ARENA.HEIGHT / 2;
@@ -244,9 +244,7 @@ test('over sockets: when the match is decided the room shows the winner and stay
   const { client, rooms, loop, a, b, code, token, options } = await startedMatch(t);
   const { match } = rooms.getRoom(code);
   await call(b, 'room:leave');
-  let update;
-  do update = await nextEvent(a, 'room:update');
-  while (update.state !== 'results');
+  const update = await roomUpdate(a, (next) => next.state === 'results');
   assert.deepEqual(update.result, { optionId: options[0].id });
   assert.equal(rooms.getRoom(code).match, null);
   assert.equal(loop.stats(match), undefined);

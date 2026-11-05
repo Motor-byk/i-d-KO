@@ -30,7 +30,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   let room = null;
   let snap = null;
   let options = new Map(); // id -> option, rebuilt when the room changes
-  let players = new Map(); // id -> player
+  const players = new Map(); // id -> player, kept after they leave (see update)
   const predictor = createPredictor();
   const clock = createClock();
   const interp = createInterpolator();
@@ -71,6 +71,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
           color: team?.color ?? '#888888',
           label: team?.name ?? '?',
           nickname: player?.nickname ?? '',
+          connected: player?.connected ?? true,
         };
       }),
     };
@@ -124,7 +125,8 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
     update: (next) => {
       room = next;
       options = new Map(room.options.map((o) => [o.id, o]));
-      players = new Map(room.players.map((p) => [p.id, p]));
+      // The room drops a leaver at once, but the delayed view still draws their fighter until its KO.
+      for (const p of room.players) players.set(p.id, p);
     },
     onSnapshot: (next) => {
       if (snap && next.tick <= snap.tick) return; // stale

@@ -14,6 +14,14 @@ npm test
 
 Open a few tabs (use DevTools device emulation for touch) and join the same room code.
 
+To fill a room without more tabs, create it in a browser and add its options, then run:
+
+```sh
+node scripts/bots.js <code> 9 --latency=50 --jitter=15   # latency and jitter are per direction, in ms
+```
+
+Bots play like ordinary players and leave when the match is decided. You start the match from the browser.
+
 ## Deploy (Render, free tier)
 
 The repo has a `render.yaml` Blueprint with two services:
@@ -31,3 +39,5 @@ The repo has a `render.yaml` Blueprint with two services:
 4. Share the client URL with your friends.
 
 **Auto-deploy is off.** All rooms live in server memory, so any deploy or restart ends matches in progress. Deploy manually with **Manual Deploy** when nobody is playing.
+
+**Known limitation: a restart loses every room.** On SIGTERM the server stops creating rooms, warns connected clients and exits right away, without waiting for live matches. Players see the warning and land back on the home screen once the server is up.

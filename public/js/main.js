@@ -12,6 +12,8 @@ document.body.append(banner);
 let socket;
 let me = null;       // { playerId, code }
 let screen = null;   // current screen object
+let restarting = false; // the server warned it's going down, until we reconnect
+let rejoinRun = 0;      // only the newest tryRejoin() may act
 
 // Rejoin errors that mean the seat is really gone; anything else (timeout, offline) is retried.
 const SEAT_GONE = new Set(['BAD_TOKEN', 'ROOM_NOT_FOUND']);
@@ -63,6 +65,7 @@ const act = async (event, payload) => {
 async function leaveRoom() {
   // Forget the seat first so a reconnect mid-leave can't silently rejoin it.
   session.clear();
+  rejoinRun++;
   setRoomParam(null);
   showHome();
   await call(socket, 'room:leave');
@@ -113,22 +116,26 @@ function onRoom(room) {
   }
 }
 
-// Returns true once seated, false if there is no seat to go back to.
+// Returns 'seated'; 'retry' if a later attempt takes over (the next 'connect', or a newer run);
+// 'none' if there's no saved seat; or the error that says the seat is gone.
 async function tryRejoin() {
-  const saved = session.load();
-  if (!saved) return false;
+  const run = ++rejoinRun;
   for (;;) {
+    const saved = session.load();
+    if (!saved) return 'none';
     const res = await call(socket, 'room:rejoin', saved);
+    if (run !== rejoinRun) return 'retry';
     if (!res.error) {
       onEntered(res);
-      return true;
+      return 'seated';
     }
     if (SEAT_GONE.has(res.error)) {
       session.clear();
-      return false;
+      return res.error;
     }
-    if (!socket.connected) return false; // the next 'connect' will try again
+    if (!socket.connected) return 'retry';
     await new Promise((r) => setTimeout(r, 2000));
+    if (run !== rejoinRun) return 'retry';
   }
 }
 
@@ -167,16 +174,25 @@ async function boot() {
   socket.on('room:update', onRoom);
   socket.on('room:kicked', showMovedTab);
   socket.on('match:snapshot', (snap) => screen?.onSnapshot?.(snap));
+  socket.on('server:restarting', () => {
+    restarting = true;
+    setBanner('The server is restarting, so any room in progress is lost. Reconnecting…');
+  });
   socket.on('disconnect', (reason) => {
     // A server-initiated disconnect (kick) does not auto-reconnect, so don't promise it will.
-    if (reason !== 'io server disconnect') setBanner('Connection lost. Reconnecting…');
+    if (reason !== 'io server disconnect' && !restarting) setBanner('Connection lost. Reconnecting…');
   });
   socket.on('connect', async () => {
     setBanner('');
-    const wasInRoom = me !== null;
-    if (await tryRejoin()) return;
-    if (wasInRoom) showHome('You were away too long and lost your seat.');
-    else if (screen?.kind !== 'home') showHome();
+    restarting = false;
+    const outcome = await tryRejoin();
+    if (outcome === 'seated' || outcome === 'retry') return;
+    if (me) {
+      setRoomParam(null); // or Join stays filled in with a dead code
+      showHome(outcome === 'ROOM_NOT_FOUND'
+        ? 'Your room is gone. The server may have restarted.'
+        : 'You were away too long and lost your seat.');
+    } else if (screen?.kind !== 'home') showHome();
   });
 }
 

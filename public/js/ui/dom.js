@@ -32,6 +32,7 @@ const ERRORS = {
   TIMEOUT: 'Server did not answer. Check your connection.',
   OFFLINE: 'You are offline. Reconnecting…',
   SERVER_FULL: 'Server is busy. Try again in a bit.',
+  SERVER_RESTARTING: 'Server is restarting. Try again in a moment.',
 };
 
 export const errorText = (code) => ERRORS[code] || `Something went wrong (${code}).`;

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
+import { NET } from '../shared/constants.js';
 import { RoomManager } from './rooms.js';
 import { attachSocketHandlers } from './socket.js';
 
@@ -64,7 +65,7 @@ export function createAppServer({ clientOrigin = CLIENT_ORIGIN } = {}) {
     transports: ['websocket'],
     perMessageDeflate: false,
     maxHttpBufferSize: 8 * 1024,
-    // Detect dead mobile connections well inside the 20s match grace (default is ~45s).
+    // Detect dead mobile connections within 15s (default is ~45s). The match grace starts after that.
     pingInterval: 10_000,
     pingTimeout: 5_000,
     cors: { origin: clientOrigin },
@@ -72,9 +73,9 @@ export function createAppServer({ clientOrigin = CLIENT_ORIGIN } = {}) {
     allowRequest: (req, cb) => cb(null, clientOrigin === '*' || req.headers.origin === clientOrigin),
   });
   const rooms = new RoomManager();
-  const { loop } = attachSocketHandlers(io, rooms);
+  const { loop, announceShutdown } = attachSocketHandlers(io, rooms);
 
-  return { httpServer, io, rooms, loop };
+  return { httpServer, io, rooms, loop, announceShutdown };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -82,6 +83,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error('CLIENT_ORIGIN must be set in production (the static site URL).');
     process.exit(1);
   }
-  const { httpServer } = createAppServer();
+  const { httpServer, announceShutdown } = createAppServer();
   httpServer.listen(PORT, () => console.log(`i-d-KO server listening on :${PORT}`));
+  // Doesn't wait for live matches: Render's shutdown window is short and most would be cut off anyway.
+  process.once('SIGTERM', () => {
+    announceShutdown();
+    setTimeout(() => process.exit(0), NET.SHUTDOWN_FLUSH_MS);
+  });
 }

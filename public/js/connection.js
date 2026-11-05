@@ -49,7 +49,8 @@ export function keepAwake() {
 }
 
 export function connect() {
-  return io(SERVER, { transports: ['websocket'] });
+  // Short attempts: one hung handshake at the default 20s could outlast the whole 20s match grace.
+  return io(SERVER, { transports: ['websocket'], timeout: NET.CONNECT_TIMEOUT_MS, reconnectionDelayMax: NET.RECONNECT_DELAY_MAX_MS });
 }
 
 // Never buffer while offline: socket.io would replay the emit after reconnecting,

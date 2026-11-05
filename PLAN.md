@@ -76,6 +76,7 @@
   - Stuck stick with text highlighted on the ✕ (user report, phone, holding both sticks): the ✕, the sudden death notice and the rotate hint were selectable, so a long press could select the nearest text and take the finger. The whole `.match` now has selection and callouts off, and `.touch` cancels `touchstart`, which stops long-press gestures. Separately, a stick whose finger's lift went missing ignored new touches; now the newest finger on a control takes it over and the old finger's events stop counting (so a second finger on the left half moves the stick to it). The stuck stick was reproduced with fired pointer events, and is fixed. Headless Chromium doesn't run the long-press gesture, so the highlight itself still needs confirming on the phone.
 - **Button diamond (user request, branch `touch-diamond`):** the arc is replaced by an askew diamond at explicit offsets (`TOUCH.BUTTON_SPOTS`). Heavy and Light stay where the arc had them, Dash is directly left of Heavy and Parry directly left of Light. Rows are 100 apart rather than a true rhombus's 88, which would leave Parry and Heavy only 3px apart (now about 9px).
 - **Button spacing (user request, branch `touch-buttons-closer`):** Parry and Dash moved closer to Light and Heavy (72 to the left, not 100) and half a button higher (32). Heavy and Light didn't move. Parry's top edge is now 3px from the top of the screen at the default 12px safe-area margin.
+- **Aim stick floats again (user request, branch `aim-stick-floating`):** the fixed lower-right stick is gone, along with `TOUCH.AIM_CATCH_RADIUS`. The aim stick appears wherever the right half is touched, the same as the move stick, and the newest-finger takeover applies to both. This replaces the fixed stick described in the Match UI rework above.
 
 Update this section after every step.
 
@@ -122,7 +123,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 - **Hitstop is in the simulation:** it freezes the involved players' state timers on the server and in prediction. Screen shake and damage numbers are client-only juice.
 
 ### Controls
-- **Mobile (primary):** floating move stick on the left half, fixed aim stick lower right, an askew diamond of buttons top right (Parry and Light (jab) above, Dash and Heavy below). Touches are tracked by pointer id. Landscape prompt.
+- **Mobile (primary):** floating move stick on the left half, floating aim stick on the right half, an askew diamond of buttons top right (Parry and Light (jab) above, Dash and Heavy below). Touches are tracked by pointer id. Landscape prompt.
 - **Desktop:** WASD, mouse aim, LMB jab, RMB-hold heavy, Space dash, Shift parry.
 
 ### Netcode
@@ -168,7 +169,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
 [x] public/js/ui/results.js  winner reveal, back to home
 [x] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
-[x] public/js/input/touch.js move stick (left half) + fixed aim stick (lower right) + top-right button diamond (Jab taps; facing follows the aim stick, else the move stick)
+[x] public/js/input/touch.js move stick (left half) + aim stick (right half) + top-right button diamond (Jab taps; facing follows the aim stick, else the move stick)
 [x] public/js/input/desktop.js keyboard + mouse
 [x] test/*.test.js           node:test (helpers.js: startServer, call, nextEvent)
 [x] scripts/bots.js          headless bots with simulated latency

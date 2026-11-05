@@ -88,11 +88,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
   frameId = requestAnimationFrame(frame);
 
   const desktop = desktopInput(el, {
-    aimAt: (clientX, clientY) => {
-      const me = myFighter();
-      const target = me && renderer.toWorld(clientX, clientY);
-      return target ? Math.atan2(target.y - me.y, target.x - me.x) : null;
-    },
+    aimAt: (clientX, clientY) => (serverMe() ? renderer.aimAngle(clientX, clientY) : null),
   });
 
   let seq = 0;

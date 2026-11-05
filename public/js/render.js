@@ -72,7 +72,6 @@ export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   let dpr = 1;
   const labelFits = new Map(); // label -> { size, text }, measured once per label
-  let cam = null; // camera used for the last frame, for toWorld()
 
   const resize = () => {
     dpr = window.devicePixelRatio || 1;
@@ -290,7 +289,7 @@ export function createRenderer(canvas) {
 
   function draw(view) {
     const follow = view.fighters.find((f) => f.id === view.followId && f.alive);
-    cam = camera(follow);
+    const cam = camera(follow);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = COLORS.void;
     ctx.fillRect(0, 0, cam.cw, cam.ch);
@@ -305,15 +304,12 @@ export function createRenderer(canvas) {
     drawFloats(view.floats);
   }
 
-  // Screen (client) coordinates -> world coordinates, using the last drawn frame's camera.
-  function toWorld(clientX, clientY) {
-    if (!cam) return null;
+  // Screen (client) coordinates -> aim angle for the followed fighter, who is always drawn at the canvas center.
+  // Ignores shake, so aim stays steady under the cursor.
+  function aimAngle(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    return {
-      x: cam.x + (clientX - rect.left - cam.cw / 2) / cam.scale,
-      y: cam.y + (clientY - rect.top - cam.ch / 2) / cam.scale,
-    };
+    return Math.atan2(clientY - rect.top - rect.height / 2, clientX - rect.left - rect.width / 2);
   }
 
-  return { draw, toWorld, destroy: () => resizer.disconnect() };
+  return { draw, aimAngle, destroy: () => resizer.disconnect() };
 }

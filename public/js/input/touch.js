@@ -10,11 +10,14 @@ const CONTROLS = [
   { name: 'parry', label: 'Parry', bit: BUTTONS.PARRY },
 ];
 
-// Spot i along the arc, as offsets from the arc's top-right anchor (where the 90° end sits).
+// Spot i along the arc, as CSS offsets from the arc's top-right anchor (where the 90° end sits).
 function arcOffset(i) {
   const deg = TOUCH.ARC_FROM_DEG + ((TOUCH.ARC_TO_DEG - TOUCH.ARC_FROM_DEG) * i) / (CONTROLS.length - 1);
   const rad = (deg * Math.PI) / 180;
-  return { right: -Math.cos(rad) * TOUCH.ARC_RADIUS, top: (1 - Math.sin(rad)) * TOUCH.ARC_RADIUS };
+  return {
+    right: `${-Math.cos(rad) * TOUCH.ARC_RADIUS}px`,
+    top: `${(1 - Math.sin(rad)) * TOUCH.ARC_RADIUS}px`,
+  };
 }
 
 // A joystick's knob and value. hold(ox, oy) grabs it around that center point.
@@ -101,13 +104,7 @@ function fixedStick(name, deadzone) {
 export function touchInput() {
   const moveStick = floatingStick('move', TOUCH.STICK_DEADZONE);
   const aimStick = fixedStick('aim', TOUCH.AIM_DEADZONE);
-  const buttonEls = CONTROLS.map((c, i) => {
-    const btn = h(`div.touch-btn.${c.name}`, { 'data-control': c.name }, c.label);
-    const { right, top } = arcOffset(i);
-    btn.style.right = `${right}px`;
-    btn.style.top = `${top}px`;
-    return btn;
-  });
+  const buttonEls = CONTROLS.map((c, i) => h('div.touch-btn', { 'data-control': c.name, style: arcOffset(i) }, c.label));
   const el = h('div.touch', {}, moveStick.el, aimStick.el, h('div.touch-buttons', {}, buttonEls));
 
   const pointers = new Map(); // pointerId -> { move(e), up() }

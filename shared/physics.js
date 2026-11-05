@@ -10,13 +10,6 @@ export function createBody(x, y) {
   return { x, y, vx: 0, vy: 0, kx: 0, ky: 0 };
 }
 
-// Clamps a move vector to length <= 1. Non-finite input counts as no input.
-export function clampMove(mx, my) {
-  if (!Number.isFinite(mx) || !Number.isFinite(my)) return { x: 0, y: 0 };
-  const len = Math.hypot(mx, my);
-  return len > 1 ? { x: mx / len, y: my / len } : { x: mx, y: my };
-}
-
 function approach(value, target, maxDelta) {
   return value < target ? Math.min(value + maxDelta, target) : Math.max(value - maxDelta, target);
 }

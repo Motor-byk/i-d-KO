@@ -48,7 +48,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
   const serverMe = () => snap?.fighters.find((f) => f.id === playerId && f.alive) ?? null;
 
   // Your predicted fighter for drawing and aiming: server data with predicted position and combat state.
-  function myFighter(now = performance.now()) {
+  function myFighter(now) {
     const me = serverMe();
     const predicted = predictor.state;
     if (!me || !predicted) return me;
@@ -61,7 +61,6 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
     const tick = renderTick(now);
     return {
       meId: playerId,
-      followId: playerId,
       ring: snap.ring, // moves a fraction of a unit per snapshot: no need to interpolate
       floats: juice.floatsAt(tick),
       shake: juice.shakeAt(now),

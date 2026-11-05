@@ -2,23 +2,13 @@ import { BUTTONS, TOUCH } from '../../shared/constants.js';
 import { h } from '../ui/dom.js';
 import { buttonLatch } from './latch.js';
 
-// Top-right buttons, in order along the arc. tap: pressed once when touched; otherwise held while touched.
+// Top-right buttons, placed by TOUCH.BUTTON_SPOTS. tap: pressed once when touched; otherwise held while touched.
 const CONTROLS = [
   { name: 'dash', label: 'Dash', bit: BUTTONS.DASH },
   { name: 'heavy', label: 'Heavy', bit: BUTTONS.HEAVY },
   { name: 'jab', label: 'Light', bit: BUTTONS.JAB, tap: true },
   { name: 'parry', label: 'Parry', bit: BUTTONS.PARRY },
 ];
-
-// Spot i along the arc, as CSS offsets from the arc's top-right anchor (where the 90° end sits).
-function arcOffset(i) {
-  const deg = TOUCH.ARC_FROM_DEG + ((TOUCH.ARC_TO_DEG - TOUCH.ARC_FROM_DEG) * i) / (CONTROLS.length - 1);
-  const rad = (deg * Math.PI) / 180;
-  return {
-    right: `${-Math.cos(rad) * TOUCH.ARC_RADIUS}px`,
-    top: `${(1 - Math.sin(rad)) * TOUCH.ARC_RADIUS}px`,
-  };
-}
 
 // A joystick's knob and value. hold(ox, oy) grabs it around that center point.
 // value() -> { x, y } normalized (zero inside the deadzone), or null when not held.
@@ -104,10 +94,13 @@ function fixedStick(name, deadzone) {
 export function touchInput() {
   const moveStick = floatingStick('move', TOUCH.STICK_DEADZONE);
   const aimStick = fixedStick('aim', TOUCH.AIM_DEADZONE);
-  const buttonEls = CONTROLS.map((c, i) => h('div.touch-btn', { 'data-control': c.name, style: arcOffset(i) }, c.label));
+  const buttonEls = CONTROLS.map((c) => {
+    const { right, top } = TOUCH.BUTTON_SPOTS[c.name];
+    return h('div.touch-btn', { 'data-control': c.name, style: { right: `${right}px`, top: `${top}px` } }, c.label);
+  });
   const el = h('div.touch', {}, moveStick.el, aimStick.el, h('div.touch-buttons', {}, buttonEls));
 
-  const pointers = new Map(); // pointerId -> { move(e), up() }
+  const pointers = new Map(); // pointerId -> { owner, move(e), up() }
   const buttons = buttonLatch();
 
   function startButton(control, btnEl) {
@@ -130,13 +123,12 @@ export function touchInput() {
     e.preventDefault();
     const btnEl = e.target.closest('[data-control]');
     const control = btnEl && CONTROLS.find((c) => c.name === btnEl.dataset.control);
-    let held = null;
-    if (!control) {
-      if (aimStick.catches(e)) held = aimStick;
-      else if (e.clientX < window.innerWidth / 2) held = moveStick;
+    let owner = control;
+    if (!owner) {
+      if (aimStick.catches(e)) owner = aimStick;
+      else if (e.clientX < window.innerWidth / 2) owner = moveStick;
       else return; // the rest of the right side does nothing
     }
-    const owner = control ?? held;
     // Capture before touching any state: if it throws, no up() would ever undo that state.
     try {
       el.setPointerCapture(e.pointerId);
@@ -151,7 +143,7 @@ export function touchInput() {
         pointers.delete(id);
       }
     }
-    pointers.set(e.pointerId, { owner, ...(control ? startButton(control, btnEl) : held.start(e)) });
+    pointers.set(e.pointerId, { owner, ...(control ? startButton(control, btnEl) : owner.start(e)) });
   });
   el.addEventListener('pointermove', (e) => pointers.get(e.pointerId)?.move(e));
   const end = (e) => {

@@ -66,8 +66,8 @@ function fistExtension(cs) {
 }
 
 // Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
-// cs, color, label, nickname, connected, away }], meId, followId, ring, floats, shake }. Camera stays centered on followId, or
-// fits the arena if null. ring is the shrinking ring's radius; floats and shake come from juice.js.
+// cs, color, label, nickname, connected, away }], meId, ring, floats, shake }. Camera stays centered on meId, or
+// fits the arena if they aren't alive. ring is the shrinking ring's radius; floats and shake come from juice.js.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   let dpr = 1;
@@ -288,7 +288,7 @@ export function createRenderer(canvas) {
   }
 
   function draw(view) {
-    const follow = view.fighters.find((f) => f.id === view.followId && f.alive);
+    const follow = view.fighters.find((f) => f.id === view.meId && f.alive);
     const cam = camera(follow);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = COLORS.void;

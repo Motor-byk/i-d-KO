@@ -112,7 +112,6 @@ button.ghost { background: transparent; color: var(--muted); }
   padding: 6px 14px; border-radius: 999px; pointer-events: none; white-space: nowrap;
   background: var(--danger); color: #fff; font-weight: 800;
 }
-.match-notice[hidden] { display: none; }
 
 /* Touch controls: hidden on mouse-only devices. */
 .touch { position: absolute; inset: 0; touch-action: none; display: none; }
@@ -123,7 +122,6 @@ button.ghost { background: transparent; color: var(--muted); }
   pointer-events: none;
 }
 .stick.move { margin: -60px 0 0 -60px; } /* centered on the finger */
-.stick[hidden] { display: none; }
 .stick-knob {
   position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
   border-radius: 50%; background: rgba(255, 255, 255, 0.45);
@@ -159,4 +157,3 @@ button.ghost { background: transparent; color: var(--muted); }
   margin: 0; padding: 6px 8px; border-radius: 8px; pointer-events: none;
   background: rgba(0, 0, 0, 0.6); color: #9ef0c8; font: 11px/1.35 ui-monospace, monospace;
 }
-.debug[hidden] { display: none; }

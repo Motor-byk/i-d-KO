@@ -100,7 +100,7 @@ export function touchInput() {
   });
   const el = h('div.touch', {}, moveStick.el, aimStick.el, h('div.touch-buttons', {}, buttonEls));
 
-  const pointers = new Map(); // pointerId -> { move(e), up() }
+  const pointers = new Map(); // pointerId -> { owner, move(e), up() }
   const buttons = buttonLatch();
 
   function startButton(control, btnEl) {
@@ -123,13 +123,12 @@ export function touchInput() {
     e.preventDefault();
     const btnEl = e.target.closest('[data-control]');
     const control = btnEl && CONTROLS.find((c) => c.name === btnEl.dataset.control);
-    let held = null;
-    if (!control) {
-      if (aimStick.catches(e)) held = aimStick;
-      else if (e.clientX < window.innerWidth / 2) held = moveStick;
+    let owner = control;
+    if (!owner) {
+      if (aimStick.catches(e)) owner = aimStick;
+      else if (e.clientX < window.innerWidth / 2) owner = moveStick;
       else return; // the rest of the right side does nothing
     }
-    const owner = control ?? held;
     // Capture before touching any state: if it throws, no up() would ever undo that state.
     try {
       el.setPointerCapture(e.pointerId);
@@ -144,7 +143,7 @@ export function touchInput() {
         pointers.delete(id);
       }
     }
-    pointers.set(e.pointerId, { owner, ...(control ? startButton(control, btnEl) : held.start(e)) });
+    pointers.set(e.pointerId, { owner, ...(control ? startButton(control, btnEl) : owner.start(e)) });
   });
   el.addEventListener('pointermove', (e) => pointers.get(e.pointerId)?.move(e));
   const end = (e) => {

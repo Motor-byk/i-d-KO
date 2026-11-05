@@ -190,6 +190,7 @@ export const NET = {
   MAX_INPUTS_PER_SECOND: 60,
   INPUT_QUEUE_MAX: 2,
   INPUT_STARVE_TICKS: 4, // no input for this long: stop moving (stalled tab, lost connection)
+  AWAY_TICKS: 30,        // no input for this long: show the fighter as lagging (the socket may not have closed yet)
   LAG_COMP_MAX_MS: 200,   // rewind cap: covers good and typical mobile connections; worse ones lead their targets
   MAX_STAMP_STEP: 2,      // an input's view tick may advance at most this much past the previous one
   INTERP_MIN_MS: 100,
@@ -204,6 +205,9 @@ export const NET = {
   JITTER_SMOOTHING: 0.1,
   HEALTH_PING_MS: 5 * 60_000,
   SHUTDOWN_FLUSH_MS: 100, // on SIGTERM, time for the restart warning to leave before the process exits
+  LINK_STALL_MS: 1000,           // no snapshots for this long: warn the player and stop predicting
+  LINK_RECONNECT_MS: 3000,       // no snapshots for this long: force a reconnect instead of waiting for the ping timeout
+  LINK_RECONNECT_MAX_MS: 12_000, // the wait doubles with each forced reconnect, up to this
   CONNECT_TIMEOUT_MS: 5000,      // one client connect attempt
   RECONNECT_DELAY_MAX_MS: 2000,  // longest wait between attempts
   MAX_PENDING_INPUTS: 30, // unacked inputs the client keeps for replay (1s)

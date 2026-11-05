@@ -4,7 +4,7 @@ import { createRenderer } from '../render.js';
 import { desktopInput } from '../input/desktop.js';
 import { touchInput } from '../input/touch.js';
 import { debugOverlay } from '../debug.js';
-import { createClock, createInterpolator, createPredictor, createTicker } from '../net.js';
+import { createClock, createInterpolator, createLinkWatch, createPredictor, createTicker } from '../net.js';
 import { createJuice } from '../juice.js';
 
 // Match screen: a full-screen canvas drawn every frame. Other players are interpolated between
@@ -12,8 +12,9 @@ import { createJuice } from '../juice.js';
 // Samples input on a fixed tick and hands it to sendInput(input) while you're fighting;
 // sendInput returns false when offline.
 // ping() resolves to an RTT in ms for the debug overlay.
-// Returns { el, update(room), onSnapshot(snap), setError(), destroy() }.
-export function matchScreen({ playerId, onLeave, sendInput, ping }) {
+// onStall(stalled) reports snapshots stopping and resuming; onDeadLink() asks for a forced reconnect.
+// Returns { el, update(room), onSnapshot(snap), onConnected(), setError(), destroy() }.
+export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDeadLink }) {
   const canvas = h('canvas.arena');
   const touch = touchInput();
   const debug = debugOverlay({ ping });
@@ -36,6 +37,8 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   const interp = createInterpolator();
   const ticker = createTicker(performance.now());
   const juice = createJuice();
+  const link = createLinkWatch(performance.now());
+  let stalled = false;
   let aim = null; // last aim sent
 
   // The (fractional) server tick other players are shown at.
@@ -94,6 +97,11 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
 
   let seq = 0;
   function sendTick(now) {
+    // No walking around a frozen world, and no burst of stale inputs if the link comes back.
+    if (stalled) {
+      predictor.reset();
+      return;
+    }
     const me = myFighter(now);
     if (!me) return; // spectating or KO'd
     const keys = desktop.sample();
@@ -116,6 +124,12 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
   // Polled faster than the tick so steps start close to on time; the ticker keeps the rate.
   const inputTimer = setInterval(() => {
     const now = performance.now();
+    const state = link.check(now);
+    if (state.stalled !== stalled) {
+      stalled = state.stalled;
+      onStall(stalled);
+    }
+    if (state.reconnect) onDeadLink();
     for (let due = ticker.advance(now); due > 0; due--) sendTick(now);
   }, TICK_MS / 4);
 
@@ -132,6 +146,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       if (snap && next.tick <= snap.tick) return; // stale
       snap = next;
       const now = performance.now();
+      link.heard(now);
       clock.onSnapshot(next.tick, now);
       interp.push(next, clock.jitterMs);
       debug.onSnapshot(next);
@@ -142,8 +157,10 @@ export function matchScreen({ playerId, onLeave, sendInput, ping }) {
       if (!me) predictor.reset();
       else debug.setCorrection(predictor.reconcile(me, next.acks[playerId] ?? -1));
     },
+    onConnected: () => link.connected(performance.now()),
     setError: () => {},
     destroy() {
+      if (stalled) onStall(false);
       cancelAnimationFrame(frameId);
       clearInterval(inputTimer);
       desktop.destroy();

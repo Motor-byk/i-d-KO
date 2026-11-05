@@ -29,6 +29,7 @@ const COLORS = {
   ko: '#ffd166',
   combo: '#ffd166',
   disconnected: '#ff9eb5',
+  lagging: '#ffd166',
   floatOutline: 'rgba(0, 0, 0, 0.7)',
 };
 const STUN_DOTS = 3;
@@ -65,7 +66,7 @@ function fistExtension(cs) {
 }
 
 // Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
-// cs, color, label, nickname, connected }], meId, followId, ring, floats, shake }. Camera follows followId, or
+// cs, color, label, nickname, connected, away }], meId, followId, ring, floats, shake }. Camera follows followId, or
 // fits the arena if null. ring is the shrinking ring's radius; floats and shake come from juice.js.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
@@ -270,7 +271,9 @@ export function createRenderer(canvas) {
     ctx.fillText(f.maxHp > PLAYER.BASE_HP ? `🐴 ${f.nickname}` : f.nickname, f.x, barY - 3);
 
     // A tag, not see-through: they can still be hit, and see-through means hits pass.
-    if (!f.connected) outlinedText('disconnected', f.x, barY - 3 - RENDER.NAME_FONT * 1.7, RENDER.NAME_FONT, COLORS.disconnected);
+    // Lagging: their inputs stopped, which shows long before the server knows the socket is dead.
+    const tag = !f.connected ? 'disconnected' : f.away ? 'lagging' : null;
+    if (tag) outlinedText(tag, f.x, barY - 3 - RENDER.NAME_FONT * 1.7, RENDER.NAME_FONT, f.connected ? COLORS.lagging : COLORS.disconnected);
 
     // Hits taken in the running combo.
     if (f.cs.combo >= 2) outlinedText(`${f.cs.combo} HITS`, f.x, f.y + r + JUICE.COMBO_FONT, JUICE.COMBO_FONT, COLORS.combo);

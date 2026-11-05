@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { BUTTONS, PLAYER, ROOM } from '../shared/constants.js';
+import { BUTTONS, NET, PLAYER, ROOM } from '../shared/constants.js';
 import { call, fakeMatch, input, roomUpdate, startedMatch } from './helpers.js';
 
 const isConnected = (room, id) => room.players.find((p) => p.id === id)?.connected;
@@ -61,6 +61,21 @@ test('grace running out is a KO that can decide the match, and the seat is gone'
 
   const a2 = await client();
   assert.equal((await call(a2, 'room:rejoin', { code, token })).error, 'BAD_TOKEN');
+});
+
+test('a fighter whose inputs stop shows as away, until they come back', () => {
+  const { match } = fakeMatch();
+  const away = () => match.snapshot().fighters.find((f) => f.id === 1).away;
+  match.input(1, input(1));
+  match.step();
+  assert.equal(away(), false);
+  for (let i = 0; i < NET.AWAY_TICKS - 1; i++) match.step();
+  assert.equal(away(), false);
+  match.step();
+  assert.equal(away(), true);
+  match.input(1, input(2));
+  match.step();
+  assert.equal(away(), false);
 });
 
 test('a grace KO leaves the match running while the team has someone left', () => {

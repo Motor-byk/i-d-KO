@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createClock, createInterpolator, createTicker } from '../public/js/net.js';
+import { createClock, createInterpolator, createLinkWatch, createTicker } from '../public/js/net.js';
 import { MAX_CATCHUP_TICKS, NET, TICK_MS, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
@@ -136,4 +136,58 @@ test('fighters revived for sudden death teleport instead of gliding', () => {
   interp.push({ tick: 10, suddenDeath: 0, fighters: [fighter(1, 100)] }, 0);
   interp.push({ tick: 12, suddenDeath: 1, fighters: [fighter(1, 700)] }, 0);
   assert.equal(interp.sample(11)[0].x, 700);
+});
+
+// Polls a link watch up to a time, the way the match screen does. Returns the last result and
+// when reconnects came.
+function pollWatch(watch, from, to, step = 50) {
+  let last = null;
+  const reconnects = [];
+  for (let t = from; t <= to; t += step) {
+    last = watch.check(t);
+    if (last.reconnect) reconnects.push(t);
+  }
+  return { last, reconnects };
+}
+
+test('the link watch stays quiet while snapshots arrive', () => {
+  const watch = createLinkWatch(0);
+  for (let t = 50; t <= 10_000; t += 50) {
+    watch.heard(t);
+    assert.deepEqual(watch.check(t), { stalled: false, reconnect: false });
+  }
+});
+
+test('silence stalls first, then forces a reconnect, then a snapshot clears it', () => {
+  const watch = createLinkWatch(0);
+  assert.equal(pollWatch(watch, 50, NET.LINK_STALL_MS - 50).last.stalled, false);
+  assert.equal(pollWatch(watch, NET.LINK_STALL_MS, NET.LINK_STALL_MS).last.stalled, true);
+  const { reconnects } = pollWatch(watch, NET.LINK_STALL_MS + 50, NET.LINK_RECONNECT_MS);
+  assert.deepEqual(reconnects, [NET.LINK_RECONNECT_MS]);
+  watch.heard(NET.LINK_RECONNECT_MS + 50);
+  assert.deepEqual(watch.check(NET.LINK_RECONNECT_MS + 50), { stalled: false, reconnect: false });
+});
+
+test('forced reconnects back off up to a cap, and hearing a snapshot resets the wait', () => {
+  const watch = createLinkWatch(0);
+  const { reconnects } = pollWatch(watch, 50, 60_000);
+  const gaps = reconnects.map((t, i) => t - (reconnects[i - 1] ?? 0));
+  assert.deepEqual(gaps.slice(0, 4), [3000, 6000, 12_000, 12_000]);
+  watch.heard(60_000);
+  assert.deepEqual(pollWatch(watch, 60_050, 60_000 + NET.LINK_RECONNECT_MS).reconnects, [60_000 + NET.LINK_RECONNECT_MS]);
+});
+
+test('a new connection gets the full wait, still shown as stalled until a snapshot', () => {
+  const watch = createLinkWatch(0);
+  pollWatch(watch, 50, 2000);
+  watch.connected(2000);
+  const { last, reconnects } = pollWatch(watch, 2050, 2000 + NET.LINK_RECONNECT_MS - 50);
+  assert.deepEqual(reconnects, []);
+  assert.equal(last.stalled, true);
+});
+
+test('a frozen tab does not count as silence', () => {
+  const watch = createLinkWatch(0);
+  watch.check(50);
+  assert.deepEqual(watch.check(30_000), { stalled: false, reconnect: false });
 });

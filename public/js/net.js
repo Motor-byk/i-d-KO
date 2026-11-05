@@ -124,6 +124,40 @@ export function createInterpolator() {
   };
 }
 
+// Notices a dead link from the snapshots stopping, long before the socket's ping timeout would.
+// check(now) is polled and returns { stalled, reconnect }; reconnect is true once per expiry.
+export function createLinkWatch(now) {
+  let lastHeard = now;
+  let reconnectFrom = now;
+  let lastCheck = now;
+  let reconnectAfter = NET.LINK_RECONNECT_MS;
+  return {
+    heard(t) {
+      lastHeard = t;
+      reconnectFrom = t;
+      reconnectAfter = NET.LINK_RECONNECT_MS;
+    },
+    // A new connection gets the full wait to rejoin and hear a snapshot.
+    connected(t) {
+      reconnectFrom = t;
+    },
+    check(t) {
+      // A gap between checks means we were the ones asleep (frozen tab), not the link: start over.
+      if (t - lastCheck >= NET.LINK_STALL_MS) {
+        lastHeard = t;
+        reconnectFrom = t;
+      }
+      lastCheck = t;
+      const reconnect = t - reconnectFrom >= reconnectAfter;
+      if (reconnect) {
+        reconnectFrom = t;
+        reconnectAfter = Math.min(reconnectAfter * 2, NET.LINK_RECONNECT_MAX_MS);
+      }
+      return { stalled: t - lastHeard >= NET.LINK_STALL_MS, reconnect };
+    },
+  };
+}
+
 const bodyOf = ({ x, y, vx, vy, kx, ky }) => ({ x, y, vx, vy, kx, ky });
 
 // Predicts your own fighter. Every local input is applied at once through the shared

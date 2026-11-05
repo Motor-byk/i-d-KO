@@ -177,7 +177,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] scripts/bots.js          headless bots with simulated latency
 ```
 
-## Build order (one atomic commit per step, on a branch per milestone)
+## Build order (one atomic commit per step)
 Each step ends with `npm test` passing and the app runnable, then a focused commit. Nothing is pushed unless asked.
 1. [x] `chore: scaffold node project` — package.json, .gitignore, socket.io server with /health, empty client.
 2. [x] `feat: shared constants` — shared/constants.js.

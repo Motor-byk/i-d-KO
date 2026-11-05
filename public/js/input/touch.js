@@ -136,15 +136,22 @@ export function touchInput() {
       else if (e.clientX < window.innerWidth / 2) held = moveStick;
       else return; // the rest of the right side does nothing
     }
-    // One finger per button and per stick, so a second finger lifting can't end the first one's hold.
-    if (control ? btnEl.classList.contains('down') : held.value()) return;
+    const owner = control ?? held;
     // Capture before touching any state: if it throws, no up() would ever undo that state.
     try {
       el.setPointerCapture(e.pointerId);
     } catch {
       return;
     }
-    pointers.set(e.pointerId, control ? startButton(control, btnEl) : held.start(e));
+    // One finger per button and per stick, and the newest wins: if the browser never reports a
+    // finger's lift, touching that control again frees it. The old finger's events stop counting.
+    for (const [id, pointer] of pointers) {
+      if (pointer.owner === owner) {
+        pointer.up();
+        pointers.delete(id);
+      }
+    }
+    pointers.set(e.pointerId, { owner, ...(control ? startButton(control, btnEl) : held.start(e)) });
   });
   el.addEventListener('pointermove', (e) => pointers.get(e.pointerId)?.move(e));
   const end = (e) => {

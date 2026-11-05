@@ -68,6 +68,11 @@
   - Camera: your fighter is always at the window's center (no clamping at the arena's edge; the void shows past the walls). Zoom is `RENDER.FIGHTER_SCREEN_SHARE`, the fighter's on-screen width as a share of the window's shorter side, so the shorter side always shows 600 world units at the default 0.1. Fighter size in the world is unchanged. Spectators and KO'd players keep the arena-fit view.
   - Aim stick: fixed in the lower right and always visible, grabbed by a touch within `TOUCH.AIM_CATCH_RADIUS`; the first touch counts at once. Other touches on the right side do nothing. The move stick still floats on the left half.
   - Buttons: an arc from 180° to 90° (`TOUCH.ARC_*`), left to right Dash, Heavy, Light, Parry, rising toward the top-right corner. "Light" is only the label: the code still calls it jab.
+  - Review fixes: mouse aim is now the angle from the screen center to the cursor (`renderer.aimAngle` replaces `toWorld`). The old sum mixed last frame's camera with this tick's fighter, which swung aim up to 18° while walking with the cursor 30px away (measured; now 0°). It still ignores shake on purpose, and it can't produce a NaN on a zero-size canvas.
+  - Checked in headless Chromium (Playwright, real pages against a spawned server): centering and size at 844×390, 1280×720, 1920×1080 and 600×900, including at a wall and while walking; mouse aim; the KO view fits the arena; at 844×390 and 568×320 the arc order and stick clearance; each button's bit; heavy held and light tapped; the stick's first touch, clamp, recenter and catch ring; stray right-side touches ignored; the left stick floating; three fingers at once. Lifting one finger of several was tested with pointer events fired into the page with capture stubbed, because the DevTools protocol couldn't lift just one. Finger comfort still needs a real phone; tune with `TOUCH.ARC_*` and the stick's inset in `style.css`.
+  - Left as is from the review (all predate this branch):
+    - A press made while KO'd, spectating or stalled stays in the button latch and fires on the first input sent afterward (`sendTick` returns before it samples input). It can matter on a sudden death revive or when a stall ends.
+    - Nothing handles `lostpointercapture`, so a touch control could stay held if `.touch` is hidden mid-touch (a mouse attached to a tablet flips `pointer: coarse`).
 
 Update this section after every step.
 
@@ -114,7 +119,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 - **Hitstop is in the simulation:** it freezes the involved players' state timers on the server and in prediction. Screen shake and damage numbers are client-only juice.
 
 ### Controls
-- **Mobile (primary):** left virtual joystick. Right side: Jab and Heavy (drag-aim), Dash, Parry. Touches are tracked by `identifier`. Landscape prompt.
+- **Mobile (primary):** floating move stick on the left half, fixed aim stick lower right, an arc of Dash, Heavy, Light (jab), Parry top right. Touches are tracked by pointer id. Landscape prompt.
 - **Desktop:** WASD, mouse aim, LMB jab, RMB-hold heavy, Space dash, Shift parry.
 
 ### Netcode
@@ -160,7 +165,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/ui/match.js    match screen: canvas, latest snapshot -> view, leave button
 [x] public/js/ui/results.js  winner reveal, back to home
 [x] public/js/debug.js       overlay: RTT, snapshot gap, correction size, server tick time
-[x] public/js/input/touch.js move stick (left half) + aim stick (right half) + top-right buttons (Jab taps; facing follows the aim stick, else the move stick)
+[x] public/js/input/touch.js move stick (left half) + fixed aim stick (lower right) + top-right button arc (Jab taps; facing follows the aim stick, else the move stick)
 [x] public/js/input/desktop.js keyboard + mouse
 [x] test/*.test.js           node:test (helpers.js: startServer, call, nextEvent)
 [x] scripts/bots.js          headless bots with simulated latency

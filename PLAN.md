@@ -67,6 +67,7 @@
 - **Match UI rework (user request, branch `ui-camera-touch`):**
   - Camera: your fighter is always at the window's center (no clamping at the arena's edge; the void shows past the walls). Zoom is `RENDER.FIGHTER_SCREEN_SHARE`, the fighter's on-screen width as a share of the window's shorter side, so the shorter side always shows 600 world units at the default 0.1. Fighter size in the world is unchanged. Spectators and KO'd players keep the arena-fit view.
   - Aim stick: fixed in the lower right and always visible, grabbed by a touch within `TOUCH.AIM_CATCH_RADIUS`; the first touch counts at once. Other touches on the right side do nothing. The move stick still floats on the left half.
+  - Buttons: an arc from 180° to 90° (`TOUCH.ARC_*`), left to right Dash, Heavy, Light, Parry, rising toward the top-right corner. "Light" is only the label: the code still calls it jab.
 
 Update this section after every step.
 

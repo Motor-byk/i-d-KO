@@ -129,23 +129,19 @@ button.ghost { background: transparent; color: var(--muted); }
   bottom: max(30px, env(safe-area-inset-bottom));
 }
 .stick.aim .stick-knob { background: rgba(255, 183, 3, 0.6); }
-/* Action buttons, top right: Parry Dash / Heavy Jab. */
+/* Action buttons: an arc from the top-right corner, each one offset by touch.js. */
 .touch-buttons {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
-  display: grid; grid-template-columns: repeat(2, 64px); grid-auto-rows: 64px; gap: 10px;
 }
 .touch-btn {
+  position: absolute; width: 64px; height: 64px;
   border-radius: 50%; display: grid; place-items: center;
   font-weight: 700; font-size: 0.85rem; color: #fff;
   background: rgba(255, 255, 255, 0.14); border: 2px solid rgba(255, 255, 255, 0.3);
 }
 .touch-btn.down { background: rgba(255, 183, 3, 0.55); border-color: var(--accent); }
-.touch-btn.parry { grid-area: 1 / 1; }
-.touch-btn.dash { grid-area: 1 / 2; }
-.touch-btn.heavy { grid-area: 2 / 1; }
-.touch-btn.jab { grid-area: 2 / 2; }
 
 .rotate-hint {
   display: none; position: absolute; inset: 0; place-items: center; text-align: center; padding: 24px;

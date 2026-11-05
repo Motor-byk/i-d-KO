@@ -2,13 +2,20 @@ import { BUTTONS, TOUCH } from '../../shared/constants.js';
 import { h } from '../ui/dom.js';
 import { buttonLatch } from './latch.js';
 
-// Top-right buttons. tap: pressed once when touched; otherwise held while touched.
+// Top-right buttons, in order along the arc. tap: pressed once when touched; otherwise held while touched.
 const CONTROLS = [
-  { name: 'jab', label: 'Jab', bit: BUTTONS.JAB, tap: true },
-  { name: 'heavy', label: 'Heavy', bit: BUTTONS.HEAVY },
   { name: 'dash', label: 'Dash', bit: BUTTONS.DASH },
+  { name: 'heavy', label: 'Heavy', bit: BUTTONS.HEAVY },
+  { name: 'jab', label: 'Light', bit: BUTTONS.JAB, tap: true },
   { name: 'parry', label: 'Parry', bit: BUTTONS.PARRY },
 ];
+
+// Spot i along the arc, as offsets from the arc's top-right anchor (where the 90° end sits).
+function arcOffset(i) {
+  const deg = TOUCH.ARC_FROM_DEG + ((TOUCH.ARC_TO_DEG - TOUCH.ARC_FROM_DEG) * i) / (CONTROLS.length - 1);
+  const rad = (deg * Math.PI) / 180;
+  return { right: -Math.cos(rad) * TOUCH.ARC_RADIUS, top: (1 - Math.sin(rad)) * TOUCH.ARC_RADIUS };
+}
 
 // A joystick's knob and value. hold(ox, oy) grabs it around that center point.
 // value() -> { x, y } normalized (zero inside the deadzone), or null when not held.
@@ -94,7 +101,13 @@ function fixedStick(name, deadzone) {
 export function touchInput() {
   const moveStick = floatingStick('move', TOUCH.STICK_DEADZONE);
   const aimStick = fixedStick('aim', TOUCH.AIM_DEADZONE);
-  const buttonEls = CONTROLS.map((c) => h(`div.touch-btn.${c.name}`, { 'data-control': c.name }, c.label));
+  const buttonEls = CONTROLS.map((c, i) => {
+    const btn = h(`div.touch-btn.${c.name}`, { 'data-control': c.name }, c.label);
+    const { right, top } = arcOffset(i);
+    btn.style.right = `${right}px`;
+    btn.style.top = `${top}px`;
+    return btn;
+  });
   const el = h('div.touch', {}, moveStick.el, aimStick.el, h('div.touch-buttons', {}, buttonEls));
 
   const pointers = new Map(); // pointerId -> { move(e), up() }

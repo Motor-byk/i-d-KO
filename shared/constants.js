@@ -190,6 +190,7 @@ export const NET = {
   MAX_INPUTS_PER_SECOND: 60,
   INPUT_QUEUE_MAX: 2,
   INPUT_STARVE_TICKS: 4, // no input for this long: stop moving (stalled tab, lost connection)
+  AWAY_TICKS: 30,        // no input for this long: show the fighter as lagging (the socket may not have closed yet)
   LAG_COMP_MAX_MS: 200,   // rewind cap: covers good and typical mobile connections; worse ones lead their targets
   MAX_STAMP_STEP: 2,      // an input's view tick may advance at most this much past the previous one
   INTERP_MIN_MS: 100,

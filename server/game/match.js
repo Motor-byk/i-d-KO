@@ -238,7 +238,7 @@ export class Match {
       acks,
       ...this.mode.publicState(this),
       ...(perf && { tickMs: { avg: round2(perf.avgMs), max: round2(perf.maxMs) } }),
-      fighters: this.fighters.map(({ id, body, aim, cs, hp, maxHp, alive }) => ({
+      fighters: this.fighters.map(({ id, body, aim, cs, hp, maxHp, alive, starved }) => ({
         id,
         x: round2(body.x),
         y: round2(body.y),
@@ -250,6 +250,7 @@ export class Match {
         hp: round2(hp), // fractional once the ring burns
         maxHp,
         alive,
+        away: starved >= NET.AWAY_TICKS, // a client sends every tick, even standing still
         cs: { ...cs, dir: round4(cs.dir) },
       })),
     };

@@ -161,6 +161,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
       cancelAnimationFrame(frameId);
       clearInterval(inputTimer);
       desktop.destroy();
+      touch.destroy();
       debug.destroy();
       renderer.destroy();
     },

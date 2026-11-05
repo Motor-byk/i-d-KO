@@ -151,6 +151,18 @@ export function touchInput() {
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
+  el.addEventListener('lostpointercapture', end); // no-op after an up: that pointer is already gone
+
+  // Switching apps or tabs may never send a pointer's up or cancel, which would leave its control held.
+  const releaseAll = () => {
+    for (const pointer of pointers.values()) pointer.up();
+    pointers.clear();
+  };
+  const onVisibility = () => {
+    if (document.hidden) releaseAll();
+  };
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', onVisibility);
 
   function sample() {
     // Facing follows the aim stick when it's pushed past its deadzone, else the move stick.
@@ -162,5 +174,10 @@ export function touchInput() {
     return { move, buttons: buttons.take(), aim, aimed };
   }
 
-  return { el, sample };
+  const destroy = () => {
+    window.removeEventListener('blur', releaseAll);
+    document.removeEventListener('visibilitychange', onVisibility);
+  };
+
+  return { el, sample, destroy };
 }

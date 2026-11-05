@@ -64,6 +64,8 @@
   - A real phone test on Render needs the user's account.
 - **First Render deploy (branch `fix-wake-check`):** in Chrome, every cross-origin HTTP request from the static site to the server gets a 503 (curl and same-origin get 200; the cause wasn't pinned down, possibly connection reuse across the shared `*.onrender.com` cert and IPs), while websockets open fine. The wake check now falls back to a bare websocket open when `/health` fails. Then the client dropped `/health` and uses only the websocket probe (branch `ws-wake-probe`).
 - **Touch layout change (user request, branch `touch-aim-stick`):** a floating aim stick on the right half replaces drag-to-aim; all four buttons sit top right (Parry Dash / Heavy Jab). Jab presses on touch, the rest are held. The debug overlay moved to top center.
+- **Match UI rework (user request, branch `ui-camera-touch`):**
+  - Camera: your fighter is always at the window's center (no clamping at the arena's edge; the void shows past the walls). Zoom is `RENDER.FIGHTER_SCREEN_SHARE`, the fighter's on-screen width as a share of the window's shorter side, so the shorter side always shows 600 world units at the default 0.1. Fighter size in the world is unchanged. Spectators and KO'd players keep the arena-fit view.
 
 Update this section after every step.
 

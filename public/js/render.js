@@ -66,7 +66,7 @@ function fistExtension(cs) {
 }
 
 // Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
-// cs, color, label, nickname, connected, away }], meId, followId, ring, floats, shake }. Camera follows followId, or
+// cs, color, label, nickname, connected, away }], meId, followId, ring, floats, shake }. Camera stays centered on followId, or
 // fits the arena if null. ring is the shrinking ring's radius; floats and shake come from juice.js.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
@@ -85,23 +85,13 @@ export function createRenderer(canvas) {
   function camera(follow) {
     const cw = canvas.width / dpr;
     const ch = canvas.height / dpr;
-    const margin = RENDER.EDGE_MARGIN;
     if (!follow) {
+      const margin = RENDER.EDGE_MARGIN;
       const scale = Math.min(cw / (ARENA.WIDTH + 2 * margin), ch / (ARENA.HEIGHT + 2 * margin));
       return { scale, x: ARENA.WIDTH / 2, y: ARENA.HEIGHT / 2, cw, ch };
     }
-    const scale = Math.min(cw / RENDER.VIEW_WIDTH, ch / RENDER.VIEW_HEIGHT);
-    // Stop panning a margin past the arena's edge; center the arena if it fits in the view with both margins.
-    const clampAxis = (pos, view, size) => (view >= size + 2 * margin
-      ? size / 2
-      : Math.max(view / 2 - margin, Math.min(size - view / 2 + margin, pos)));
-    return {
-      scale,
-      x: clampAxis(follow.x, cw / scale, ARENA.WIDTH),
-      y: clampAxis(follow.y, ch / scale, ARENA.HEIGHT),
-      cw,
-      ch,
-    };
+    const scale = (RENDER.FIGHTER_SCREEN_SHARE * Math.min(cw, ch)) / (2 * PLAYER.RADIUS);
+    return { scale, x: follow.x, y: follow.y, cw, ch };
   }
 
   // Shrinks the font until the label fits inside the circle, then truncates as a last resort.

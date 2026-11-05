@@ -124,7 +124,13 @@ export function attachSocketHandlers(io, rooms) {
     };
     for (const [event, [allow, take]] of Object.entries(seatEvents)) {
       on(event, (payload, reply) => {
-        if (socket.data.code) return reply({ error: 'ALREADY_IN_ROOM' });
+        if (socket.data.code) {
+          // A retried rejoin whose answer got lost: this socket already holds that seat.
+          const room = rooms.getRoom(socket.data.code);
+          const seat = room?.players.get(socket.data.playerId);
+          if (event === 'room:rejoin' && seat?.token === payload.token) return enter(room, seat, reply);
+          return reply({ error: 'ALREADY_IN_ROOM' });
+        }
         if (!allow(ip)) return reply({ error: 'RATE_LIMITED' });
         const res = take(payload);
         if (res.error) return reply(res);

@@ -74,6 +74,19 @@ test('rejoining from a second socket kicks the first', async (t) => {
   assert.equal((await update).players[0].connected, true);
 });
 
+test('a retried rejoin on the seated socket gets its seat again, but not someone else\'s', async (t) => {
+  const { client } = await startServer(t);
+  const a = await client();
+  const created = await call(a, 'room:create', { nickname: 'Ana' });
+  const b = await client();
+  const joined = await call(b, 'room:join', { code: created.room.code, nickname: 'Ben' });
+  const again = await call(a, 'room:rejoin', { code: created.room.code, token: created.token });
+  assert.equal(again.playerId, created.playerId);
+  assert.equal(again.token, created.token);
+  const other = await call(a, 'room:rejoin', { code: created.room.code, token: joined.token });
+  assert.equal(other.error, 'ALREADY_IN_ROOM');
+});
+
 test('clientIp prefers the proxy-set header over client-controlled X-Forwarded-For', () => {
   const hs = (headers) => ({ headers, address: '10.0.0.1' });
   assert.equal(clientIp(hs({ 'cf-connecting-ip': '1.2.3.4', 'x-forwarded-for': '6.6.6.6' })), '1.2.3.4');

@@ -38,7 +38,8 @@
 - **Milestone F (steps 30–32): in progress** on branch `milestone-f-resilience`.
   - Step 30: the server already kept a dropped fighter idle and hittable and KO'd it when grace ran out (`rooms.sweep` removes the player, `Match.step` flags the KO); `test/disconnect.test.js` now locks that in. New on the client: a `disconnected` tag above the name, read from the room's `connected` flag. It's a tag rather than a see-through body, because see-through means hits pass. The match screen keeps leavers in its player map, since the room drops them before the delayed view reaches their KO (they'd draw as a grey "?"). Kept on purpose: a heavy being charged at the moment of the drop fires once (the held button resets to released).
   - Step 31: SIGTERM → `announceShutdown` (`rooms.closing` refuses new rooms with `SERVER_RESTARTING`, `server:restarting` goes to everyone), then exit after `NET.SHUTDOWN_FLUSH_MS` so the warning actually leaves. `test/shutdown.test.js` checks this on a spawned server process. The client shows the warning as a banner, keeps it through the disconnect, and on reconnect says the room is gone instead of "you were away too long". Rejoining stays open, since a live room isn't affected in the moment before exit.
-- **Next:** step 32, `chore: bot clients script`.
+  - Step 32: `scripts/bots.js <code> <count>` joins as ordinary players (no server changes) and leaves when the match is decided, so a results room can still die. They spread over the options or take `--team`, chase the nearest enemy and use the whole kit. `--latency`/`--jitter` delay each direction in order (a websocket never reorders); `--origin` is for a deployed server. The first bot logs the server's tick time. The host still starts the match from a browser.
+- **Next:** review pass for milestone F.
 - Review notes to handle in later steps:
   - Reliable discrete events must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
@@ -144,7 +145,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 [x] public/js/input/touch.js move stick (left half) + aim stick (right half) + top-right buttons (Jab taps; facing follows the aim stick, else the move stick)
 [x] public/js/input/desktop.js keyboard + mouse
 [x] test/*.test.js           node:test (helpers.js: startServer, call, nextEvent)
-[ ] scripts/bots.js          headless bots with simulated latency
+[x] scripts/bots.js          headless bots with simulated latency
 ```
 
 ## Build order (one atomic commit per step, on a branch per milestone)
@@ -180,7 +181,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 29. [x] `feat: game juice` — shake, damage numbers, combo counter.
 30. [x] `feat: mid-match disconnect handling` — idle hittable circle with a disconnected indicator (user decision; the client already gets each player's `connected` flag), KO when grace runs out.
 31. [x] `feat: graceful shutdown` — SIGTERM → stop creating rooms, `server:restarting` → client warns players, exit right away (user decision).
-32. `chore: bot clients script` — scripts/bots.js with latency injection. Developer testing tool only (user decision): run by hand from the command line, connecting like ordinary players. Players can't add bots: no bot UI and no bot-specific server code.
+32. [x] `chore: bot clients script` — scripts/bots.js with latency injection. Developer testing tool only (user decision): run by hand from the command line, connecting like ordinary players. Players can't add bots: no bot UI and no bot-specific server code.
 
 ## Review checkpoints
 After each major milestone, stop implementing and run three review subagents in parallel over the code built so far (focused on that milestone's diff):

@@ -14,6 +14,14 @@ npm test
 
 Open a few tabs (use DevTools device emulation for touch) and join the same room code.
 
+To fill a room without more tabs, create it in a browser and add its options, then run:
+
+```sh
+node scripts/bots.js <code> 9 --latency=50 --jitter=15   # latency and jitter are per direction, in ms
+```
+
+Bots play like ordinary players and leave when the match is decided. You start the match from the browser.
+
 ## Deploy (Render, free tier)
 
 The repo has a `render.yaml` Blueprint with two services:

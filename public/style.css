@@ -123,7 +123,11 @@ button.ghost { background: transparent; color: var(--muted); }
   position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px;
   border-radius: 50%; background: rgba(255, 255, 255, 0.45);
 }
-.stick.aim { border-color: rgba(255, 183, 3, 0.5); }
+.stick.aim {
+  margin: 0; border-color: rgba(255, 183, 3, 0.5);
+  right: max(30px, env(safe-area-inset-right));
+  bottom: max(30px, env(safe-area-inset-bottom));
+}
 .stick.aim .stick-knob { background: rgba(255, 183, 3, 0.6); }
 /* Action buttons, top right: Parry Dash / Heavy Jab. */
 .touch-buttons {

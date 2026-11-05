@@ -10,22 +10,16 @@ const CONTROLS = [
   { name: 'parry', label: 'Parry', bit: BUTTONS.PARRY },
 ];
 
-// A joystick that appears wherever its half of the screen is touched.
+// A joystick's knob and value. hold(ox, oy) grabs it around that center point.
 // value() -> { x, y } normalized (zero inside the deadzone), or null when not held.
-function floatingStick(name, deadzone) {
+function stick(name, deadzone) {
   const knob = h('div.stick-knob');
-  const el = h(`div.stick.${name}`, { hidden: true }, knob);
+  const el = h(`div.stick.${name}`, {}, knob);
   let value = null;
   return {
     el,
     value: () => value,
-    start(e) {
-      const ox = e.clientX;
-      const oy = e.clientY;
-      el.hidden = false;
-      el.style.left = `${ox}px`;
-      el.style.top = `${oy}px`;
-      knob.style.transform = '';
+    hold(ox, oy) {
       value = { x: 0, y: 0 };
       return {
         move(ev) {
@@ -41,20 +35,65 @@ function floatingStick(name, deadzone) {
         },
         up() {
           value = null;
-          el.hidden = true;
+          knob.style.transform = '';
         },
       };
     },
   };
 }
 
-// Move stick on the left half, aim stick on the right half, action buttons top right.
+// Appears wherever its half of the screen is touched, centered on the finger.
+function floatingStick(name, deadzone) {
+  const base = stick(name, deadzone);
+  base.el.hidden = true;
+  return {
+    ...base,
+    start(e) {
+      base.el.hidden = false;
+      base.el.style.left = `${e.clientX}px`;
+      base.el.style.top = `${e.clientY}px`;
+      const held = base.hold(e.clientX, e.clientY);
+      return {
+        move: held.move,
+        up() {
+          held.up();
+          base.el.hidden = true;
+        },
+      };
+    },
+  };
+}
+
+// Always on screen, placed by CSS. The first touch counts at once, so a touch off center aims right away.
+function fixedStick(name, deadzone) {
+  const base = stick(name, deadzone);
+  // Read at touch time, so a resize or rotation can't leave it stale.
+  const center = () => {
+    const rect = base.el.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  };
+  return {
+    ...base,
+    catches(e) {
+      const c = center();
+      return Math.hypot(e.clientX - c.x, e.clientY - c.y) <= TOUCH.AIM_CATCH_RADIUS;
+    },
+    start(e) {
+      const c = center();
+      const held = base.hold(c.x, c.y);
+      held.move(e);
+      return held;
+    },
+  };
+}
+
+// Move stick anywhere on the left half, fixed aim stick lower right, action buttons top right.
 // Every touch is tracked by its pointerId, so moving, aiming and pressing can overlap.
 // sample() -> { move: {x, y} | null, buttons, aim: angle | null, aimed }; null = no touch input.
 // aimed: the aim came from the aim stick (manual) rather than the move stick (attacks get aim assist).
 export function touchInput() {
   const moveStick = floatingStick('move', TOUCH.STICK_DEADZONE);
-  const aimStick = floatingStick('aim', TOUCH.AIM_DEADZONE);
+  const aimStick = fixedStick('aim', TOUCH.AIM_DEADZONE);
   const buttonEls = CONTROLS.map((c) => h(`div.touch-btn.${c.name}`, { 'data-control': c.name }, c.label));
   const el = h('div.touch', {}, moveStick.el, aimStick.el, h('div.touch-buttons', {}, buttonEls));
 
@@ -79,16 +118,21 @@ export function touchInput() {
     e.preventDefault();
     const btnEl = e.target.closest('[data-control]');
     const control = btnEl && CONTROLS.find((c) => c.name === btnEl.dataset.control);
-    const stick = control ? null : e.clientX < window.innerWidth / 2 ? moveStick : aimStick;
+    let held = null;
+    if (!control) {
+      if (aimStick.catches(e)) held = aimStick;
+      else if (e.clientX < window.innerWidth / 2) held = moveStick;
+      else return; // the rest of the right side does nothing
+    }
     // One finger per button and per stick, so a second finger lifting can't end the first one's hold.
-    if (control ? btnEl.classList.contains('down') : stick.value()) return;
+    if (control ? btnEl.classList.contains('down') : held.value()) return;
     // Capture before touching any state: if it throws, no up() would ever undo that state.
     try {
       el.setPointerCapture(e.pointerId);
     } catch {
       return;
     }
-    pointers.set(e.pointerId, control ? startButton(control, btnEl) : stick.start(e));
+    pointers.set(e.pointerId, control ? startButton(control, btnEl) : held.start(e));
   });
   el.addEventListener('pointermove', (e) => pointers.get(e.pointerId)?.move(e));
   const end = (e) => {

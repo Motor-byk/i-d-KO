@@ -174,6 +174,7 @@ export const TOUCH = {
   STICK_RADIUS: 60,   // joystick throw; full speed at the rim
   STICK_DEADZONE: 8,
   AIM_DEADZONE: 18,   // push the aim stick farther than this to aim manually
+  AIM_CATCH_RADIUS: 90, // a touch this close to the aim stick's center grabs it
 };
 
 // Input button bits (held state; the server derives presses from changes).

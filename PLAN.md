@@ -35,7 +35,9 @@
   - **Tie cap (user decision):** two connected players who both do nothing tied at equal distance from the ring forever, so sudden death is capped at `RING.MAX_SUDDEN_DEATHS` (5). A tie after the fifth goes to a random tied team, equal odds per team. The results screen doesn't say it was random.
   - Checked in real Chrome (extension connected) against scripted bots, no page errors: lobby, reload on results, Back to home. Solo vs 2: 🐴 badge, lost to a KO. 2v2: parries stunned a hunter 4 times, a charge was interrupted by a hit, full arena spectator view after my KO, ring tint, ring burn ending the match. 1v1: jab string 5/5/9 with combo 1→2→3, full-charge heavy 22, won by KO. Idle 1v1 with the tie cap: both fighters down at sudden death 5 (t=3743, ~125s), resolved to a winner; that run's sudden death notice and results screen weren't seen (the numbers come from a bot's snapshot log, and it only logged the last sudden death). Movement, parry timing, jab strings and the heavy hold were scripted DOM events on the game's own handlers, not trusted input. Not exercised: a wall bounce in this flow, how the shake feels, the KO pop on screen, touch buttons, a real phone. 
   - Fix from that check: the camera stopped flush with the arena's edge, so a wall could be off screen and a name clipped. Both views now show `RENDER.EDGE_MARGIN` (90) past the edge, enough for the widest label (16 W's and 🐴, 236 units wide with Chrome's system font on this machine). Seen in Chrome: portrait and landscape in a corner, and the spectator view.
-- **Next: Milestone F** (step 30, `feat: mid-match disconnect handling`), on a new branch off `main`.
+- **Milestone F (steps 30–32): in progress** on branch `milestone-f-resilience`.
+  - Step 30: the server already kept a dropped fighter idle and hittable and KO'd it when grace ran out (`rooms.sweep` removes the player, `Match.step` flags the KO); `test/disconnect.test.js` now locks that in. New on the client: a `disconnected` tag above the name, read from the room's `connected` flag. It's a tag rather than a see-through body, because see-through means hits pass. The match screen keeps leavers in its player map, since the room drops them before the delayed view reaches their KO (they'd draw as a grey "?"). Kept on purpose: a heavy being charged at the moment of the drop fires once (the held button resets to released).
+- **Next:** step 31, `feat: graceful shutdown`.
 - Review notes to handle in later steps:
   - Reliable discrete events must be tick-tagged inside the snapshot or emitted after it: a reliable emit just before the volatile snapshot can make every client drop that snapshot.
   - Expect small prediction corrections when the server merges or starves inputs.
@@ -176,7 +178,7 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 27. [x] `feat: dark horse balancing` — + badge + tests.
 28. [x] `feat: results screen`.
 29. [x] `feat: game juice` — shake, damage numbers, combo counter.
-30. `feat: mid-match disconnect handling` — idle hittable circle with a disconnected indicator (user decision; the client already gets each player's `connected` flag), KO when grace runs out.
+30. [x] `feat: mid-match disconnect handling` — idle hittable circle with a disconnected indicator (user decision; the client already gets each player's `connected` flag), KO when grace runs out.
 31. `feat: graceful shutdown` — SIGTERM → stop creating rooms, `server:restarting` → client warns players, exit right away (user decision).
 32. `chore: bot clients script` — scripts/bots.js with latency injection. Developer testing tool only (user decision): run by hand from the command line, connecting like ordinary players. Players can't add bots: no bot UI and no bot-specific server code.
 

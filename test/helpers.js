@@ -32,6 +32,14 @@ export const call = (socket, event, payload) =>
 export const nextEvent = (socket, event) =>
   new Promise((resolve) => socket.once(event, resolve));
 
+// Resolves with the first room:update that passes the check.
+export async function roomUpdate(socket, check) {
+  for (;;) {
+    const room = await nextEvent(socket, 'room:update');
+    if (check(room)) return room;
+  }
+}
+
 // A well-formed match input, for match.input().
 export const input = (seq, over = {}) => ({ seq, tick: 0, move: { x: 0, y: 0 }, aim: 0, buttons: 0, ...over });
 

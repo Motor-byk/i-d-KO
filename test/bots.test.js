@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { BUTTONS, PLAYER } from '../shared/constants.js';
 import { createBrain, createDelayLine, startBot } from '../scripts/bots.js';
-import { call, nextEvent, startServer } from './helpers.js';
+import { call, roomUpdate, startServer } from './helpers.js';
 
 const fighter = (x, y, over = {}) => ({ x, y, aim: 0, cs: { dashCooldown: 0 }, ...over });
 
@@ -60,13 +60,18 @@ test('a brain with nobody to fight stands still', () => {
   assert.deepEqual(brain.next(fighter(0, 0), []), { move: { x: 0, y: 0 }, aim: 0, buttons: 0 });
 });
 
-test('bots join, spread over the options, fight with latency, and leave when it is decided', async (t) => {
-  const { client, rooms, url } = await startServer(t);
-  const host = await client();
+// A room with a host (no team) and two options, ready for bots.
+async function hostedRoom(t) {
+  const server = await startServer(t);
+  const host = await server.client();
   const { room } = await call(host, 'room:create', { nickname: 'Host' });
   await call(host, 'option:add', { name: 'Tacos' });
   await call(host, 'option:add', { name: 'Sushi' });
+  return { ...server, host, room };
+}
 
+test('bots join, spread over the options, fight with latency, and leave when it is decided', async (t) => {
+  const { host, room, rooms, url } = await hostedRoom(t);
   const bots = ['Bot1', 'Bot2'].map((nickname, index) => startBot({ url, code: room.code, nickname, index, latency: 30, jitter: 10 }));
   const live = rooms.getRoom(room.code);
   const teamsPicked = () => [...live.players.values()].filter((p) => p.teamId !== null).length === 2;
@@ -79,29 +84,21 @@ test('bots join, spread over the options, fight with latency, and leave when it 
   b.body.x = 300 + PLAYER.RADIUS * 2 + 30; b.body.y = 300;
   b.hp = 1;
 
-  const results = await new Promise((resolve) => {
-    host.on('room:update', (r) => { if (r.state === 'results') resolve(r); });
-  });
+  const results = await roomUpdate(host, (r) => r.state === 'results');
   const winner = results.result.optionId;
   assert.ok(live.options.some((o) => o.id === winner));
   const outcomes = await Promise.all(bots);
   outcomes.forEach((o) => assert.deepEqual(o, { result: { optionId: winner } }));
-  while (live.players.size > 1) await nextEvent(host, 'room:update');
   assert.deepEqual([...live.players.values()].map((p) => p.nickname), ['Host']);
 });
 
 test('--team puts every bot on the named option', async (t) => {
-  const { client, rooms, url } = await startServer(t);
-  const host = await client();
-  const { room } = await call(host, 'room:create', { nickname: 'Host' });
-  await call(host, 'option:add', { name: 'Tacos' });
-  await call(host, 'option:add', { name: 'Sushi' });
+  const { room, rooms, url } = await hostedRoom(t);
   ['Bot1', 'Bot2'].forEach((nickname, index) => startBot({ url, code: room.code, nickname, index, team: 'sushi' }));
   const live = rooms.getRoom(room.code);
   const sushi = live.options.find((o) => o.name === 'Sushi').id;
   const onSushi = () => [...live.players.values()].filter((p) => p.teamId === sushi).length;
   while (onSushi() < 2) await sleep(5);
-  assert.equal(onSushi(), 2);
 });
 
 test('a bot that cannot get in reports why', async (t) => {

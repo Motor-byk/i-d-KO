@@ -2,15 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { BUTTONS, PLAYER, ROOM } from '../shared/constants.js';
-import { call, fakeMatch, input, nextEvent, startedMatch } from './helpers.js';
-
-// Resolves with the first room:update that passes the check.
-async function roomUpdate(socket, check) {
-  for (;;) {
-    const room = await nextEvent(socket, 'room:update');
-    if (check(room)) return room;
-  }
-}
+import { call, fakeMatch, input, roomUpdate, startedMatch } from './helpers.js';
 
 const isConnected = (room, id) => room.players.find((p) => p.id === id)?.connected;
 

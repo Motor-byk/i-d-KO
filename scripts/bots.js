@@ -7,6 +7,7 @@
 // Bots spread evenly over the options unless --team names one. Start the match from a browser.
 // They leave once the match is decided. The first bot logs the server's tick time.
 import { fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { parseArgs } from 'node:util';
 import { io } from 'socket.io-client';
 import { BUTTONS, COMBAT, PLAYER, ROOM, TICK_MS } from '../shared/constants.js';
@@ -27,19 +28,11 @@ const TICK_LOG_SECONDS = 5;
 
 // Runs callbacks after latency + up to jitter ms, always in order: a websocket never reorders.
 export function createDelayLine(latency = 0, jitter = 0, random = Math.random) {
-  const queue = [];
-  let timer = null;
-  const schedule = () => { timer = setTimeout(pump, Math.max(0, queue[0].at - Date.now())); };
-  const pump = () => {
-    timer = null;
-    while (queue.length && queue[0].at <= Date.now()) queue.shift().fn();
-    if (queue.length) schedule();
-  };
+  if (!latency && !jitter) return (fn) => fn();
+  let tail = Promise.resolve();
   return (fn) => {
-    if (!latency && !jitter) return fn();
-    const newest = queue.at(-1)?.at ?? 0;
-    queue.push({ at: Math.max(newest, Date.now() + latency + random() * jitter), fn });
-    if (timer === null) schedule();
+    const delay = sleep(latency + random() * jitter); // timed from now, but can't overtake the one before
+    tail = tail.then(() => delay).then(fn);
   };
 }
 
@@ -50,14 +43,12 @@ export function createBrain(random = Math.random) {
   let stuck = 0;
   let sidestepLeft = 0;
   let sidestepDir = 1;
-  let last = null;
+  let last = { x: Infinity, y: Infinity };
 
   // The way to walk toward aim, around whatever's in the way.
   const heading = (me, aim, walking) => {
-    const moved = last ? Math.hypot(me.x - last.x, me.y - last.y) : Infinity;
+    stuck = walking && Math.hypot(me.x - last.x, me.y - last.y) < STUCK_DISTANCE ? stuck + 1 : 0;
     last = { x: me.x, y: me.y };
-    if (walking && moved < STUCK_DISTANCE) stuck++;
-    else if (moved >= STUCK_DISTANCE) stuck = 0;
     if (stuck >= STUCK_TICKS) {
       stuck = 0;
       sidestepLeft = SIDESTEP_TICKS;
@@ -128,7 +119,6 @@ export function startBot({ url, origin, code, nickname, index = 0, team, latency
 
     const pickTeam = () => {
       const { options } = room;
-      if (!options.length) return;
       const wanted = team
         ? options.find((o) => o.name.toLowerCase() === team.toLowerCase())
         : options[index % options.length];
@@ -139,11 +129,10 @@ export function startBot({ url, origin, code, nickname, index = 0, team, latency
 
     const sendInput = () => {
       const me = snap?.fighters.find((f) => f.id === playerId && f.alive);
-      if (!me || room.state !== 'match') return;
+      if (!me) return;
       const teams = new Map(room.players.map((p) => [p.id, p.teamId]));
       const myTeam = teams.get(playerId);
-      // A fighter whose player just left has no team here: skip it, it's about to fall.
-      const enemies = snap.fighters.filter((f) => f.alive && teams.has(f.id) && teams.get(f.id) !== myTeam);
+      const enemies = snap.fighters.filter((f) => f.alive && teams.get(f.id) !== myTeam);
       const input = { seq: ++seq, tick: snap.tick, aimed: true, ...brain.next(me, enemies) };
       send(() => socket.emit('match:input', input));
     };
@@ -153,15 +142,13 @@ export function startBot({ url, origin, code, nickname, index = 0, team, latency
       if (room.state === 'lobby') pickTeam();
       if (room.state === 'results' && !result) {
         result = room.result;
-        send(() => {
-          socket.emit('room:leave', {}, () => socket.disconnect());
-        });
+        send(() => socket.emit('room:leave', {}, () => socket.disconnect()));
       }
     };
 
     on('room:update', onRoom);
     on('match:snapshot', (next) => {
-      if (!snap || next.tick > snap.tick) snap = next;
+      snap = next;
       if (next.tickMs && ++ticksLogged % TICK_LOG_SECONDS === 0) {
         log(`server tick ${next.tick}: avg ${next.tickMs.avg}ms, max ${next.tickMs.max}ms`);
       }
@@ -204,7 +191,8 @@ async function main() {
   const count = Number(countArg);
   const latency = Number(values.latency);
   const jitter = Number(values.jitter);
-  const valid = code && Number.isInteger(count) && count >= 1 && count <= ROOM.MAX_PLAYERS && latency >= 0 && jitter >= 0;
+  const valid = code && Number.isInteger(count) && count >= 1 && count <= ROOM.MAX_PLAYERS
+    && latency >= 0 && latency < Infinity && jitter >= 0 && jitter < Infinity;
   if (!valid) {
     console.error('Usage: node scripts/bots.js <code> <count> [--latency=ms] [--jitter=ms] [--team=name] [--url=url] [--origin=url]');
     process.exit(1);
@@ -215,15 +203,7 @@ async function main() {
   const outcomes = await Promise.all(Array.from({ length: count }, (_, index) => {
     const nickname = `Bot${index + 1}-${run}`;
     return startBot({
-      url: values.url,
-      origin: values.origin,
-      code,
-      nickname,
-      index,
-      team: values.team,
-      latency,
-      jitter,
-      log: index === 0 ? console.log : undefined,
+      ...values, latency, jitter, code, nickname, index, log: index === 0 ? console.log : undefined,
     }).then((outcome) => {
       if (outcome.error) console.error(`${nickname} couldn't join: ${outcome.error}`);
       return outcome;

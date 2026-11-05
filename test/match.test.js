@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, validateInput, spawnPoints } from '../server/game/match.js';
 import { ARENA, PLAYER, BUTTONS, NET, RING, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
-import { startServer, call, nextEvent, input, fakeMatch, startedMatch } from './helpers.js';
+import { startServer, call, nextEvent, roomUpdate, input, fakeMatch, startedMatch } from './helpers.js';
 
 test('validateInput rejects malformed input and normalizes the rest', () => {
   assert.ok(validateInput(input(1)));
@@ -121,9 +121,7 @@ test('a match that throws is ended and its room goes back to the lobby', async (
   const match = room.match;
   match.step = () => { throw new Error('boom'); };
   const errors = t.mock.method(console, 'error', () => {});
-  let update;
-  do update = await nextEvent(a, 'room:update');
-  while (update.state !== 'lobby');
+  await roomUpdate(a, (update) => update.state === 'lobby');
   assert.equal(room.match, null);
   assert.equal(loop.stats(match), undefined);
   assert.equal(errors.mock.callCount(), 1);

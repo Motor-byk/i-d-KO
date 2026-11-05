@@ -93,6 +93,9 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
 
   let seq = 0;
   function sendTick(now) {
+    // Sampled even when nothing gets sent, so a press made while you can't act doesn't fire later.
+    const keys = desktop.sample();
+    const fingers = touch.sample();
     // No walking around a frozen world, and no burst of stale inputs if the link comes back.
     if (stalled) {
       predictor.reset();
@@ -100,8 +103,6 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
     }
     const me = myFighter(now);
     if (!me) return; // spectating or KO'd
-    const keys = desktop.sample();
-    const fingers = touch.sample();
     aim = fingers.aim ?? keys.aim ?? aim ?? me.aim;
     const input = {
       seq: ++seq,

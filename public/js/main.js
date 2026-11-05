@@ -13,6 +13,8 @@ let socket;
 let me = null;       // { playerId, code }
 let screen = null;   // current screen object
 let restarting = false; // the server warned it's going down, until we reconnect
+let linkLost = false;   // the socket dropped and is reconnecting
+let stalled = false;    // the match screen has stopped hearing snapshots
 let rejoinRun = 0;      // only the newest tryRejoin() may act
 
 // Rejoin errors that mean the seat is really gone; anything else (timeout, offline) is retried.
@@ -110,6 +112,14 @@ function onRoom(room) {
           const res = await call(socket, 'net:ping');
           return res.error ? null : performance.now() - start;
         },
+        onStall: (isStalled) => {
+          stalled = isStalled;
+          updateBanner();
+        },
+        // Closing the transport (not the socket) makes socket.io reconnect by itself.
+        onDeadLink: () => {
+          if (socket.connected) socket.io.engine.close();
+        },
       }));
     }
     screen.update(room);
@@ -139,14 +149,18 @@ async function tryRejoin() {
   }
 }
 
-function setBanner(text) {
+function updateBanner() {
+  let text = '';
+  if (restarting) text = 'The server is restarting, so any room in progress is lost. Reconnecting…';
+  else if (linkLost || stalled) text = 'Connection lost. Reconnecting…';
   banner.textContent = text;
   banner.hidden = !text;
 }
 
 function showMovedTab() {
   me = null;
-  setBanner('');
+  restarting = linkLost = false;
+  updateBanner();
   show({
     kind: 'moved',
     el: h('main.screen.waking', {},
@@ -176,15 +190,17 @@ async function boot() {
   socket.on('match:snapshot', (snap) => screen?.onSnapshot?.(snap));
   socket.on('server:restarting', () => {
     restarting = true;
-    setBanner('The server is restarting, so any room in progress is lost. Reconnecting…');
+    updateBanner();
   });
   socket.on('disconnect', (reason) => {
     // A server-initiated disconnect (kick) does not auto-reconnect, so don't promise it will.
-    if (reason !== 'io server disconnect' && !restarting) setBanner('Connection lost. Reconnecting…');
+    linkLost = reason !== 'io server disconnect';
+    updateBanner();
   });
   socket.on('connect', async () => {
-    setBanner('');
-    restarting = false;
+    restarting = linkLost = false;
+    updateBanner();
+    screen?.onConnected?.();
     const outcome = await tryRejoin();
     if (outcome === 'seated' || outcome === 'retry') return;
     if (me) {

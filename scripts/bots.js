@@ -19,6 +19,10 @@ const DASH_CHANCE = 0.02;
 const PARRY_CHANCE = 0.02;
 const HEAVY_CHANCE = 0.01;
 const HEAVY_HOLD_TICKS = 20;
+// Walking but not getting anywhere means a pillar's in the way: go sideways for a while.
+const STUCK_TICKS = 10; // long enough to span several snapshots (positions only change on those)
+const STUCK_DISTANCE = 1;
+const SIDESTEP_TICKS = 30;
 const TICK_LOG_SECONDS = 5;
 
 // Runs callbacks after latency + up to jitter ms, always in order: a websocket never reorders.
@@ -43,6 +47,26 @@ export function createDelayLine(latency = 0, jitter = 0, random = Math.random) {
 export function createBrain(random = Math.random) {
   let jabDown = false;
   let heavyLeft = 0;
+  let stuck = 0;
+  let sidestepLeft = 0;
+  let sidestepDir = 1;
+  let last = null;
+
+  // The way to walk toward aim, around whatever's in the way.
+  const heading = (me, aim, walking) => {
+    const moved = last ? Math.hypot(me.x - last.x, me.y - last.y) : Infinity;
+    last = { x: me.x, y: me.y };
+    if (walking && moved < STUCK_DISTANCE) stuck++;
+    else if (moved >= STUCK_DISTANCE) stuck = 0;
+    if (stuck >= STUCK_TICKS) {
+      stuck = 0;
+      sidestepLeft = SIDESTEP_TICKS;
+      sidestepDir = random() < 0.5 ? -1 : 1;
+    }
+    if (sidestepLeft <= 0) return aim;
+    sidestepLeft--;
+    return aim + (sidestepDir * Math.PI) / 2;
+  };
 
   return {
     next(me, enemies) {
@@ -56,7 +80,8 @@ export function createBrain(random = Math.random) {
 
       const aim = Math.atan2(target.y - me.y, target.x - me.x);
       const walk = distance > WALK_STOP_RANGE ? 1 : 0;
-      const move = { x: Math.cos(aim) * walk, y: Math.sin(aim) * walk };
+      const way = heading(me, aim, walk > 0);
+      const move = { x: Math.cos(way) * walk, y: Math.sin(way) * walk };
       let buttons = 0;
       jabDown = !jabDown; // a jab needs a fresh press
       if (heavyLeft > 0) {

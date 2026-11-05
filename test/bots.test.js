@@ -39,6 +39,22 @@ test('a brain chases the nearest enemy, and jabs with a fresh press once in rang
   assert.notEqual(presses[0], presses[1]);
 });
 
+test('a brain pressed against a pillar sidesteps, then heads back for its target', () => {
+  const brain = createBrain(() => 1); // always sidesteps the same way
+  const me = fighter(0, 0);
+  const target = [fighter(500, 0)];
+  let move;
+  do move = brain.next(me, target).move;
+  while (move.x === 1);
+  assert.ok(Math.abs(move.x) < 1e-9);
+  assert.equal(Math.abs(move.y), 1);
+  for (let i = 0; i < 100 && move.x !== 1; i++) {
+    me.x += 2; // getting somewhere again, still straight in line with the target
+    move = brain.next(me, target).move;
+  }
+  assert.deepEqual(move, { x: 1, y: 0 }, 'heads back for the target');
+});
+
 test('a brain with nobody to fight stands still', () => {
   const brain = createBrain(() => 0);
   assert.deepEqual(brain.next(fighter(0, 0), []), { move: { x: 0, y: 0 }, aim: 0, buttons: 0 });
@@ -57,11 +73,11 @@ test('bots join, spread over the options, fight with latency, and leave when it 
   while (!teamsPicked()) await sleep(5);
   assert.deepEqual((await call(host, 'match:start')), { ok: true });
 
-  // Face to face, one hit from the end.
+  // Face to face, one hit from the end. Only one of them: a same-tick trade would go to sudden death.
   const [a, b] = live.match.fighters;
   a.body.x = 300; a.body.y = 300;
   b.body.x = 300 + PLAYER.RADIUS * 2 + 30; b.body.y = 300;
-  a.hp = b.hp = 1;
+  b.hp = 1;
 
   const results = await new Promise((resolve) => {
     host.on('room:update', (r) => { if (r.state === 'results') resolve(r); });

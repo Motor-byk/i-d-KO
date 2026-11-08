@@ -3,7 +3,7 @@ import { h } from '../ui/dom.js';
 import { buttonLatch } from './latch.js';
 
 // Top-right buttons, placed by TOUCH.BUTTON_SPOTS. tap: pressed once when touched; otherwise held while touched.
-// Light has no fixed bit: it's a jab while the aim stick is held, otherwise a spin (decided on touch).
+// Light has no fixed bit: it's a jab while the aim stick is pushed, otherwise a spin (decided on touch).
 const CONTROLS = [
   { name: 'dash', label: 'Dash', bit: BUTTONS.DASH },
   { name: 'heavy', label: 'Heavy', bit: BUTTONS.HEAVY },
@@ -63,10 +63,15 @@ export function touchInput() {
 
   const pointers = new Map(); // pointerId -> { owner, move(e), up() }
   const buttons = buttonLatch();
+  // The aim stick's direction once it's pushed past its deadzone, else null. Light jabs along it, or spins without one.
+  const aimDirection = () => {
+    const a = aimStick.value();
+    return a && (a.x || a.y) ? Math.atan2(a.y, a.x) : null;
+  };
 
   function startButton(control, btnEl) {
     btnEl.classList.add('down');
-    const bit = control.bit ?? (aimStick.value() ? BUTTONS.JAB : BUTTONS.SPIN);
+    const bit = control.bit ?? (aimDirection() !== null ? BUTTONS.JAB : BUTTONS.SPIN);
     if (control.tap) buttons.tap(bit);
     else buttons.press(bit);
     return {
@@ -134,10 +139,8 @@ export function touchInput() {
   function sample() {
     // Facing follows the aim stick when it's pushed past its deadzone, else the move stick.
     const move = moveStick.value();
-    const a = aimStick.value();
-    const aimed = !!(a && (a.x || a.y));
-    let aim = aimed ? Math.atan2(a.y, a.x) : null;
-    if (!aimed && move && (move.x || move.y)) aim = Math.atan2(move.y, move.x);
+    let aim = aimDirection();
+    if (aim === null && move && (move.x || move.y)) aim = Math.atan2(move.y, move.x);
     return { move, buttons: buttons.take(), aim };
   }
 

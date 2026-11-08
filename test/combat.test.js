@@ -65,7 +65,7 @@ test('a heavy throws both fists, so it hits on either side of its line but not p
   const boxes = attackHitboxes(a.cs, 500, 500);
   assert.equal(boxes.length, 2);
   assert.ok(boxes[0].b.y < 500 && boxes[1].b.y > 500, 'left fist above the line, right below');
-  const wide = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + H.reach / 2, 500 + boxes[1].b.y - 500 + boxes[1].r + PLAYER.RADIUS + 1);
+  const wide = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + H.reachMin / 2, 500 + boxes[1].b.y - 500 + boxes[1].r + PLAYER.RADIUS + 1);
   assert.deepEqual(resolveHits([a, wide]), []);
 });
 

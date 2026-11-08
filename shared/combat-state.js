@@ -47,21 +47,35 @@ export function createCombat() {
   };
 }
 
+// A heavy's timing and reach for each charge (in ticks): its reach and recovery grow with the charge.
+// Built once, so moveTiming doesn't allocate.
+const HEAVY_TIMING = Array.from({ length: COMBAT.HEAVY.MAX_CHARGE + 1 }, (_, charge) => {
+  const H = COMBAT.HEAVY;
+  const k = chargeFraction(charge);
+  return {
+    startup: H.startup,
+    active: H.active,
+    recovery: Math.round(lerp(H.recoveryMin, H.recoveryMax, k)),
+    reach: lerp(H.reachMin, H.reachMax, k),
+  };
+});
+
 // Timing and reach of the move being performed (no allocation), or null when not in a move.
 export function moveTiming(cs) {
   if (cs.state === STATE.JAB) return COMBAT.JAB[cs.jab];
   if (cs.state === STATE.SPIN) return COMBAT.SPIN;
-  return cs.state === STATE.HEAVY ? COMBAT.HEAVY : null;
+  return cs.state === STATE.HEAVY ? HEAVY_TIMING[cs.charge] : null;
 }
 
 // Full hit data of the move being performed, or null when not in a move.
-// A heavy's damage and knockback scale with its charge.
+// A heavy's damage, knockback, reach and recovery scale with its charge.
 export function moveFrames(cs) {
   if (cs.state !== STATE.HEAVY) return moveTiming(cs);
   const H = COMBAT.HEAVY;
   const k = chargeFraction(cs.charge);
   return {
     ...H,
+    ...moveTiming(cs),
     damage: Math.round(lerp(H.damageMin, H.damageMax, k)),
     knockback: lerp(H.knockbackMin, H.knockbackMax, k),
     launch: k >= H.LAUNCH_CHARGE,

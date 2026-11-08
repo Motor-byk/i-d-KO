@@ -65,7 +65,7 @@ const polar = (x, y, angle, dist) => ({ x: x + Math.cos(angle) * dist, y: y + Ma
 export function fists(cs, x, y, aim) {
   const m = moveTiming(cs);
   const dir = m || cs.state === STATE.CHARGE ? cs.dir : aim;
-  const reach = m?.reach ?? COMBAT.HEAVY.reach;
+  const reach = m?.reach ?? COMBAT.HEAVY.reachMax; // charging: drawn back for a full heavy
   const ext = extension(cs);
   return SIDES.map((side, i) => polar(x, y, fistAngle(cs, dir, side, ext[i]), fistDist(ext[i], reach)));
 }

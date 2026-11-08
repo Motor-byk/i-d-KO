@@ -73,7 +73,7 @@ export const COMBAT = {
   SPIN: { startup: 4, active: 4, recovery: 10, damage: 3, reach: 22, knockback: 150, hitstun: 20, hitstop: 2 },
 
   HEAVY: {
-    MIN_CHARGE: 6,     // a tap still charges this long before firing
+    MIN_CHARGE: 2,     // a tap still charges this long before firing
     MAX_CHARGE: 30,
     MAX_HOLD: 30,      // ticks a full charge can be held before it fires by itself
     CHARGE_WALK: 0.5,  // walking speed multiplier while charging
@@ -82,10 +82,13 @@ export const COMBAT = {
     ARMOR_LIMIT: 20,    // damage the armor takes before it breaks (a full light string); the hit that breaks it stuns
     startup: 5,
     active: 3,
-    recovery: 16,
+    // Reach and recovery grow with the charge, like damage and knockback: a tap is a quick poke, a full charge commits you.
+    recoveryMin: 8,
+    recoveryMax: 16,
     damageMin: 10,
     damageMax: 22,
-    reach: 95,
+    reachMin: 60,
+    reachMax: 95,
     knockbackMin: 500,
     knockbackMax: 1100,
     hitstun: 24,

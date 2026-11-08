@@ -445,3 +445,31 @@ test('spin recovery can be dash-cancelled like a jab', () => {
   assert.equal(stepCombat(cs, {}), BUTTONS.DASH, 'fires once the cancel window opens');
   assert.equal(cs.state, STATE.DASH);
 });
+
+test('a heavy reaches further and recovers longer the more it was charged', () => {
+  const H = COMBAT.HEAVY;
+  const fire = (charge) => {
+    const cs = createCombat();
+    stepCombat(cs, { pressed: HEAVY, held: HEAVY });
+    run(cs, Math.max(0, charge - 1), { held: HEAVY });
+    stepCombat(cs, { released: HEAVY });
+    while (cs.state === STATE.CHARGE) stepCombat(cs, {});
+    return moveFrames(cs);
+  };
+  const tap = fire(0);
+  const mid = fire((H.MIN_CHARGE + H.MAX_CHARGE) / 2);
+  const full = fire(H.MAX_CHARGE);
+  assert.deepEqual([tap.reach, tap.recovery], [H.reachMin, H.recoveryMin]);
+  assert.deepEqual([full.reach, full.recovery], [H.reachMax, H.recoveryMax]);
+  assert.ok(mid.reach > tap.reach && mid.reach < full.reach);
+  assert.ok(mid.recovery > tap.recovery && mid.recovery < full.recovery);
+});
+
+test('a tapped heavy hits MIN_CHARGE + startup ticks after the press', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: HEAVY, released: HEAVY, held: 0 });
+  let ticks = 0;
+  while (phase(cs) !== 'active') { stepCombat(cs, {}); ticks++; }
+  assert.equal(ticks, COMBAT.HEAVY.MIN_CHARGE + COMBAT.HEAVY.startup);
+  assert.equal(ticks, 7);
+});

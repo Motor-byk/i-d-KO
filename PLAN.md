@@ -58,6 +58,33 @@
   - Checked: `npm test` (early charge stunned, armored hit holds, the limit-crossing hit stuns, two same-tick hits crossing it together stun). Live vs 2 bots: early charges stunned at once; one past half charge held through 5+5+9 (armor 19) and fired. Staged frames: shield fresh, half and almost broken. Reviewers: no bugs; rounding, a test and small cleanups applied.
   - Game tester notes for the user (not applied): a lone jab string (19, or 22.8 for a dark horse) never breaks the armor, but two attackers do; suggests `ARMOR_LIMIT` 20–22 so a string plus one jab breaks it solo; armor lasts the whole full-charge hold (up to ~42 ticks); the parry-blue shield could be read as an active parry (suggests a different hue); a flash on the break.
   - Not checked: a live armor break (the bots' strings never reached 25 before the charge fired), touch, a real phone.
+- **Balance changes: still to do (branch `balance-changes`, paused after step 2 at the user's request).** Each step follows the workflow: build, `npm test`, check in Chrome against bots, commit, then the reviewers (simplify, bug check, networking for steps 4–5, game tester). Apply the verified simplify/bug/networking fixes as their own commits, write a Progress entry, summarize, and **stop for the user to test** before the next step. Decisions already settled with the user:
+  - **Step 3, the finisher becomes a clap (`feat:`):** `COMBAT.JAB[2]` reach 66 → 50 (×0.75) and knockback 620 → 400. New `COMBAT.JAB_FINISHER_SWEEP: Math.PI / 4`. In `shared/hitbox.js`, the finisher's fists wind out to ±sweep/2 in startup and swing in to the aim line over the active ticks. The hitbox follows the fists, and `hitIds` stops double hits. Tests: a target ~20° off is hit on the first active tick, one at ~40° misses, and the reach limit holds.
+  - **Step 4, an un-aimed light is a 360° spin; aim assist is removed (`feat:` + `refactor:`):** `BUTTONS.SPIN = 16`, `BUTTON_MASK` 31, and `COMBAT.SPIN` = { startup 4, active 4, recovery 12, damage 3, reach 25, knockback 150, hitstun 22, hitstop 3 }, all tunable.
+    - `STATE.SPIN` starts from idle. It stands alone: it resets the light string and earns no string credit. It can be dash-cancelled like a jab and walks at `ATTACK_WALK`. It goes before JAB in `ACTION_PRIORITY`.
+    - Its hitbox is a circle of radius `RADIUS + reach` around the body, with normal hitstun (it decays and bursts).
+    - Touch decides when Light is pressed: with the aim stick held it's a JAB, otherwise a SPIN, kept until release. On desktop, `KeyQ` is SPIN. The server must accept the new bit.
+    - Remove `assistAim`, `COMBAT.AIM_ASSIST_*`, and the now-unused `aimed` input field (client, `server/game/match.js`, tests, `scripts/bots.js`).
+    - Draw the fists orbiting the body, with a faint ring at the hitbox edge.
+    - Tests: the spin starts from idle, hits all around, causes hitstun, doesn't chain the string, and replays the same under prediction. Touch needs the user's phone.
+  - **Step 5, a heavy into a wall recoils you (`feat:`):** new constants `HEAVY.WALL_RECOIL_MIN: 350` and `WALL_RECOIL_MAX: 900` (scaled by charge), and `WALL_RECOIL_FRICTION: 900` (normal friction is 2200, so the momentum carries past recovery; the user wants to experiment with it).
+    - In `stepFighter` (shared, so it's predicted), during the heavy's active frames, once per heavy: if a fist hitbox overlaps a wall or pillar (use `resolveCircle` from `shared/arena.js` on a copy of the fist point), set the fighter's knockback along the surface normal(s) and `cs.recoil = true`. It works even if the heavy also hits a player.
+    - `stepBody` uses the lower friction while `cs.recoil` is set. It clears when the knockback stops or when the fighter is hit.
+    - No dash-cancel out of heavy recovery for now.
+    - Tests: direction, and strength scaling with charge; no recoil when aimed away; the lower friction carries past recovery; prediction replay matches the server.
+- **Balance changes: game tester suggestions to revisit (user's call, none applied):**
+  - Step 1 (fist hitboxes):
+    - Lights 1 and 2 are active for only 2 ticks, which is stingy against a retreating target at the fist tip. Options: +1 active tick, or `FIST_HITBOX_RADIUS` 16.
+    - The 3-hit light string connects with only ~1–2 ticks of hitstun to spare. Option: +1–2 hitstun on lights 1 and 2.
+    - Finisher knockback launches teammates standing in your line (step 3 lowers it to 400).
+    - Front reach grew ~16 units with the fist-tip hitbox. Trim the `reach` values if it feels long.
+  - Step 2 (charge armor):
+    - `ARMOR_LIMIT` 20–22, so a solo light string plus one jab breaks it (a string alone is 19, or 22.8 for a dark horse).
+    - Cap how long the armor lasts while a full charge is held (up to ~42 ticks now).
+    - Give the shield a hue other than parry blue, so it isn't read as an active parry.
+    - Add a flash or effect when the armor breaks.
+    - Slow walking while a full charge is held.
+    - After step 3, recheck whether the shorter clap still pushes a charger away.
 - **Open decisions from the F review (user's call):**
   - The reviewer read Render's docs as giving a 30s default shutdown window (up to 300s via `maxShutdownDelaySeconds`), and possibly traffic moving to the new instance 60s before SIGTERM. That contradicts "Render's shutdown window is short", the reason for not draining matches. Not tested on Render.
   - Lag comp cap: a real client uses 4 of the 6 rewind ticks at zero latency, so it saturates at ~67ms RTT, which suggests the 200ms cap covers less than the notes claim. Most cellular players would lead their targets.

@@ -88,7 +88,7 @@ test('a hit and the ring KOing the last two on one tick is a tie too (ring runs 
     a.hp = b.hp = 1e9;
     a.body.x = PLAYER.RADIUS; a.body.y = PLAYER.RADIUS;
     b.body.x = PLAYER.RADIUS + 70; b.body.y = PLAYER.RADIUS;
-    match.input(b.id, input(1, { aim: Math.PI, aimed: true, buttons: BUTTONS.JAB }));
+    match.input(b.id, input(1, { aim: Math.PI, buttons: BUTTONS.JAB }));
     return { match, a, b };
   };
   // How many ticks until the jab lands?
@@ -163,7 +163,7 @@ test('sudden death repeats on another tie, then the first hit decides it', () =>
   // Put them in reach, inside the ring: a's jab lands.
   a.body.x = CX - 150; a.body.y = CY;
   b.body.x = CX - 150 + 70; b.body.y = CY;
-  match.input(a.id, input(1, { aim: 0, aimed: true, buttons: BUTTONS.JAB }));
+  match.input(a.id, input(1, { aim: 0, buttons: BUTTONS.JAB }));
   for (let i = 0; i < 10 && !match.result; i++) match.step();
   assert.deepEqual(match.result, { teamId: a.teamId });
 });

@@ -50,8 +50,7 @@ function floatingStick(name, deadzone) {
 
 // Move stick on the left half, aim stick on the right half, action buttons top right.
 // Every touch is tracked by its pointerId, so moving, aiming and pressing can overlap.
-// sample() -> { move: {x, y} | null, buttons, aim: angle | null, aimed }; null = no touch input.
-// aimed: the aim came from the aim stick (manual) rather than the move stick (attacks get aim assist).
+// sample() -> { move: {x, y} | null, buttons, aim: angle | null }; null = no touch input.
 export function touchInput() {
   const moveStick = floatingStick('move', TOUCH.STICK_DEADZONE);
   const aimStick = floatingStick('aim', TOUCH.AIM_DEADZONE);
@@ -137,7 +136,7 @@ export function touchInput() {
     const aimed = !!(a && (a.x || a.y));
     let aim = aimed ? Math.atan2(a.y, a.x) : null;
     if (!aimed && move && (move.x || move.y)) aim = Math.atan2(move.y, move.x);
-    return { move, buttons: buttons.take(), aim, aimed };
+    return { move, buttons: buttons.take(), aim };
   }
 
   const destroy = () => {

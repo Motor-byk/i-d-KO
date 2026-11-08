@@ -1,29 +1,10 @@
 import { COMBAT, PLAYER } from '../../shared/constants.js';
-import { angleDiff } from '../../shared/math.js';
 import { applyHit, applyLanded, applyParry, hasArmor, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
 import { attackHitboxes, capsuleHitsCircle } from '../../shared/hitbox.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, damageMult, alive, hitIds }.
 
 const KO_EPSILON = 1e-6;
-
-// Un-aimed jabs snap to the nearest enemy inside the assist cone around aim; else aim is kept.
-export function assistAim(attacker, fighters, aim) {
-  let best = null;
-  let bestDist = COMBAT.AIM_ASSIST_RANGE;
-  for (const f of fighters) {
-    if (!f.alive || f.teamId === attacker.teamId) continue;
-    const dx = f.body.x - attacker.body.x;
-    const dy = f.body.y - attacker.body.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > bestDist) continue;
-    const angle = Math.atan2(dy, dx);
-    if (Math.abs(angleDiff(angle, aim)) > COMBAT.AIM_ASSIST_CONE / 2) continue;
-    best = angle;
-    bestDist = dist;
-  }
-  return best ?? aim;
-}
 
 // Sets target's knockback to speed, straight away from `from` (along fallbackAngle if stacked).
 function push(from, target, speed, fallbackAngle) {

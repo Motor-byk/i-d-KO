@@ -110,8 +110,6 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
       tick: Math.max(0, Math.round(renderTick(now))),
       move: fingers.move ?? keys.move,
       aim,
-      // The mouse always aims on purpose; touch only when dragging.
-      aimed: fingers.aim !== null ? fingers.aimed : keys.aim !== null,
       buttons: keys.buttons | fingers.buttons,
     };
     // Offline inputs never arrive, so don't predict them; start over from the next snapshot.

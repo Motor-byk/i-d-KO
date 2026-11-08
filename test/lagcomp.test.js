@@ -129,7 +129,7 @@ test('in a match, a late parry press undoes the hit and stuns the attacker', () 
   const [a, b] = [match.byId.get(1), match.byId.get(2)];
   b.body.x = a.body.x + 60;
   b.body.y = a.body.y;
-  const send = (f, seq, buttons, aim = 0) => match.input(f.id, { seq, tick: match.tick, move: { x: 0, y: 0 }, aim, aimed: true, buttons });
+  const send = (f, seq, buttons, aim = 0) => match.input(f.id, { seq, tick: match.tick, move: { x: 0, y: 0 }, aim, buttons });
   let seq = 0;
   send(a, ++seq, BUTTONS.JAB);
   send(b, seq, 0);

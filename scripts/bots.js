@@ -133,7 +133,7 @@ export function startBot({ url, origin, code, nickname, index = 0, team, latency
       const teams = new Map(room.players.map((p) => [p.id, p.teamId]));
       const myTeam = teams.get(playerId);
       const enemies = snap.fighters.filter((f) => f.alive && teams.get(f.id) !== myTeam);
-      const input = { seq: ++seq, tick: snap.tick, aimed: true, ...brain.next(me, enemies) };
+      const input = { seq: ++seq, tick: snap.tick, ...brain.next(me, enemies) };
       send(() => socket.emit('match:input', input));
     };
 

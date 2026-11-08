@@ -3,7 +3,7 @@ import { createBody, separateBodies } from '../../shared/physics.js';
 import { resolveCircle } from '../../shared/arena.js';
 import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
 import { round2, wrapAngle } from '../../shared/math.js';
-import { assistAim, burstPush, parryGrace, resolveHits } from './combat.js';
+import { burstPush, parryGrace, resolveHits } from './combat.js';
 import { PositionHistory, rewindTicks } from './lagcomp.js';
 import { teamBuffs } from './balance.js';
 import { eliminationMode } from './modes/elimination.js';
@@ -13,11 +13,10 @@ const MOVE_EPSILON = 1e-3; // float slack on the |move| <= 1 check
 // Facing replays into prediction (dash direction), so it gets more precision than positions.
 const round4 = (v) => Math.round(v * 10_000) / 10_000;
 
-// Returns a clean input or null. Shape: { seq, tick, move: {x, y}, aim, aimed, buttons }.
-// aimed: the player pointed the aim on purpose (mouse, drag); otherwise attacks get aim assist.
+// Returns a clean input or null. Shape: { seq, tick, move: {x, y}, aim, buttons }.
 export function validateInput(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const { seq, tick, move, aim, aimed, buttons } = raw;
+  const { seq, tick, move, aim, buttons } = raw;
   if (!Number.isSafeInteger(seq) || seq < 0) return null;
   if (!Number.isSafeInteger(tick) || tick < 0) return null;
   if (!move || typeof move !== 'object') return null;
@@ -33,7 +32,6 @@ export function validateInput(raw) {
     tick,
     move: { x: x * scale, y: y * scale },
     aim: wrapAngle(aim),
-    aimed: aimed === true,
     buttons,
   };
 }
@@ -94,7 +92,6 @@ export class Match {
         teamId: p.teamId,
         body: createBody(spawns[i].x, spawns[i].y),
         aim: spawns[i].aim,
-        aimed: false,
         cs: { ...createCombat(), dir: spawns[i].aim },
         hitIds: new Set(), // who the current move already hit
         grace: null,       // hits a late parry can still undo (combat.js parryGrace)
@@ -168,7 +165,6 @@ export class Match {
   revive(f, { x, y, aim }, hp) {
     f.body = createBody(x, y);
     f.aim = aim;
-    f.aimed = false;
     f.cs = { ...createCombat(), dir: aim };
     f.hitIds.clear();
     f.grace = null;
@@ -193,7 +189,6 @@ export class Match {
       if (input) {
         f.move = input.move;
         f.aim = input.aim;
-        f.aimed = input.aimed;
         f.ackSeq = input.seq;
         f.pressed = input.pressed;
         f.released = input.released;
@@ -209,7 +204,6 @@ export class Match {
       const { move, pressed, released, buttons: held, aim } = f;
       const started = stepFighter(f.cs, f.body, { move, pressed, released, held, aim });
       if (started) f.hitIds.clear();
-      if (started === BUTTONS.JAB && !f.aimed) f.cs.dir = assistAim(f, this.fighters, f.cs.dir);
       if (f.cs.state === STATE.BURST && f.cs.t === 0) burstPush(f, this.fighters);
     }
     separateBodies(this.fighters.filter((f) => f.alive).map((f) => f.body));

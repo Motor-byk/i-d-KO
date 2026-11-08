@@ -20,7 +20,7 @@ function script(n) {
   if (n === 10) buttons = BUTTONS.JAB;
   if (n === 20) buttons = BUTTONS.DASH;
   if (n >= 30 && n < 45) buttons = BUTTONS.HEAVY;
-  return { seq: n, tick: 0, move: n >= 20 ? { x: Math.SQRT1_2, y: -Math.SQRT1_2 } : { x: 1, y: 0 }, aim: 0.5, aimed: true, buttons };
+  return { seq: n, tick: 0, move: n >= 20 ? { x: Math.SQRT1_2, y: -Math.SQRT1_2 } : { x: 1, y: 0 }, aim: 0.5, buttons };
 }
 
 test('replaying unacked inputs over server state matches the server once it catches up', () => {

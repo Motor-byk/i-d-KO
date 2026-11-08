@@ -36,7 +36,7 @@ test('a match applies the buffs: dark horses start with more HP and hit harder, 
 
   horse.body.x = 500; horse.body.y = 500;
   big.body.x = 570; big.body.y = 500;
-  match.input(horse.id, input(1, { aim: 0, aimed: true, buttons: BUTTONS.JAB }));
+  match.input(horse.id, input(1, { aim: 0, buttons: BUTTONS.JAB }));
   for (let i = 0; i < 10; i++) match.step();
   near(big.hp, PLAYER.BASE_HP - COMBAT.JAB[0].damage * (1 + 3 * BALANCE.DMG_PER_MISSING));
   const snap = sent.at(-1)[1].fighters;

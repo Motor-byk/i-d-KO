@@ -28,7 +28,7 @@ test('a dropped fighter stands still and can be hit, and a rejoin takes it back'
 
   attacker.body.x = dropped.body.x + PLAYER.RADIUS * 2 + 20;
   attacker.body.y = dropped.body.y;
-  b.emit('match:input', input(1, { aim: Math.PI, aimed: true, buttons: BUTTONS.JAB }));
+  b.emit('match:input', input(1, { aim: Math.PI, buttons: BUTTONS.JAB }));
   while (dropped.hp === dropped.maxHp) await sleep(5);
 
   const back = roomUpdate(b, (room) => isConnected(room, playerId) === true);

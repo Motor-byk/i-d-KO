@@ -187,17 +187,11 @@ test('a jab input hits an enemy in front, and the snapshot shows the combat stat
   const [a, b] = match.fighters;
   a.body.x = 500; a.body.y = 500;
   b.body.x = 570; b.body.y = 500;
-  match.input(a.id, input(1, { aim: 0, aimed: true, buttons: BUTTONS.JAB }));
+  match.input(a.id, input(1, { aim: 0, buttons: BUTTONS.JAB }));
   for (let i = 0; i < 10; i++) match.step();
   assert.ok(b.hp < PLAYER.BASE_HP);
   const snap = sent.at(-1)[1];
   assert.ok(snap.fighters.every((f) => typeof f.cs.state === 'string'));
-});
-
-test('aimed is only true when sent as true', () => {
-  assert.equal(validateInput(input(1, { aimed: true })).aimed, true);
-  assert.equal(validateInput(input(1, { aimed: 'yes' })).aimed, false);
-  assert.equal(validateInput(input(1)).aimed, false);
 });
 
 test('release edges survive input merging', () => {
@@ -230,7 +224,7 @@ test('a mashed jab string is a true combo: all three hits land in one combo', ()
   const combos = [];
   let hp = b.hp;
   for (let tick = 1; tick < 40; tick++) {
-    match.input(a.id, input(tick, { move: { x: 1, y: 0 }, aim: 0, aimed: true, buttons: tick % 2 ? BUTTONS.JAB : 0 }));
+    match.input(a.id, input(tick, { move: { x: 1, y: 0 }, aim: 0, buttons: tick % 2 ? BUTTONS.JAB : 0 }));
     match.input(b.id, input(tick));
     match.step();
     if (b.hp !== hp) { combos.push(b.cs.combo); hp = b.hp; }

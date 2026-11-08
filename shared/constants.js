@@ -58,8 +58,6 @@ export const PLAYER = {
 
 export const COMBAT = {
   INPUT_BUFFER: 5,
-  AIM_ASSIST_CONE: Math.PI / 3, // ~60 degrees total
-  AIM_ASSIST_RANGE: 260,         // center to center
   ATTACK_WALK: 0.35,             // walking speed multiplier during a jab
 
   JAB: [

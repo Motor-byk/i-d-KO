@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assistAim, burstPush, resolveHits } from '../server/game/combat.js';
+import { burstPush, resolveHits } from '../server/game/combat.js';
 import { createCombat, stepCombat, phase, isParrying, hasArmor, chargeFraction, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
 import { attackHitboxes } from '../shared/hitbox.js';
@@ -231,17 +231,6 @@ test('a fighter brought to 0 HP is KO', () => {
   resolveHits([a, b]);
   assert.equal(b.hp, 0);
   assert.equal(b.alive, false);
-});
-
-test('aim assist snaps to the nearest enemy in the cone, ignoring teammates', () => {
-  const a = fighter(1, 1, 500, 500);
-  const mate = fighter(2, 1, 560, 500);
-  const near = fighter(3, 2, 600, 540);
-  const far = fighter(4, 2, 700, 480);
-  const outside = fighter(5, 2, 500, 600); // 90 degrees off
-  const all = [a, mate, near, far, outside];
-  assert.ok(Math.abs(assistAim(a, all, 0) - Math.atan2(40, 100)) < 1e-9);
-  assert.equal(assistAim(a, [a, mate, outside], 0.1), 0.1, 'nothing in the cone: keep the aim');
 });
 
 test('a well-charged heavy launches its target', () => {

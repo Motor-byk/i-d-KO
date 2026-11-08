@@ -39,7 +39,7 @@ export function createCombat() {
     armorTaken: 0, // damage taken while armored during this charge
     letGo: false,  // heavy released while charging (it fires once MIN_CHARGE is reached)
     launched: false, // in hitstun from a launching hit: the next wall it hits bounces it
-    recoil: false,   // pushed back off a wall by your own heavy: knockback decays slower until it stops
+    recoil: false,   // pushed back off a wall by your own attack: knockback decays slower until it stops
     dashCooldown: 0,
     stringHits: 0, // jabs of the current string that landed on an enemy, in order
     combo: 0,      // hits taken in the current combo (it lasts while in hitstun)
@@ -49,7 +49,7 @@ export function createCombat() {
   };
 }
 
-// A heavy's timing and reach for each charge (in ticks): its reach and recovery grow with the charge.
+// A heavy's timing, reach and wall recoil for each charge (in ticks): they grow with the charge.
 // Built once, so moveTiming doesn't allocate.
 const HEAVY_TIMING = Array.from({ length: COMBAT.HEAVY.MAX_CHARGE + 1 }, (_, charge) => {
   const H = COMBAT.HEAVY;
@@ -63,7 +63,7 @@ const HEAVY_TIMING = Array.from({ length: COMBAT.HEAVY.MAX_CHARGE + 1 }, (_, cha
   };
 });
 
-// Timing and reach of the move being performed (no allocation), or null when not in a move.
+// Timing, reach and wall recoil of the move being performed (no allocation), or null when not in a move.
 export function moveTiming(cs) {
   if (cs.state === STATE.JAB) return COMBAT.JAB[cs.jab];
   if (cs.state === STATE.SPIN) return COMBAT.SPIN;
@@ -281,7 +281,7 @@ function wallRecoil(cs, body, speed) {
   let px = lerp(nx, -Math.cos(cs.dir), aim);
   let py = lerp(ny, -Math.sin(cs.dir), aim);
   const plen = Math.hypot(px, py);
-  if (px * nx + py * ny <= 0 || !plen) [px, py] = [nx, ny]; // fists along the wall: straight off it
+  if (px * nx + py * ny <= 0) [px, py] = [nx, ny]; // fists along the wall: straight off it
   else [px, py] = [px / plen, py / plen];
   const push = speed * lerp(COMBAT.WALL_RECOIL_GRAZE, 1, depth);
   body.kx = px * push;

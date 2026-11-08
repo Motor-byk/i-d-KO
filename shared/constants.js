@@ -66,8 +66,9 @@ export const COMBAT = {
     // knockback in units/second; reach: how far the fist travels from its rest spot
     { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
     { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
-    { startup: 4, active: 3, recovery: 12, damage: 9, reach: 66, knockback: 620, hitstun: 18, hitstop: 4 },
+    { startup: 4, active: 3, recovery: 12, damage: 9, reach: 50, knockback: 400, hitstun: 18, hitstop: 4 }, // the clap
   ],
+  JAB_FINISHER_SWEEP: Math.PI / 4, // the clap's fists swing in from this far apart (radians, total) over its active ticks
   JAB_CHAIN_WINDOW: 8, // ticks after recovery starts in which the next jab continues the string
 
   HEAVY: {

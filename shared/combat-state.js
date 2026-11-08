@@ -1,4 +1,4 @@
-import { COMBAT, BUTTONS } from './constants.js';
+import { COMBAT, BUTTONS, PLAYER } from './constants.js';
 import { stepBody } from './physics.js';
 import { bounceVelocity, sweepCircle } from './arena.js';
 import { attackHitboxes } from './hitbox.js';
@@ -287,7 +287,7 @@ export function stepFighter(cs, body, input) {
   const { kx, ky } = body;
   const dash = cs.state === STATE.DASH ? { x: Math.cos(cs.dir), y: Math.sin(cs.dir) } : null;
   const H = COMBAT.HEAVY;
-  const friction = cs.recoil ? H.WALL_RECOIL_FRICTION : undefined;
+  const friction = cs.recoil ? H.WALL_RECOIL_FRICTION : PLAYER.FRICTION;
   const normals = stepBody(body, { x: input.move.x * scale, y: input.move.y * scale }, dash, friction);
   if (cs.recoil && !body.kx && !body.ky) cs.recoil = false;
   // Only a real impact bounces: enough speed into the surface, not a slide along it.

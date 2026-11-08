@@ -1,6 +1,6 @@
-import { COMBAT, PLAYER } from '../../shared/constants.js';
+import { COMBAT } from '../../shared/constants.js';
 import { applyHit, applyLanded, applyParry, hasArmor, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
-import { attackHitboxes, capsuleHitsCircle } from '../../shared/hitbox.js';
+import { attackHitboxes, hitsBody } from '../../shared/hitbox.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, damageMult, alive, hitIds }.
 
@@ -49,7 +49,7 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
     for (const t of fighters) {
       if (t === a || !t.alive || t.cs.invuln > 0 || a.hitIds.has(t.id)) continue;
       const at = seen(a, t);
-      if (!boxes.some((box) => capsuleHitsCircle(box, at, PLAYER.RADIUS))) continue;
+      if (!hitsBody(boxes, at)) continue;
       a.hitIds.add(t.id);
       hits.push({ attacker: a, target: t, move: m });
     }

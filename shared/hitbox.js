@@ -89,6 +89,9 @@ export function attackHitboxes(cs, x, y) {
   });
 }
 
+// Does any of the hitboxes touch a fighter's body at `at`?
+export const hitsBody = (boxes, at) => boxes.some((box) => capsuleHitsCircle(box, at, PLAYER.RADIUS));
+
 // Does the capsule touch the circle at c?
 export function capsuleHitsCircle({ a, b, r }, c, radius) {
   const dx = b.x - a.x;

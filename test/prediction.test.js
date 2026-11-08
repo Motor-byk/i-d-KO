@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPredictor } from '../public/js/net.js';
 import { Match } from '../server/game/match.js';
-import { BUTTONS, NET } from '../shared/constants.js';
+import { BUTTONS, NET, PLAYER } from '../shared/constants.js';
 import { STATE } from '../shared/combat-state.js';
 
 // One player per team, spawned far apart, so nothing server-only (hits, pushes) touches player 1.
@@ -148,4 +148,47 @@ test('predicted combat state is a copy: replays never touch the snapshot', () =>
   predictor.step({ seq: 1, move: { x: 0, y: 0 }, aim: 0, buttons: BUTTONS.JAB });
   assert.equal(predictor.state.cs.state, STATE.JAB);
   assert.equal(fighter.cs.state, STATE.IDLE);
+});
+
+test('your own landed hits are predicted: a jab string on an enemy pinned at a wall matches the server', () => {
+  const match = soloMatch();
+  const meF = match.byId.get(1);
+  const enemy = match.byId.get(2);
+  Object.assign(meF.body, { x: PLAYER.RADIUS * 3 + 5, y: 500 }); // just clear of the enemy: body pushes aren't predicted
+  Object.assign(enemy.body, { x: PLAYER.RADIUS, y: 500 });
+  const predictor = createPredictor();
+  predictor.reconcile(me(match.snapshot()), -1);
+
+  const LATENCY = 3; // ticks each way
+  const inFlight = [];
+  const snapshots = [];
+  let seenSnap = match.snapshot(); // the newest snapshot you have: what you see and stamp inputs with
+  const errors = [];
+  const predicted = new Map(); // seq -> your combat timing right after predicting it
+  const server = new Map();    // seq -> the server's right after applying it
+  const timing = ({ state, t, hitstop, stringHits }) => ({ state, t, hitstop, stringHits });
+  let recoiled = false;
+  for (let n = 1; n <= 60; n++) {
+    const buttons = [1, 10, 24].includes(n) ? BUTTONS.JAB : 0;
+    const input = { seq: n, tick: seenSnap.tick, move: { x: 0, y: 0 }, aim: Math.PI, buttons };
+    const seen = seenSnap.fighters.filter((f) => f.id !== 1 && f.alive)
+      .map(({ id, x, y, cs }) => ({ id, x, y, cs, enemy: true }));
+    predictor.step(input, seen);
+    predicted.set(n, timing(predictor.state.cs));
+    inFlight.push([n + LATENCY, input]);
+    while (inFlight[0]?.[0] <= n) match.input(1, inFlight.shift()[1]);
+    match.step();
+    if (meF.ackSeq > 0 && !server.has(meF.ackSeq)) server.set(meF.ackSeq, timing(meF.cs)); // the tick that applied it
+    recoiled ||= meF.cs.recoil;
+    snapshots.push([n + LATENCY, match.snapshot()]);
+    while (snapshots[0]?.[0] <= n) {
+      seenSnap = snapshots.shift()[1];
+      errors.push(predictor.reconcile(me(seenSnap), seenSnap.acks[1]));
+    }
+  }
+  assert.ok(enemy.hp <= PLAYER.BASE_HP - 20, `the whole string landed (enemy hp ${enemy.hp})`);
+  assert.ok(recoiled, 'the jabs reached the wall too');
+  // Every hit's freeze and string credit is predicted on the same input the server lands it on.
+  for (const [seq, cs] of server) assert.deepEqual(predicted.get(seq), cs, `seq ${seq}`);
+  assert.ok(Math.max(...errors) < 0.1, `max correction ${Math.max(...errors)}`);
 });

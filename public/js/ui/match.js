@@ -112,8 +112,13 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
       aim,
       buttons: keys.buttons | fingers.buttons,
     };
+    // Everyone else where you see them, which is where the server checks your hits on them.
+    const myTeam = players.get(playerId)?.teamId;
+    const seen = interp.sample(input.tick)
+      .filter((f) => f.alive && f.id !== playerId)
+      .map(({ id, x, y, cs }) => ({ id, x, y, cs, enemy: players.get(id)?.teamId !== myTeam }));
     // Offline inputs never arrive, so don't predict them; start over from the next snapshot.
-    if (sendInput(input)) predictor.step(input);
+    if (sendInput(input)) predictor.step(input, seen);
     else predictor.reset();
   }
   // Polled faster than the tick so steps start close to on time; the ticker keeps the rate.

@@ -1,5 +1,6 @@
 import { NET, DT, PLAYER, TICK_RATE, TICK_MS, SNAPSHOT_RATE, MAX_CATCHUP_TICKS } from '../../shared/constants.js';
-import { stepFighter } from '../../shared/combat-state.js';
+import { applyLanded, isParrying, moveFrames, phase, stepFighter } from '../../shared/combat-state.js';
+import { attackHitboxes, hitsBody } from '../../shared/hitbox.js';
 import { resolveCircle } from '../../shared/arena.js';
 import { lerp, lerpAngle } from '../../shared/math.js';
 
@@ -163,11 +164,15 @@ const bodyOf = ({ x, y, vx, vy, kx, ky }) => ({ x, y, vx, vy, kx, ky });
 // Predicts your own fighter. Every local input is applied at once through the shared
 // stepFighter (combat timing + movement) and kept until the server acks its seq. On each
 // snapshot the fighter is reset to the server's state and the unacked inputs are replayed.
-// Hit detection, body pushes and burst pushes are server-only, so those arrive as corrections.
+// Hits on others are judged by the server, but your own side of an enemy hit you can see landing
+// (the freeze and string credit, applyLanded) is predicted, against where you saw the others: the
+// same view the server's lag compensation checks against. Everything else hits do (getting hit,
+// being parried, body and burst pushes) arrives as corrections.
 // Small corrections are eased out through a visual offset; large ones snap.
 export function createPredictor() {
   let body;
   let cs;
+  let hitIds = new Set(); // who the current move already hit, as you saw it (the server keeps its own)
   let held;    // buttons held as of the last input (edges are derived against it, as on the server)
   let pending; // applied inputs the server hasn't acked yet, oldest first
   let lastAck;
@@ -178,11 +183,26 @@ export function createPredictor() {
     cs = null;
     held = 0;
     pending = [];
+    hitIds = new Set();
     lastAck = -1;
     offset = { x: 0, y: 0 };
     prev = null;
   }
   reset();
+
+  // The hitstop your move earns this tick from enemies in seen it touches for the first time, or 0.
+  // Mirrors resolveHits: invulnerable targets pass through, friendly and parried hits earn nothing.
+  function landedHitstop(seen) {
+    if (phase(cs) !== 'active') return 0;
+    const boxes = attackHitboxes(cs, body.x, body.y);
+    let hitstop = 0;
+    for (const t of seen) {
+      if (hitIds.has(t.id) || t.cs.invuln > 0 || !hitsBody(boxes, t)) continue;
+      hitIds.add(t.id);
+      if (t.enemy && !isParrying(t.cs)) hitstop = moveFrames(cs).hitstop;
+    }
+    return hitstop;
+  }
 
   return {
     // { body, cs } of the predicted fighter, or null before the first snapshot.
@@ -198,13 +218,16 @@ export function createPredictor() {
       return prev ? { x: lerp(prev.x, x, alpha), y: lerp(prev.y, y, alpha) } : { x, y };
     },
 
-    // Applies one local input ({ seq, move, aim, buttons }, as sent to the server).
-    step({ seq, move, aim, buttons }) {
+    // Applies one local input ({ seq, move, aim, buttons }, as sent to the server). seen: the other
+    // live fighters where you're looking (the input's tick), as [{ id, x, y, cs, enemy }].
+    step({ seq, move, aim, buttons }, seen = []) {
       if (!body) return;
       prev = { x: body.x + offset.x, y: body.y + offset.y };
       const input = { seq, move, aim, held: buttons, pressed: buttons & ~held, released: held & ~buttons };
       held = buttons;
-      stepFighter(cs, body, input);
+      if (stepFighter(cs, body, input)) hitIds.clear();
+      input.landed = landedHitstop(seen); // kept, so replays land it on the same tick
+      if (input.landed) applyLanded(cs, input.landed);
       pending.push(input);
       if (pending.length > NET.MAX_PENDING_INPUTS) pending.shift();
       offset.x *= NET.CORRECTION_DECAY;
@@ -221,7 +244,10 @@ export function createPredictor() {
       const before = body && { x: body.x, y: body.y };
       body = bodyOf(fighter);
       cs = structuredClone(fighter.cs);
-      for (const input of pending) stepFighter(cs, body, input);
+      for (const input of pending) {
+        stepFighter(cs, body, input);
+        if (input.landed) applyLanded(cs, input.landed);
+      }
       if (!before) return 0;
       const dx = before.x - body.x;
       const dy = before.y - body.y;

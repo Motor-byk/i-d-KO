@@ -4,7 +4,8 @@ import { createRenderer } from '../render.js';
 import { desktopInput } from '../input/desktop.js';
 import { touchInput } from '../input/touch.js';
 import { debugOverlay } from '../debug.js';
-import { createClock, createInterpolator, createLinkWatch, createPredictor, createTicker } from '../net.js';
+import { createClock, createHitView, createInterpolator, createLinkWatch, createPredictor, createTicker } from '../net.js';
+import { NO_REWIND } from '../../shared/rewind.js';
 import { createJuice } from '../juice.js';
 
 // Match screen: a full-screen canvas drawn every frame. Other players are interpolated between
@@ -33,6 +34,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
   let options = new Map(); // id -> option, rebuilt when the room changes
   const players = new Map(); // id -> player, kept after they leave (see update)
   const predictor = createPredictor();
+  const hitView = createHitView();
   const clock = createClock();
   const interp = createInterpolator();
   const ticker = createTicker(performance.now());
@@ -104,18 +106,22 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
     const me = myFighter(now);
     if (!me) return; // spectating or KO'd
     aim = fingers.aim ?? keys.aim ?? aim ?? me.aim;
+    seq++;
     const input = {
-      seq: ++seq,
+      seq,
       // What you're looking at, for lag compensation.
-      tick: Math.max(0, Math.round(renderTick(now))),
+      tick: hitView.stamp(seq, Math.max(0, Math.round(renderTick(now)))),
       move: fingers.move ?? keys.move,
       aim,
       buttons: keys.buttons | fingers.buttons,
     };
-    // Everyone else where you see them, which is where the server checks your hits on them.
+    // Everyone else where the server will check your hits on them. Anyone it judges where they are
+    // now (dashing, parrying, bursting, invulnerable as of the newest snapshot) is left to the server.
     const myTeam = players.get(playerId)?.teamId;
-    const seen = interp.sample(input.tick)
-      .filter((f) => f.alive && f.id !== playerId)
+    const judgedNow = new Set(snap.fighters.filter((f) => NO_REWIND.has(f.cs.state) || f.cs.invuln > 0).map((f) => f.id));
+    const at = hitView.judgedAt(input.tick, snap.tick);
+    const seen = (at === null ? [] : interp.sample(at))
+      .filter((f) => f.alive && f.id !== playerId && !judgedNow.has(f.id))
       .map(({ id, x, y, cs }) => ({ id, x, y, cs, enemy: players.get(id)?.teamId !== myTeam }));
     // Offline inputs never arrive, so don't predict them; start over from the next snapshot.
     if (sendInput(input)) predictor.step(input, seen);
@@ -153,6 +159,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
       debug.setInterp(interp.delayMs, clock.jitterMs);
       notice.hidden = !next.suddenDeath;
       juice.onSnapshot(next, playerId);
+      hitView.acked(next.acks[playerId] ?? -1, next.tick);
       const me = serverMe();
       if (!me) predictor.reset();
       else debug.setCorrection(predictor.reconcile(me, next.acks[playerId] ?? -1));

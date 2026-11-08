@@ -228,6 +228,7 @@ export const NET = {
   CLOCK_JUMP_CONFIRM: 3,    // ...taken once this many in a row agree (a lone one is ignored)
   CLOCK_SMOOTHING: 0.1,     // share of a clock sample's error taken per snapshot
   JITTER_SMOOTHING: 0.1,
+  LEAD_SMOOTHING: 0.2,       // share of an input lead sample (server tick it was applied at - its stamp) taken per snapshot
   HEALTH_PING_MS: 5 * 60_000,
   SHUTDOWN_FLUSH_MS: 100, // on SIGTERM, time for the restart warning to leave before the process exits
   LINK_STALL_MS: 1000,           // no snapshots for this long: warn the player and stop predicting

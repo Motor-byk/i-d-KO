@@ -1,6 +1,7 @@
 import { NET, DT, PLAYER, TICK_RATE, TICK_MS, SNAPSHOT_RATE, MAX_CATCHUP_TICKS } from '../../shared/constants.js';
 import { applyLanded, isParrying, moveFrames, phase, stepFighter } from '../../shared/combat-state.js';
 import { attackHitboxes, hitsBody } from '../../shared/hitbox.js';
+import { MAX_REWIND_TICKS, clampStamp } from '../../shared/rewind.js';
 import { resolveCircle } from '../../shared/arena.js';
 import { lerp, lerpAngle } from '../../shared/math.js';
 
@@ -155,6 +156,52 @@ export function createLinkWatch(now) {
         reconnectAfter = Math.min(reconnectAfter * 2, NET.LINK_RECONNECT_MAX_MS);
       }
       return { stalled: t - lastHeard >= NET.LINK_STALL_MS, reconnect };
+    },
+  };
+}
+
+// Which tick the server will judge your hits at, so the predictor checks them against the others
+// where the server will. Inputs are stamped with your view tick and the server rewinds to it, but
+// at most MAX_REWIND_TICKS: with a bigger lead (the tick an input is applied at, minus its stamp) it
+// judges them later than you saw. The lead is learned from acks: a snapshot's tick minus the stamp
+// of the newest input it applied. Up to a round trip of LAG_COMP_MAX_MS that tick is one you already
+// have a snapshot of; past it the server judges at a tick you haven't seen, so leave it to the server.
+export function createHitView() {
+  let lastStamp = -1;
+  let lastAck = -1;
+  let lead = null; // smoothed, in ticks; null until the first ack of a stamped input
+  const stamps = new Map(); // seq -> stamp, oldest first, until acked
+  return {
+    // Clamps a view tick the way the server will (so both judge the same one), remembered for seq.
+    stamp(seq, tick) {
+      lastStamp = clampStamp(tick, lastStamp);
+      stamps.set(seq, lastStamp);
+      if (stamps.size > NET.MAX_PENDING_INPUTS) stamps.delete(stamps.keys().next().value);
+      return lastStamp;
+    },
+    // A snapshot at snapTick says the server has applied your inputs up to seq ack.
+    acked(ack, snapTick) {
+      if (ack < lastAck) { // the server dropped your input stream (rejoin): it starts stamps over too
+        stamps.clear();
+        lastStamp = -1;
+        lead = null;
+      }
+      lastAck = ack;
+      const stamped = stamps.get(ack);
+      if (stamped !== undefined) {
+        const sample = snapTick - stamped;
+        lead = lead === null ? sample : lead + (sample - lead) * NET.LEAD_SMOOTHING;
+      }
+      for (const seq of stamps.keys()) {
+        if (seq > ack) break;
+        stamps.delete(seq);
+      }
+    },
+    // The tick the server will judge an input stamped with `stamp` at, or null if it's past newest
+    // (the newest snapshot's tick), so you can't see where it will judge.
+    judgedAt(stamp, newest = Infinity) {
+      const at = lead === null ? stamp : Math.max(stamp, Math.round(stamp + lead) - MAX_REWIND_TICKS);
+      return at <= newest ? at : null;
     },
   };
 }

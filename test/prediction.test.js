@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createPredictor } from '../public/js/net.js';
+import { createHitView, createPredictor } from '../public/js/net.js';
 import { Match } from '../server/game/match.js';
 import { BUTTONS, NET, PLAYER } from '../shared/constants.js';
 import { STATE } from '../shared/combat-state.js';
@@ -191,4 +191,58 @@ test('your own landed hits are predicted: a jab string on an enemy pinned at a w
   // Every hit's freeze and string credit is predicted on the same input the server lands it on.
   for (const [seq, cs] of server) assert.deepEqual(predicted.get(seq), cs, `seq ${seq}`);
   assert.ok(Math.max(...errors) < 0.1, `max correction ${Math.max(...errors)}`);
+});
+
+test('past the rewind cap, landed hits on a moving target are judged where the server judges them', () => {
+  const match = soloMatch();
+  const meF = match.byId.get(1);
+  const enemy = match.byId.get(2);
+  Object.assign(meF.body, { x: 800, y: 300 });
+  Object.assign(enemy.body, { x: 880, y: 230 }); // walks down across your jabs
+  const predictor = createPredictor();
+  const view = createHitView();
+  predictor.reconcile(me(match.snapshot()), -1);
+
+  // Ticks each way, and how far behind the newest snapshot you look (interpolation): a 13-tick lead
+  // (a snapshot lands the tick after it's sent here), so the server judges 7 ticks after your stamp,
+  // a tick you have a snapshot of. The target walks ~60 units in those 7 ticks.
+  const LATENCY = 2;
+  const DELAY = 8;
+  const inFlight = [];
+  const arriving = [];
+  const received = new Map(); // tick -> snapshot, as the client has them
+  let newest = match.snapshot();
+  received.set(newest.tick, newest);
+  const predicted = new Map();
+  const server = new Map();
+  const timing = ({ state, t, hitstop, stringHits }) => ({ state, t, hitstop, stringHits });
+  let landed = 0;
+  let capped = false;
+  for (let n = 1; n <= 90; n++) {
+    const buttons = n % 4 === 1 ? BUTTONS.JAB : 0;
+    const input = { seq: n, tick: view.stamp(n, Math.max(0, newest.tick - DELAY)), move: { x: 0, y: 0 }, aim: -0.6, buttons };
+    const judged = view.judgedAt(input.tick, newest.tick);
+    if (judged > input.tick) capped = true;
+    const seen = judged === null ? [] : received.get(judged).fighters
+      .filter((f) => f.id !== 1 && f.alive).map(({ id, x, y, cs }) => ({ id, x, y, cs, enemy: true }));
+    predictor.step(input, seen);
+    predicted.set(n, timing(predictor.state.cs));
+    inFlight.push([n + LATENCY, input]);
+    while (inFlight[0]?.[0] <= n) match.input(1, inFlight.shift()[1]);
+    match.input(2, { seq: n, tick: match.tick, move: { x: 0, y: 1 }, aim: 0, buttons: 0 });
+    const hpBefore = enemy.hp;
+    match.step();
+    if (enemy.hp < hpBefore) landed++;
+    if (meF.ackSeq > 0 && !server.has(meF.ackSeq)) server.set(meF.ackSeq, timing(meF.cs));
+    arriving.push([n + LATENCY, match.snapshot()]);
+    while (arriving[0]?.[0] <= n) {
+      newest = arriving.shift()[1];
+      received.set(newest.tick, newest);
+      view.acked(newest.acks[1], newest.tick);
+      predictor.reconcile(me(newest), newest.acks[1]);
+    }
+  }
+  assert.ok(landed >= 2, `some jabs landed (${landed})`);
+  assert.ok(capped, 'judged later than stamped');
+  for (const [seq, cs] of server) assert.deepEqual(predicted.get(seq), cs, `seq ${seq}`);
 });

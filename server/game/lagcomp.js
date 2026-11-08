@@ -1,18 +1,11 @@
-import { NET, TICK_RATE } from '../../shared/constants.js';
-import { STATE } from '../../shared/combat-state.js';
+import { MAX_REWIND_TICKS, NO_REWIND, rewindTicks } from '../../shared/rewind.js';
 
 // Lag compensation rewinds *positions only*: an attacker's move is checked against where each
 // target was on the attacker's screen (the tick their input was stamped with), at most
 // LAG_COMP_MAX_MS ago. Combat state is never rewound, and a target that is dashing, parrying or
 // bursting right now is judged where it is now, so defensive moves keep working at any ping.
 
-export const MAX_REWIND_TICKS = Math.round((NET.LAG_COMP_MAX_MS * TICK_RATE) / 1000);
-
-const NO_REWIND = new Set([STATE.DASH, STATE.PARRY, STATE.BURST]);
-
-// How many ticks to rewind for an input stamped with inputTick, applied at serverTick.
-export const rewindTicks = (serverTick, inputTick) =>
-  Math.max(0, Math.min(MAX_REWIND_TICKS, serverTick - inputTick));
+export { MAX_REWIND_TICKS, rewindTicks };
 
 // Fighter positions for the current tick and the MAX_REWIND_TICKS before it.
 export class PositionHistory {

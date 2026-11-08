@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createClock, createInterpolator, createLinkWatch, createTicker } from '../public/js/net.js';
+import { createClock, createHitView, createInterpolator, createLinkWatch, createTicker } from '../public/js/net.js';
+import { MAX_REWIND_TICKS } from '../shared/rewind.js';
 import { MAX_CATCHUP_TICKS, NET, TICK_MS, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
 
 const near = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} != ${b}`);
@@ -190,4 +191,40 @@ test('a frozen tab does not count as silence', () => {
   const watch = createLinkWatch(0);
   watch.check(50);
   assert.deepEqual(watch.check(30_000), { stalled: false, reconnect: false });
+});
+
+test('hit view stamps are clamped like the server: never backwards, at most MAX_STAMP_STEP ahead', () => {
+  const view = createHitView();
+  assert.equal(view.stamp(1, 100), 100);
+  assert.equal(view.stamp(2, 90), 100, 'never backwards');
+  assert.equal(view.stamp(3, 120), 100 + NET.MAX_STAMP_STEP, 'a jump ahead is held back');
+});
+
+test('hits are judged at the stamp until the lead passes the rewind cap, then that much later', () => {
+  const view = createHitView();
+  assert.equal(view.judgedAt(50), 50, 'no lead known yet');
+  for (let seq = 1; seq <= 40; seq++) {
+    view.stamp(seq, seq);
+    view.acked(seq, seq + 4); // applied 4 ticks after its stamp: inside the cap
+  }
+  assert.equal(view.judgedAt(50), 50);
+  const far = createHitView();
+  for (let seq = 1; seq <= 40; seq++) {
+    far.stamp(seq, seq);
+    far.acked(seq, seq + MAX_REWIND_TICKS + 5);
+  }
+  assert.equal(far.judgedAt(50), 55, 'the server can only rewind MAX_REWIND_TICKS');
+  assert.equal(far.judgedAt(50, 55), 55, 'a tick you have a snapshot of');
+  assert.equal(far.judgedAt(50, 54), null, 'past your newest snapshot: unknown');
+});
+
+test('an ack going backwards (rejoin) starts the hit view over', () => {
+  const view = createHitView();
+  for (let seq = 1; seq <= 40; seq++) {
+    view.stamp(seq, 100 + seq);
+    view.acked(seq, 100 + seq + MAX_REWIND_TICKS + 5);
+  }
+  view.acked(-1, 200);
+  assert.equal(view.judgedAt(50), 50, 'lead forgotten');
+  assert.equal(view.stamp(1, 60), 60, 'stamps may start lower again, as the server allows');
 });

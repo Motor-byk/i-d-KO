@@ -5,6 +5,7 @@ import { createCombat, stepFighter, STATE } from '../../shared/combat-state.js';
 import { round2, wrapAngle } from '../../shared/math.js';
 import { burstPush, parryGrace, resolveHits } from './combat.js';
 import { PositionHistory, rewindTicks } from './lagcomp.js';
+import { clampStamp } from '../../shared/rewind.js';
 import { teamBuffs } from './balance.js';
 import { eliminationMode } from './modes/elimination.js';
 
@@ -131,10 +132,7 @@ export class Match {
     f.queuedHeld = input.buttons;
     // The view tick picks the lag comp rewind, so a client can't steer it: never in the future,
     // never backwards, and at most MAX_STAMP_STEP ahead of the last one (a real view moves 1 per tick).
-    if (f.lastStamp >= 0) {
-      input.tick = Math.max(f.lastStamp, Math.min(input.tick, f.lastStamp + NET.MAX_STAMP_STEP));
-    }
-    input.tick = Math.min(input.tick, this.tick);
+    input.tick = Math.min(clampStamp(input.tick, f.lastStamp), this.tick);
     f.lastStamp = input.tick;
     f.queue.push(input);
     // Too much buffered: fold the oldest into the next one (keep the newest move, OR the edges).

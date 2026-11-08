@@ -486,40 +486,63 @@ function heavyAt(x, y, aim, charge) {
   return { cs, body, still };
 }
 
+// Standing flush against the left wall.
+const FLUSH = PLAYER.RADIUS;
+
 test('a heavy into a wall or pillar recoils you off it, harder with more charge', () => {
   const H = COMBAT.HEAVY;
-  const tap = heavyAt(100, 500, Math.PI, 0);
+  const tap = heavyAt(FLUSH, 500, Math.PI, 0);
+  const full = heavyAt(FLUSH, 500, Math.PI, H.MAX_CHARGE);
   assert.equal(tap.cs.recoil, true);
-  assert.ok(Math.abs(tap.body.kx - H.WALL_RECOIL_MIN) < 1e-9 && tap.body.ky === 0, 'straight off the left wall');
-  const full = heavyAt(100, 500, Math.PI, H.MAX_CHARGE);
-  assert.ok(Math.abs(full.body.kx - H.WALL_RECOIL_MAX) < 1e-9);
+  assert.ok(tap.body.kx > 0 && Math.abs(tap.body.ky) < 1e-9, 'straight off the left wall');
+  assert.ok(tap.body.kx <= H.WALL_RECOIL_MIN && tap.body.kx > 0.95 * H.WALL_RECOIL_MIN, `tap ${tap.body.kx}`);
+  assert.ok(full.body.kx <= H.WALL_RECOIL_MAX && full.body.kx > 0.95 * H.WALL_RECOIL_MAX, `full ${full.body.kx}`);
   // Hugging the pillar, the fist tip ends nearer its far side: still pushed back the way it came.
   const pillar = heavyAt(ARENA.PILLARS[2].x - PLAYER.RADIUS, 500, 0, H.MAX_CHARGE);
   assert.ok(pillar.body.kx < 0 && Math.abs(pillar.body.ky) < 1e-9, 'back off the center pillar');
 });
 
+test('the deeper the fists would go into the wall, the harder the recoil', () => {
+  const H = COMBAT.HEAVY;
+  const speeds = [FLUSH, 60, 100].map((x) => heavyAt(x, 500, Math.PI, H.MAX_CHARGE).body.kx);
+  assert.ok(speeds[0] > speeds[1] && speeds[1] > speeds[2], speeds.join(' > '));
+  assert.ok(speeds[2] >= H.WALL_RECOIL_GRAZE * H.WALL_RECOIL_MAX, 'a graze still gets its share');
+});
+
+test('the recoil leans back along the aim, between it and the wall normal', () => {
+  const off = 0.5; // aimed down-left into the left wall, so pushed up-right
+  const { body } = heavyAt(FLUSH, 500, Math.PI - off, COMBAT.HEAVY.MAX_CHARGE);
+  const angle = Math.atan2(body.ky, body.kx);
+  assert.ok(angle < 0 && angle > -off, `angle ${angle}`);
+});
+
 test('a heavy aimed away from the wall does not recoil', () => {
-  const { cs, body } = heavyAt(100, 500, 0, COMBAT.HEAVY.MAX_CHARGE);
+  const { cs, body } = heavyAt(FLUSH, 500, 0, COMBAT.HEAVY.MAX_CHARGE);
   assert.equal(cs.recoil, false);
   assert.equal(body.kx, 0);
 });
 
-test('a heavy recoils once, and the slower friction carries it past recovery', () => {
-  const { cs, body, still } = heavyAt(100, 500, Math.PI, COMBAT.HEAVY.MAX_CHARGE);
+test('a heavy that stops short of the wall does not recoil', () => {
+  const { cs, body } = heavyAt(130, 500, Math.PI, 0);
+  assert.equal(cs.recoil, false);
+  assert.equal(body.kx, 0);
+});
+
+test('a heavy recoils once, slowing at the recoil friction, until it stops', () => {
+  const { cs, body, still } = heavyAt(FLUSH, 500, Math.PI, COMBAT.HEAVY.MAX_CHARGE);
   let kx = body.kx;
-  while (cs.state === STATE.HEAVY) {
+  stepFighter(cs, body, still);
+  assert.ok(Math.abs(kx - body.kx - COMBAT.HEAVY.WALL_RECOIL_FRICTION * DT) < 1e-9, 'slower than normal friction');
+  while (body.kx) {
+    kx = body.kx;
     stepFighter(cs, body, still);
     assert.ok(body.kx < kx, 'only decays, never set again');
-    kx = body.kx;
   }
-  assert.equal(cs.recoil, true);
-  assert.ok(body.kx > 0, 'still sliding once the heavy is over');
-  while (body.kx) stepFighter(cs, body, still);
   assert.equal(cs.recoil, false, 'cleared once it stops');
 });
 
 test('getting hit ends the recoil', () => {
-  const { cs } = heavyAt(100, 500, Math.PI, COMBAT.HEAVY.MAX_CHARGE);
+  const { cs } = heavyAt(FLUSH, 500, Math.PI, COMBAT.HEAVY.MAX_CHARGE);
   applyHit(cs, { hitstun: 10, hitstop: 0 });
   assert.equal(cs.recoil, false);
 });

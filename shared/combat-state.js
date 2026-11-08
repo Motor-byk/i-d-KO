@@ -250,30 +250,46 @@ const WALK_SCALE = {
 };
 
 // On a heavy's first active tick, a fist hitbox touching a wall or pillar pushes the fighter back
-// off it (along the summed contact normals), harder with more charge. Once per heavy, and it
-// happens whether or not the heavy also hits someone. Each fist is swept out from the body, so a
-// fist tip sunk deep into a pillar still pushes off the face it went in through.
+// off it. Once per heavy, and whether or not the heavy also hits someone.
+// Each fist is swept out from the body and stopped by the wall: where it was stopped short of
+// full extension gives the wall's normal (so a tip sunk deep into a pillar still pushes off the
+// face it went in through) and how deep it would have gone. The push is stronger with more charge
+// and with a deeper fist, and its direction is part wall normal, part straight back along the aim.
 function wallRecoil(cs, body) {
   let nx = 0;
   let ny = 0;
+  let depth = 0; // 0 = a fist barely touching, 1 = punching flush against the wall
   for (const { a, b, r } of attackHitboxes(cs, body.x, body.y)) {
-    for (const n of sweepCircle(a.x, a.y, b.x - a.x, b.y - a.y, r).normals) {
-      nx += n.x;
-      ny += n.y;
-    }
+    const stop = sweepCircle(a.x, a.y, b.x - a.x, b.y - a.y, r);
+    if (!stop.normals.length) continue; // a free swing can still end a float crumb off b
+    const dx = stop.x - b.x;
+    const dy = stop.y - b.y;
+    const d = Math.hypot(dx, dy);
+    nx += dx;
+    ny += dy;
+    depth = Math.max(depth, Math.min(1, d / (Math.hypot(b.x - a.x, b.y - a.y) + r)));
   }
   const len = Math.hypot(nx, ny);
   if (!len) return;
+  nx /= len;
+  ny /= len;
   const H = COMBAT.HEAVY;
-  const speed = lerp(H.WALL_RECOIL_MIN, H.WALL_RECOIL_MAX, chargeFraction(cs.charge));
-  body.kx = (nx / len) * speed;
-  body.ky = (ny / len) * speed;
+  // Back along the aim, blended with the normal. Both point away from the wall, so the blend does too.
+  let px = lerp(nx, -Math.cos(cs.dir), H.WALL_RECOIL_AIM);
+  let py = lerp(ny, -Math.sin(cs.dir), H.WALL_RECOIL_AIM);
+  const plen = Math.hypot(px, py);
+  if (px * nx + py * ny <= 0 || !plen) [px, py] = [nx, ny]; // fists along the wall: straight off it
+  else [px, py] = [px / plen, py / plen];
+  const speed = lerp(H.WALL_RECOIL_MIN, H.WALL_RECOIL_MAX, chargeFraction(cs.charge))
+    * lerp(H.WALL_RECOIL_GRAZE, 1, depth);
+  body.kx = px * speed;
+  body.ky = py * speed;
   cs.recoil = true;
 }
 
 // One tick of a fighter: combat timing, then movement. Hitstop freezes the body too.
 // A launched fighter flying into a wall or pillar fast enough bounces off it, once.
-// A heavy fisting a wall recoils you off it, sliding farther than a normal push.
+// A heavy fisting a wall recoils you off it, sliding farther than a normal push of that speed.
 // input: { move: {x, y}, pressed, held, released, aim }. Returns what stepCombat returns.
 export function stepFighter(cs, body, input) {
   const frozen = cs.hitstop > 0;

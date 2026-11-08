@@ -1,5 +1,6 @@
 import { COMBAT, PLAYER } from './constants.js';
 import { STATE, moveTiming, phase } from './combat-state.js';
+import { lerp } from './math.js';
 
 // Fist geometry, shared so the server hits with exactly the fists the client draws.
 // Fists are indexed [left, right]; side -1 is left of the facing direction.
@@ -44,14 +45,16 @@ function clapSwing(cs) {
   return (COMBAT.JAB_FINISHER_SWEEP / 2) * (1 - Math.max(0, i) / Math.max(1, active - 1));
 }
 
-// The spin's fists keep their rest spread and orbit the body once over its startup and active ticks.
-function spinAngle(cs, dir, side) {
+// The spin's fists open from their rest spread to opposite sides as they reach out, and orbit
+// the body once over its startup and active ticks.
+function spinAngle(cs, dir, side, ext) {
   const { startup, active } = COMBAT.SPIN;
-  return dir + side * PLAYER.FIST_SPREAD + 2 * Math.PI * Math.min(1, (cs.t + 1) / (startup + active));
+  const spread = lerp(PLAYER.FIST_SPREAD, Math.PI / 2, Math.max(0, ext));
+  return dir + side * spread + 2 * Math.PI * Math.min(1, (cs.t + 1) / (startup + active));
 }
 
 function fistAngle(cs, dir, side, ext) {
-  if (cs.state === STATE.SPIN) return spinAngle(cs, dir, side);
+  if (cs.state === STATE.SPIN) return spinAngle(cs, dir, side, ext);
   const swing = clapSwing(cs);
   return swing === null ? punchAngle(dir, side, ext) : dir + side * swing;
 }

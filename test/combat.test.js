@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { burstPush, resolveHits } from '../server/game/combat.js';
 import { createCombat, stepCombat, stepFighter, phase, isParrying, hasArmor, chargeFraction, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
-import { attackHitboxes, SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
+import { attackHitboxes, fists, SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
 
 const fighter = (id, teamId, x, y) => ({
@@ -389,4 +389,12 @@ test('two spins in a row link, and the target can act before a third', () => {
   const [second, third] = spinChainGaps(3);
   assert.equal(second, 0, 'the second spin lands while the target is still stunned');
   assert.ok(third >= 2, `free ticks before the third: ${third}`);
+});
+
+test('the spin swings its fists on opposite sides once they are out', () => {
+  const cs = createCombat();
+  stepCombat(cs, { pressed: BUTTONS.SPIN });
+  while (phase(cs) !== 'active') stepCombat(cs, {});
+  const [l, r] = fists(cs, 0, 0, 0);
+  assert.ok(Math.abs(l.x + r.x) < 1e-9 && Math.abs(l.y + r.y) < 1e-9, 'mirrored through the body');
 });

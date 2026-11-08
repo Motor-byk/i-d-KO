@@ -51,18 +51,19 @@ export const PLAYER = {
   MOVE_SPEED: 270, // units / second
   ACCEL: 3000,     // units / second^2 toward target velocity
   FRICTION: 2200,  // knockback decay, units / second^2
-  FIST_RADIUS: 10,
+  FIST_RADIUS: 10,         // drawn size
+  FIST_HITBOX_RADIUS: 14,  // hit size: a bit bigger than drawn, so 30 Hz hits don't feel stingy
+  FIST_SPREAD: 0.6,        // radians either side of aim at rest
 };
 
 export const COMBAT = {
   INPUT_BUFFER: 5,
   AIM_ASSIST_CONE: Math.PI / 3, // ~60 degrees total
   AIM_ASSIST_RANGE: 260,         // center to center
-  HIT_ARC: (2 * Math.PI) / 3,    // a move hits targets within this arc around its direction
   ATTACK_WALK: 0.35,             // walking speed multiplier during a jab
 
   JAB: [
-    // knockback in units/second; reach measured from the attacker's edge
+    // knockback in units/second; reach: how far the fist travels from its rest spot
     { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
     { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
     { startup: 4, active: 3, recovery: 12, damage: 9, reach: 66, knockback: 620, hitstun: 18, hitstop: 4 },
@@ -149,7 +150,6 @@ export const RENDER = {
   LABEL_FONT: 15,     // option name inside the circle, world units; shrinks to fit
   LABEL_FONT_MIN: 8,
   NAME_FONT: 13,      // nickname above the HP bar
-  FIST_SPREAD: 0.6,   // radians either side of aim
 };
 
 // Client-only effects. Fonts and distances in world units, durations in ticks.

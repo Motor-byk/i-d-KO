@@ -1,5 +1,6 @@
 import { ARENA, PLAYER, RENDER, COMBAT, JUICE } from '../shared/constants.js';
-import { STATE, moveTiming, phase, chargeFraction, isParrying } from '../shared/combat-state.js';
+import { STATE, phase, chargeFraction, isParrying } from '../shared/combat-state.js';
+import { fists, attackHitboxes } from '../shared/hitbox.js';
 
 const COLORS = {
   void: '#0d0e12',
@@ -31,6 +32,9 @@ const COLORS = {
   disconnected: '#ff9eb5',
   lagging: '#ffd166',
   floatOutline: 'rgba(0, 0, 0, 0.7)',
+  hurtbox: 'rgba(120, 220, 255, 0.9)',
+  hitbox: 'rgba(255, 60, 60, 0.55)',      // active: hits now
+  hitboxIdle: 'rgba(255, 60, 60, 0.6)',   // startup/recovery: where it hits (outline)
 };
 const STUN_DOTS = 3;
 const INVULN_ALPHA = 0.55;
@@ -49,24 +53,8 @@ function textColorFor(hex) {
   return lum > 150 ? '#15161c' : '#ffffff';
 }
 
-// How far each fist [left, right] is pushed out past its rest spot, 0..1 of the move's reach.
-function fistExtension(cs) {
-  if (cs.state === STATE.CHARGE) return [-0.3, -0.3]; // drawn back
-  const m = moveTiming(cs);
-  if (!m) return [0, 0];
-  let k;
-  switch (phase(cs)) {
-    case 'startup': k = -0.1; break; // wind up
-    case 'active': k = 1; break;
-    default: k = 1 - (cs.t - m.startup - m.active) / m.recovery;
-  }
-  // The jab string alternates hands; the finisher and the heavy throw both.
-  if (cs.state === STATE.HEAVY || cs.jab === COMBAT.JAB.length - 1) return [k, k];
-  return cs.jab % 2 ? [0, k] : [k, 0];
-}
-
 // Canvas renderer. draw(view) with view = { fighters: [{ id, x, y, aim, hp, maxHp, alive,
-// cs, color, label, nickname, connected, away }], meId, ring, floats, shake }. Camera stays centered on meId, or
+// cs, color, label, nickname, connected, away }], meId, ring, floats, shake, debug }. debug draws hitboxes. Camera stays centered on meId, or
 // fits the arena if they aren't alive. ring is the shrinking ring's radius; floats and shake come from juice.js.
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
@@ -169,25 +157,17 @@ export function createRenderer(canvas) {
       }
       ctx.globalAlpha = 1;
     }
-    const m = moveTiming(f.cs);
-    const charging = f.cs.state === STATE.CHARGE;
-    const dir = m || charging ? f.cs.dir : f.aim;
-    const reach = m?.reach ?? COMBAT.HEAVY.reach;
-    const ext = fistExtension(f.cs);
     if (f.cs.invuln > 0) ctx.globalAlpha = INVULN_ALPHA; // see-through: hits pass
-    // Fists first so the body overlaps them. A punching fist swings in toward the center line.
+    // Fists first so the body overlaps them.
     ctx.fillStyle = f.color;
     ctx.strokeStyle = COLORS.outline;
     ctx.lineWidth = 3;
-    [-1, 1].forEach((side, i) => {
-      const k = Math.max(0, ext[i]);
-      const a = dir + side * RENDER.FIST_SPREAD * (1 - k * 0.8);
-      const d = r + 2 + ext[i] * reach;
+    for (const p of fists(f.cs, f.x, f.y, f.aim)) {
       ctx.beginPath();
-      ctx.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, PLAYER.FIST_RADIUS, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, PLAYER.FIST_RADIUS, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-    });
+    }
 
     ctx.beginPath();
     ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
@@ -279,6 +259,36 @@ export function createRenderer(canvas) {
     ctx.fillText(text, x, y);
   }
 
+  // Debug view: every body's hurtbox, and each move's fist hitboxes (filled while active).
+  function drawHitboxes(fighters) {
+    ctx.lineCap = 'round';
+    for (const f of fighters) {
+      ring(f.x, f.y, PLAYER.RADIUS, 2, COLORS.hurtbox);
+      const active = phase(f.cs) === 'active';
+      for (const { a, b, r } of attackHitboxes(f.cs, f.x, f.y)) {
+        if (active) {
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.lineWidth = r * 2;
+          ctx.strokeStyle = COLORS.hitbox;
+          ctx.stroke();
+        } else {
+          // A capsule's outline: its two end circles joined by its sides.
+          const n = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, r, n - Math.PI, n);
+          ctx.arc(a.x, a.y, r, n, n + Math.PI);
+          ctx.closePath();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = COLORS.hitboxIdle;
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.lineCap = 'butt';
+  }
+
   function drawFloats(floats) {
     for (const t of floats) {
       ctx.globalAlpha = t.alpha;
@@ -301,6 +311,7 @@ export function createRenderer(canvas) {
     drawZone(view.ring);
     const alive = view.fighters.filter((f) => f.alive).sort((a, b) => a.y - b.y);
     for (const f of alive) drawFighter(f, f.id === view.meId);
+    if (view.debug) drawHitboxes(alive);
     drawFloats(view.floats);
   }
 

@@ -44,6 +44,8 @@ export function debugOverlay({ ping }) {
 
   return {
     el,
+    // Shown: the match also draws hitboxes.
+    get visible() { return !el.hidden; },
     onSnapshot(snap) {
       const now = performance.now();
       if (lastArrival !== null) gaps.push([now, now - lastArrival]);

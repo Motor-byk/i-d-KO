@@ -64,6 +64,7 @@ export function matchScreen({ playerId, onLeave, sendInput, ping, onStall, onDea
       ring: snap.ring, // moves a fraction of a unit per snapshot: no need to interpolate
       floats: juice.floatsAt(tick),
       shake: juice.shakeAt(now),
+      debug: debug.visible,
       fighters: interp.sample(tick).map((other) => {
         const f = other.id === playerId && me ? me : other;
         const player = players.get(f.id);

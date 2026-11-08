@@ -1,6 +1,7 @@
 import { COMBAT, PLAYER } from '../../shared/constants.js';
 import { angleDiff } from '../../shared/math.js';
 import { applyHit, applyLanded, applyParry, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
+import { attackHitboxes, capsuleHitsCircle } from '../../shared/hitbox.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, damageMult, alive, hitIds }.
 
@@ -22,18 +23,6 @@ export function assistAim(attacker, fighters, aim) {
     bestDist = dist;
   }
   return best ?? aim;
-}
-
-// Does the attacker's move, facing dir with this reach, touch the target's circle?
-function inReach(a, b, dir, reach) {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const dist = Math.hypot(dx, dy);
-  if (dist - PLAYER.RADIUS * 2 > reach) return false;
-  if (dist < 1e-6) return true;
-  // Widen the arc by the target's angular size, so grazing its edge counts.
-  const slack = Math.asin(Math.min(1, PLAYER.RADIUS / dist));
-  return Math.abs(angleDiff(Math.atan2(dy, dx), dir)) <= COMBAT.HIT_ARC / 2 + slack;
 }
 
 // Sets target's knockback to speed, straight away from `from` (along fallbackAngle if stacked).
@@ -63,7 +52,7 @@ const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.gr
 // tick's hits, so a parry holds against several at once). Friendly fire ignores parries.
 // Several enemy hits on one target in the same tick all deal damage, but stun and push it
 // once, with the strongest of them, so they count as one combo step.
-// Reach is checked against seen(attacker, target): where the attacker saw the target (lag
+// The attacker's fist hitboxes (shared/hitbox.js) are checked against seen(attacker, target): where the attacker saw the target (lag
 // compensation), the target's current position by default.
 // An enemy hit on an idle target keeps what it undid in target.grace for parryGrace().
 // Returns the hits as [{ attacker, target, damage, parried }].
@@ -73,9 +62,11 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
   for (const a of fighters) {
     if (!a.alive || phase(a.cs) !== 'active') continue;
     const m = moveFrames(a.cs);
+    const boxes = attackHitboxes(a.cs, a.body.x, a.body.y);
     for (const t of fighters) {
       if (t === a || !t.alive || t.cs.invuln > 0 || a.hitIds.has(t.id)) continue;
-      if (!inReach(a.body, seen(a, t), a.cs.dir, m.reach)) continue;
+      const at = seen(a, t);
+      if (!boxes.some((box) => capsuleHitsCircle(box, at, PLAYER.RADIUS))) continue;
       a.hitIds.add(t.id);
       hits.push({ attacker: a, target: t, move: m });
     }

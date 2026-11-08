@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { assistAim, burstPush, resolveHits } from '../server/game/combat.js';
 import { createCombat, stepCombat, phase, isParrying, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
+import { attackHitboxes } from '../shared/hitbox.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
 
 const fighter = (id, teamId, x, y) => ({
@@ -15,28 +16,57 @@ function jabActive(f, dir = 0) {
   while (phase(f.cs) !== 'active') stepCombat(f.cs, {});
 }
 
-const gap = (reach) => PLAYER.RADIUS * 2 + reach; // center distance at the edge of reach
+// x of a target center just inside (-1) or outside (+1) the reach of an attacker's fist facing +x.
+function edgeX(a, offset) {
+  const [{ b, r }] = attackHitboxes(a.cs, a.body.x, a.body.y);
+  return { x: b.x + r + PLAYER.RADIUS + offset, y: b.y };
+}
 
 test('a jab in reach damages, stuns and pushes an enemy once per move', () => {
   const a = fighter(1, 1, 500, 500);
-  const b = fighter(2, 2, 500 + gap(COMBAT.JAB[0].reach) - 1, 500);
   jabActive(a);
+  const at = edgeX(a, -1);
+  const b = fighter(2, 2, at.x, at.y);
   const [hit] = resolveHits([a, b]);
   assert.equal(hit.damage, COMBAT.JAB[0].damage);
   assert.equal(b.hp, PLAYER.BASE_HP - COMBAT.JAB[0].damage);
   assert.equal(b.cs.state, STATE.HITSTUN);
   assert.equal(b.cs.hitstop, COMBAT.JAB[0].hitstop);
   assert.equal(a.cs.hitstop, COMBAT.JAB[0].hitstop, 'the attacker freezes too');
-  assert.ok(b.body.kx > 0 && Math.abs(b.body.ky) < 1e-9, 'pushed away from the attacker');
+  const away = Math.atan2(b.body.y - a.body.y, b.body.x - a.body.x);
+  assert.ok(Math.abs(Math.atan2(b.body.ky, b.body.kx) - away) < 1e-9, 'pushed away from the attacker');
   assert.deepEqual(resolveHits([a, b]), [], 'the same move never hits twice');
 });
 
 test('a jab misses out of reach or behind the attacker', () => {
   const a = fighter(1, 1, 500, 500);
-  const far = fighter(2, 2, 500 + gap(COMBAT.JAB[0].reach) + 1, 500);
-  const behind = fighter(3, 2, 500 - PLAYER.RADIUS * 2 - 5, 500);
   jabActive(a);
+  const at = edgeX(a, 1);
+  const far = fighter(2, 2, at.x, at.y);
+  const behind = fighter(3, 2, 500 - PLAYER.RADIUS * 2 - 5, 500);
   assert.deepEqual(resolveHits([a, far, behind]), []);
+});
+
+test('only the fist hits: a target off to the side misses, one hugging the attacker is hit', () => {
+  const a = fighter(1, 1, 500, 500);
+  const reach = PLAYER.RADIUS * 2 + COMBAT.JAB[0].reach; // the old cone hit anything in 60 degrees out to here
+  const side = fighter(2, 2, 500 + Math.cos(Math.PI / 3) * reach, 500 + Math.sin(Math.PI / 3) * reach);
+  jabActive(a);
+  assert.deepEqual(resolveHits([a, side]), []);
+  const close = fighter(3, 2, 500 + PLAYER.RADIUS * 2, 500);
+  assert.equal(resolveHits([a, close]).length, 1);
+});
+
+test('a heavy throws both fists, so it hits on either side of its line but not past them', () => {
+  const H = COMBAT.HEAVY;
+  const a = fighter(1, 1, 500, 500);
+  stepCombat(a.cs, { pressed: BUTTONS.HEAVY, held: 0, aim: 0 });
+  while (phase(a.cs) !== 'active') stepCombat(a.cs, {});
+  const boxes = attackHitboxes(a.cs, 500, 500);
+  assert.equal(boxes.length, 2);
+  assert.ok(boxes[0].b.y < 500 && boxes[1].b.y > 500, 'left fist above the line, right below');
+  const wide = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + H.reach / 2, 500 + boxes[1].b.y - 500 + boxes[1].r + PLAYER.RADIUS + 1);
+  assert.deepEqual(resolveHits([a, wide]), []);
 });
 
 test('friendly fire only pushes', () => {

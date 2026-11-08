@@ -120,6 +120,18 @@ test('the hit that takes the armor to its limit breaks it and stuns', () => {
   assert.equal(b.cs.armorTaken, 0, 'a new charge starts with fresh armor');
 });
 
+test('two hits in one tick that cross the armor limit together break it', () => {
+  const a = fighter(1, 1, 500, 500);
+  const c = fighter(3, 1, 500, 500 + PLAYER.RADIUS * 2 + 10);
+  const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500 + PLAYER.RADIUS + 5);
+  chargeToArmor(b);
+  b.cs.armorTaken = COMBAT.HEAVY.ARMOR_LIMIT - COMBAT.JAB[0].damage - 1; // one jab holds, two break
+  jabActive(a, Math.atan2(b.body.y - a.body.y, b.body.x - a.body.x));
+  jabActive(c, Math.atan2(b.body.y - c.body.y, b.body.x - c.body.x));
+  assert.equal(resolveHits([a, b, c]).filter((h) => h.target === b).length, 2);
+  assert.equal(b.cs.state, STATE.HITSTUN);
+});
+
 test('a fired heavy in startup is stunned as usual', () => {
   const a = fighter(1, 1, 500, 500);
   const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500);

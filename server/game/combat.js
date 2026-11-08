@@ -85,7 +85,7 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
       attackers.set(attacker, { stringHits, dashCooldown });
     }
   }
-  const strongest = new Map(); // target -> its strongest enemy hit this tick (pushes, and stuns unless charging)
+  const strongest = new Map(); // target -> its strongest enemy hit this tick (pushes, and stuns unless armored)
   const results = hits.map(({ attacker, target, move }) => {
     const friendly = attacker.teamId === target.teamId;
     const parried = !friendly && parrying.has(target);
@@ -99,7 +99,7 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
       damage = move.damage * attacker.damageMult;
       if (inGrace(target, tick) && target.grace.attackers.has(attacker)) target.grace.damage += damage;
       hurt(target, damage);
-      if (hasArmor(target.cs)) target.cs.armorTaken += damage;
+      if (hasArmor(target.cs)) target.cs.armorTaken += damage; // checked again below: a broken armor stuns
       applyLanded(attacker.cs, move.hitstop);
       const best = strongest.get(target);
       if (!best || move.hitstun > best.move.hitstun) strongest.set(target, { attacker, move });

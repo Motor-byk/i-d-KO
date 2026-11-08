@@ -251,7 +251,7 @@ export class Match {
         maxHp,
         alive,
         away: starved >= NET.AWAY_TICKS, // a client sends every tick, even standing still
-        cs: { ...cs, dir: round4(cs.dir) },
+        cs: { ...cs, dir: round4(cs.dir), armorTaken: round2(cs.armorTaken) },
       })),
     };
   }

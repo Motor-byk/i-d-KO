@@ -21,7 +21,7 @@ const COLORS = {
   parry: '#9be7ff',
   parryWhiff: 'rgba(155, 231, 255, 0.3)',
   stun: '#ffd166',
-  armor: '155, 231, 255', // rgb, parry blue; the shield fades as it takes damage
+  armor: '155, 231, 255', // parry blue as rgb, so the shield's alpha can vary (globalAlpha is taken by invuln)
   burst: 'rgba(255, 255, 255, 0.5)',
   dashCharging: '#5c6b80',
   dashReady: '#9be7ff',
@@ -146,16 +146,14 @@ export function createRenderer(canvas) {
   }
 
   // A shield bubble while hits can't stun: solid when fresh, fading toward the break.
-  function drawArmor(f) {
+  function drawArmor(f, r) {
     const left = 1 - f.cs.armorTaken / COMBAT.HEAVY.ARMOR_LIMIT;
     const a = ARMOR_ALPHA_MIN + (1 - ARMOR_ALPHA_MIN) * left;
     ctx.beginPath();
-    ctx.arc(f.x, f.y, PLAYER.RADIUS + 14, 0, Math.PI * 2);
+    ctx.arc(f.x, f.y, r + 14, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(${COLORS.armor}, ${0.18 * a})`;
     ctx.fill();
-    ctx.lineWidth = 2 + 3 * left;
-    ctx.strokeStyle = `rgba(${COLORS.armor}, ${0.95 * a})`;
-    ctx.stroke();
+    ring(f.x, f.y, r + 14, 2 + 3 * left, `rgba(${COLORS.armor}, ${0.95 * a})`);
   }
 
   function drawFighter(f, isMe) {
@@ -219,7 +217,7 @@ export function createRenderer(canvas) {
         const k = chargeFraction(f.cs.t);
         const from = -Math.PI / 2;
         ring(f.x, f.y, r + 7, 4, k >= 1 ? COLORS.charged : COLORS.charge, from, from + Math.PI * 2 * Math.max(k, 0.02));
-        if (hasArmor(f.cs)) drawArmor(f);
+        if (hasArmor(f.cs)) drawArmor(f, r);
         break;
       }
     }

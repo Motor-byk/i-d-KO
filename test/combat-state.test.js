@@ -5,6 +5,7 @@ import {
   isParrying, STATE,
 } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
+import { SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
 import { COMBAT, BUTTONS, ARENA, PLAYER, DT } from '../shared/constants.js';
 
 const JAB = { pressed: BUTTONS.JAB };
@@ -506,7 +507,7 @@ test('the deeper the fists would go into the wall, the harder the recoil', () =>
   const H = COMBAT.HEAVY;
   const speeds = [FLUSH, 60, 100].map((x) => heavyAt(x, 500, Math.PI, H.MAX_CHARGE).body.kx);
   assert.ok(speeds[0] > speeds[1] && speeds[1] > speeds[2], speeds.join(' > '));
-  assert.ok(speeds[2] >= H.WALL_RECOIL_GRAZE * H.WALL_RECOIL_MAX, 'a graze still gets its share');
+  assert.ok(speeds[2] >= COMBAT.WALL_RECOIL_GRAZE * H.WALL_RECOIL_MAX, 'a graze still gets its share');
 });
 
 test('the recoil leans back along the aim, between it and the wall normal', () => {
@@ -532,7 +533,7 @@ test('a heavy recoils once, slowing at the recoil friction, until it stops', () 
   const { cs, body, still } = heavyAt(FLUSH, 500, Math.PI, COMBAT.HEAVY.MAX_CHARGE);
   let kx = body.kx;
   stepFighter(cs, body, still);
-  assert.ok(Math.abs(kx - body.kx - COMBAT.HEAVY.WALL_RECOIL_FRICTION * DT) < 1e-9, 'slower than normal friction');
+  assert.ok(Math.abs(kx - body.kx - COMBAT.WALL_RECOIL_FRICTION * DT) < 1e-9, 'slower than normal friction');
   while (body.kx) {
     kx = body.kx;
     stepFighter(cs, body, still);
@@ -545,4 +546,29 @@ test('getting hit ends the recoil', () => {
   const { cs } = heavyAt(FLUSH, 500, Math.PI, COMBAT.HEAVY.MAX_CHARGE);
   applyHit(cs, { hitstun: 10, hitstop: 0 });
   assert.equal(cs.recoil, false);
+});
+
+// Starts a light or spin at (x, y) aiming `aim` and steps it to its first active tick.
+function lightAt(x, y, aim, button) {
+  const cs = createCombat();
+  const body = createBody(x, y);
+  stepFighter(cs, body, { move: { x: 0, y: 0 }, aim, pressed: button });
+  while (phase(cs) !== 'active') stepFighter(cs, body, { move: { x: 0, y: 0 }, aim });
+  return { cs, body };
+}
+
+test('a jab into a wall recoils you off it at its own, smaller speed', () => {
+  const { cs, body } = lightAt(FLUSH, 500, Math.PI, BUTTONS.JAB);
+  const speed = COMBAT.JAB[0].wallRecoil;
+  assert.equal(cs.recoil, true);
+  assert.ok(body.kx <= speed && body.kx > 0.95 * speed, `jab ${body.kx}`);
+  assert.equal(lightAt(FLUSH, 500, 0, BUTTONS.JAB).cs.recoil, false, 'not when jabbing away from it');
+});
+
+test('a spin touching a wall pushes straight off it, wherever you face', () => {
+  const { cs, body } = lightAt(FLUSH, 500, 0.8, BUTTONS.SPIN);
+  assert.equal(cs.recoil, true);
+  assert.ok(Math.abs(body.kx - COMBAT.SPIN.wallRecoil) < 1e-9 && Math.abs(body.ky) < 1e-9, `spin ${body.kx}, ${body.ky}`);
+  const clear = lightAt(SPIN_HITBOX_RADIUS + 1, 500, 0, BUTTONS.SPIN);
+  assert.equal(clear.cs.recoil, false, 'not when its circle stops short of the wall');
 });

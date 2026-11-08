@@ -61,16 +61,23 @@ export const COMBAT = {
   ATTACK_WALK: 0.35,             // walking speed multiplier during a jab
 
   JAB: [
-    // knockback in units/second; reach: how far the fist travels from its rest spot
-    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
-    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2 },
-    { startup: 4, active: 3, recovery: 8, damage: 10, reach: 50, knockback: 400, hitstun: 18, hitstop: 4 }, // the clap
+    // knockback in units/second; reach: how far the fist travels from its rest spot;
+    // wallRecoil: your own push off a wall the move's hitbox reaches into (see WALL_RECOIL_*)
+    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2, wallRecoil: 200 },
+    { startup: 3, active: 2, recovery: 6, damage: 5, reach: 60, knockback: 120, hitstun: 16, hitstop: 2, wallRecoil: 200 },
+    { startup: 4, active: 3, recovery: 8, damage: 10, reach: 50, knockback: 400, hitstun: 18, hitstop: 4, wallRecoil: 300 }, // the clap
   ],
   JAB_FINISHER_SWEEP: Math.PI / 2, // the clap's fists swing in from this far apart (radians, total) over its active ticks
   JAB_CHAIN_WINDOW: 8, // ticks after recovery starts in which the next jab continues the string
   // An un-aimed light: a 360 degree spin from idle. Its hitbox is a circle of radius RADIUS + reach around the body.
   // Two spins in a row link; hitstun decay leaves the target free ticks before a third (recovery and hitstun set this).
-  SPIN: { startup: 4, active: 4, recovery: 7, damage: 3, reach: 22, knockback: 150, hitstun: 17, hitstop: 2 },
+  SPIN: { startup: 4, active: 4, recovery: 7, damage: 3, reach: 22, knockback: 150, hitstun: 17, hitstop: 2, wallRecoil: 250 },
+
+  // Any attack whose hitbox reaches into a wall or pillar on its first active tick pushes you back
+  // off it at the move's wallRecoil speed, scaled by how deep the hitbox reaches (a flush punch gets all of it).
+  WALL_RECOIL_GRAZE: 0.25,   // share of the push a hitbox that barely touches the wall gets
+  WALL_RECOIL_AIM: 0.5,      // how much the push follows the fists (back along the aim) instead of the wall's normal; the spin has no aim
+  WALL_RECOIL_FRICTION: 900, // knockback decay while recoiling (normal is PLAYER.FRICTION), so the slide lasts longer
 
   HEAVY: {
     MIN_CHARGE: 2,     // a tap still charges this long before firing
@@ -97,13 +104,9 @@ export const COMBAT = {
     WALL_BOUNCE_RESTITUTION: 0.55,
     WALL_BOUNCE_HITSTUN: 14, // extra hitstun on bounce
     WALL_BOUNCE_HITSTOP: 3,
-    // A heavy whose fist hits a wall or pillar pushes you back off it, harder with more charge
-    // and the deeper the fists would have gone in (a flush punch gets all of it).
+    // The heavy's wall recoil grows with the charge (see COMBAT.WALL_RECOIL_*).
     WALL_RECOIL_MIN: 300,
     WALL_RECOIL_MAX: 700,
-    WALL_RECOIL_GRAZE: 0.25,   // share of the push a fist that barely touches the wall gets
-    WALL_RECOIL_AIM: 0.5,      // how much the push follows the fists (back along the aim) instead of the wall's normal
-    WALL_RECOIL_FRICTION: 900, // knockback decay while recoiling (normal is PLAYER.FRICTION), so the slide lasts about as long as recovery
   },
 
   DASH: {

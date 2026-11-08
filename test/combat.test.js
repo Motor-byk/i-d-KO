@@ -69,6 +69,34 @@ test('a heavy throws both fists, so it hits on either side of its line but not p
   assert.deepEqual(resolveHits([a, wide]), []);
 });
 
+test('a hit on a fighter charging a heavy damages and pushes but does not stun it', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500);
+  stepCombat(b.cs, { pressed: BUTTONS.HEAVY, held: BUTTONS.HEAVY, aim: Math.PI });
+  jabActive(a);
+  const [hit] = resolveHits([a, b]);
+  assert.equal(hit.damage, COMBAT.JAB[0].damage);
+  assert.equal(b.hp, PLAYER.BASE_HP - COMBAT.JAB[0].damage);
+  assert.equal(b.cs.state, STATE.CHARGE, 'still charging');
+  assert.equal(b.cs.hitstop, 0);
+  assert.equal(b.cs.combo, 0);
+  assert.ok(b.body.kx > 0, 'pushed');
+  assert.equal(a.cs.hitstop, COMBAT.JAB[0].hitstop, 'the attacker still freezes on the hit');
+  for (let i = 0; i < COMBAT.HEAVY.MIN_CHARGE; i++) stepCombat(b.cs, { held: BUTTONS.HEAVY });
+  stepCombat(b.cs, { released: BUTTONS.HEAVY });
+  assert.equal(b.cs.state, STATE.HEAVY, 'the heavy still fires on release');
+});
+
+test('a fired heavy in startup is stunned as usual', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500);
+  stepCombat(b.cs, { pressed: BUTTONS.HEAVY, held: 0, aim: Math.PI });
+  while (b.cs.state !== STATE.HEAVY) stepCombat(b.cs, {});
+  jabActive(a);
+  resolveHits([a, b]);
+  assert.equal(b.cs.state, STATE.HITSTUN);
+});
+
 test('friendly fire only pushes', () => {
   const a = fighter(1, 1, 500, 500);
   const b = fighter(2, 1, 500 + PLAYER.RADIUS * 2 + 10, 500);

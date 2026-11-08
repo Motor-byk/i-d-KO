@@ -81,7 +81,7 @@ export const COMBAT = {
     recovery: 16,
     damageMin: 10,
     damageMax: 22,
-    reach: 76,
+    reach: 95,
     knockbackMin: 500,
     knockbackMax: 1100,
     hitstun: 24,

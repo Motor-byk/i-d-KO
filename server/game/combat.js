@@ -51,7 +51,8 @@ const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.gr
 // An enemy hit on a parrying target is parried instead (judged on state from before this
 // tick's hits, so a parry holds against several at once). Friendly fire ignores parries.
 // Several enemy hits on one target in the same tick all deal damage, but stun and push it
-// once, with the strongest of them, so they count as one combo step.
+// once, with the strongest of them, so they count as one combo step. A target charging a
+// heavy takes the damage and push but no stun.
 // The attacker's fist hitboxes (shared/hitbox.js) are checked against seen(attacker, target):
 // where the attacker saw the target (lag compensation), its current position by default.
 // An enemy hit on an idle target keeps what it undid in target.grace for parryGrace().
@@ -106,7 +107,8 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
   });
   for (const [target, { attacker, move }] of strongest) {
     push(attacker, target, move.knockback, attacker.cs.dir);
-    applyHit(target.cs, move);
+    // Charging a heavy can't be interrupted: the hit still damages and pushes, but doesn't stun.
+    if (target.cs.state !== STATE.CHARGE) applyHit(target.cs, move);
   }
   return results;
 }

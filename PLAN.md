@@ -100,6 +100,7 @@
   - Measured against the real `stepFighter` at the left wall, full charge: flush 547 u/s, slides 157 over 19 ticks and stops on the tick you're free (was ~435, sliding 11 ticks past it); 30 units out 98; 70 out 41. Tap: flush 30 units, 70 out 2. Aimed 29° off the normal: pushed 14° off, 140 units; 46° off: 23° off, 103 units.
   - Checked: `npm test` (224 pass: flush tap and full against MIN/MAX, deeper pushes harder, a graze keeps its share, the aim lean, a near miss doesn't recoil, the recoil friction rate). The replay script still recoils (439 u/s).
   - Not checked: live in Chrome, touch, a real phone. No reviewers (a tuning follow-up). Since the slide now ends with recovery, the slow friction mostly lengthens the slide rather than carrying it past recovery.
+- **Balance changes, step 5 follow-up — back to 300/700 (user decision):** `WALL_RECOIL_MIN`/`MAX` 250/550 → 300/700 (the tester's suggestion), with depth, aim and friction 900 unchanged. Full charge at the left wall: flush 696 u/s, slides 257 over 24 ticks (5 past being free to act); 30 units out 161; 70 out 68. Tap flush 44. Aimed 29° off: 229 units; 46° off: 169. Checked: `npm test` (224 pass). Not checked: live play (the user is testing it).
 - **Balance changes: all planned steps (1–5) are done** on branch `balance-changes`. Not merged into `main`.
 - **Balance changes: game tester suggestions to revisit (user's call, none applied):**
   - Step 1 (fist hitboxes):

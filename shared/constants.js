@@ -99,8 +99,8 @@ export const COMBAT = {
     WALL_BOUNCE_HITSTOP: 3,
     // A heavy whose fist hits a wall or pillar pushes you back off it, harder with more charge
     // and the deeper the fists would have gone in (a flush punch gets all of it).
-    WALL_RECOIL_MIN: 250,
-    WALL_RECOIL_MAX: 550,
+    WALL_RECOIL_MIN: 300,
+    WALL_RECOIL_MAX: 700,
     WALL_RECOIL_GRAZE: 0.25,   // share of the push a fist that barely touches the wall gets
     WALL_RECOIL_AIM: 0.5,      // how much the push follows the fists (back along the aim) instead of the wall's normal
     WALL_RECOIL_FRICTION: 900, // knockback decay while recoiling (normal is PLAYER.FRICTION), so the slide lasts about as long as recovery

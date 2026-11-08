@@ -93,13 +93,14 @@ test('the clap swings its fists in from half the sweep to the aim line', () => {
   angles(CLAP.active - 1).forEach((angle) => assert.ok(Math.abs(angle) < 1e-9));
 });
 
-test('the clap hits ~20 degrees off on its first active tick, never ~40 off, and not past its reach', () => {
+test('the clap hits near the edge of its sweep on its first active tick, never well past it, and not past its reach', () => {
   const deg = Math.PI / 180;
+  const half = COMBAT.JAB_FINISHER_SWEEP / 2;
   const a = fighter(1, 1, 500, 500);
   clapActive(a);
-  const near = [clapTarget(2, 20 * deg), clapTarget(3, -20 * deg)];
+  const near = [clapTarget(2, half - 2.5 * deg), clapTarget(3, -half + 2.5 * deg)];
   assert.equal(resolveHits([a, ...near]).length, 2, 'both fists hit on the first active tick');
-  const wide = [clapTarget(4, 40 * deg), clapTarget(5, -40 * deg)];
+  const wide = [clapTarget(4, half + 17.5 * deg), clapTarget(5, -half - 17.5 * deg)];
   for (let i = 0; i < CLAP.active; i++) {
     clapActive(a, i);
     assert.deepEqual(resolveHits([a, ...wide]), []);
@@ -170,7 +171,7 @@ test('a full light string breaks fresh armor on its last hit, the clap', () => {
   chargeToArmor(b);
   COMBAT.JAB.forEach((move, jab) => {
     a.hitIds.clear();
-    Object.assign(a.cs, { state: STATE.JAB, jab, t: move.startup, dir: 0, hitstop: 0 });
+    Object.assign(a.cs, { state: STATE.JAB, jab, t: move.startup + move.active - 1, dir: 0, hitstop: 0 });
     assert.equal(resolveHits([a, b]).length, 1);
     b.body.x = 500 + PLAYER.RADIUS * 2 + 10; // undo the push
     const last = jab === COMBAT.JAB.length - 1;
@@ -305,7 +306,7 @@ test('two enemy hits on one target in one tick both deal damage but count as one
   const a = fighter(2, 2, 430, 500);
   const b = fighter(3, 2, 570, 500);
   for (const [f, dir] of [[a, 0], [b, Math.PI]]) {
-    Object.assign(f.cs, { state: STATE.JAB, jab: 2, t: COMBAT.JAB[2].startup, dir }); // the finisher, active
+    Object.assign(f.cs, { state: STATE.JAB, jab: 2, t: CLAP.startup + CLAP.active - 1, dir }); // the clap, on its last active tick (fists on the aim line)
   }
   const hits = resolveHits([t, a, b]);
   assert.equal(hits.length, 2);

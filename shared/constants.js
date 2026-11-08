@@ -69,7 +69,8 @@ export const COMBAT = {
   JAB_FINISHER_SWEEP: Math.PI / 2, // the clap's fists swing in from this far apart (radians, total) over its active ticks
   JAB_CHAIN_WINDOW: 8, // ticks after recovery starts in which the next jab continues the string
   // An un-aimed light: a 360 degree spin from idle. Its hitbox is a circle of radius RADIUS + reach around the body.
-  SPIN: { startup: 4, active: 4, recovery: 12, damage: 3, reach: 25, knockback: 150, hitstun: 22, hitstop: 3 },
+  // Two spins in a row link; hitstun decay leaves the target free ticks before a third (recovery and hitstun set this).
+  SPIN: { startup: 4, active: 4, recovery: 10, damage: 3, reach: 22, knockback: 150, hitstun: 20, hitstop: 2 },
 
   HEAVY: {
     MIN_CHARGE: 6,     // a tap still charges this long before firing

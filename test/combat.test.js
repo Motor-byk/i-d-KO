@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { burstPush, resolveHits } from '../server/game/combat.js';
-import { createCombat, stepCombat, phase, isParrying, hasArmor, chargeFraction, STATE } from '../shared/combat-state.js';
+import { createCombat, stepCombat, stepFighter, phase, isParrying, hasArmor, chargeFraction, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
 import { attackHitboxes, SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
@@ -363,4 +363,30 @@ test('spin hitstun decays within a combo like any hit', () => {
   resolveHits([a, b]);
   assert.equal(b.cs.combo, 3);
   assert.equal(b.cs.len, Math.max(COMBAT.MIN_HITSTUN, Math.round(COMBAT.SPIN.hitstun * COMBAT.HITSTUN_DECAY ** 2)));
+});
+
+// A spin spammed at a defender that does nothing: the defender's free (actionable) ticks before each later hit.
+function spinChainGaps(hits) {
+  const a = fighter(1, 1, 500, 500);
+  const d = fighter(2, 2, 500 + PLAYER.RADIUS * 2, 500);
+  const gaps = [];
+  let landed = 0;
+  let free = 0;
+  for (let tick = 0; tick < 300 && landed < hits; tick++) {
+    if (stepFighter(a.cs, a.body, { move: { x: 0, y: 0 }, pressed: tick % 2 ? 0 : BUTTONS.SPIN })) a.hitIds.clear();
+    stepFighter(d.cs, d.body, { move: { x: 0, y: 0 } });
+    if (landed && d.cs.state === STATE.IDLE && d.cs.hitstop === 0) free++;
+    if (resolveHits([a, d]).some((h) => h.target === d)) {
+      if (landed) gaps.push(free);
+      landed++;
+      free = 0;
+    }
+  }
+  return gaps;
+}
+
+test('two spins in a row link, and the target can act before a third', () => {
+  const [second, third] = spinChainGaps(3);
+  assert.equal(second, 0, 'the second spin lands while the target is still stunned');
+  assert.ok(third >= 2, `free ticks before the third: ${third}`);
 });

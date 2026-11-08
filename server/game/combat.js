@@ -14,6 +14,7 @@ function push(from, target, speed, fallbackAngle) {
   const [nx, ny] = d > 1e-6 ? [dx / d, dy / d] : [Math.cos(fallbackAngle), Math.sin(fallbackAngle)];
   target.body.kx = nx * speed;
   target.body.ky = ny * speed;
+  target.cs.recoil = false; // the push replaces a wall recoil's slide, so it decays at normal friction
 }
 
 // Takes HP away, and KOs at (nearly) none: fractional damage can leave a float crumb behind.

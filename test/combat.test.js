@@ -213,6 +213,15 @@ test('friendly fire only pushes', () => {
   assert.ok(b.body.kx > 0);
 });
 
+test('a push ends a wall recoil, so it decays at normal friction', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 1, 500 + PLAYER.RADIUS * 2 + 10, 500);
+  b.cs.recoil = true;
+  jabActive(a);
+  resolveHits([a, b]);
+  assert.equal(b.cs.recoil, false);
+});
+
 test('two jabs that meet on the same tick both land', () => {
   const a = fighter(1, 1, 500, 500);
   const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500);

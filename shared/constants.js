@@ -76,6 +76,8 @@ export const COMBAT = {
     MAX_HOLD: 30,      // ticks a full charge can be held before it fires by itself
     CHARGE_WALK: 0.5,  // walking speed multiplier while charging
     LAUNCH_CHARGE: 0.5, // charge fraction from which a hit launches (and can wall bounce)
+    ARMOR_FROM: 0.5,    // charge fraction from which hits can't stun the charger (they still damage and push)
+    ARMOR_LIMIT: 25,    // damage the armor takes before it breaks; the hit that breaks it stuns
     startup: 5,
     active: 3,
     recovery: 16,

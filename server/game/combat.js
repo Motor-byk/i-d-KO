@@ -1,6 +1,6 @@
 import { COMBAT, PLAYER } from '../../shared/constants.js';
 import { angleDiff } from '../../shared/math.js';
-import { applyHit, applyLanded, applyParry, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
+import { applyHit, applyLanded, applyParry, hasArmor, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
 import { attackHitboxes, capsuleHitsCircle } from '../../shared/hitbox.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, damageMult, alive, hitIds }.
@@ -51,8 +51,8 @@ const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.gr
 // An enemy hit on a parrying target is parried instead (judged on state from before this
 // tick's hits, so a parry holds against several at once). Friendly fire ignores parries.
 // Several enemy hits on one target in the same tick all deal damage, but stun and push it
-// once, with the strongest of them, so they count as one combo step. A target charging a
-// heavy takes the damage and push but no stun.
+// once, with the strongest of them, so they count as one combo step. An armored target (charging
+// a heavy, hasArmor) takes the damage and push but no stun, until the damage breaks the armor.
 // The attacker's fist hitboxes (shared/hitbox.js) are checked against seen(attacker, target):
 // where the attacker saw the target (lag compensation), its current position by default.
 // An enemy hit on an idle target keeps what it undid in target.grace for parryGrace().
@@ -99,6 +99,7 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
       damage = move.damage * attacker.damageMult;
       if (inGrace(target, tick) && target.grace.attackers.has(attacker)) target.grace.damage += damage;
       hurt(target, damage);
+      if (hasArmor(target.cs)) target.cs.armorTaken += damage;
       applyLanded(attacker.cs, move.hitstop);
       const best = strongest.get(target);
       if (!best || move.hitstun > best.move.hitstun) strongest.set(target, { attacker, move });
@@ -107,7 +108,7 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
   });
   for (const [target, { attacker, move }] of strongest) {
     push(attacker, target, move.knockback, attacker.cs.dir);
-    if (target.cs.state !== STATE.CHARGE) applyHit(target.cs, move);
+    if (!hasArmor(target.cs)) applyHit(target.cs, move); // includes the hit that broke the armor
   }
   return results;
 }

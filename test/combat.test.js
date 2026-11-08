@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { assistAim, burstPush, resolveHits } from '../server/game/combat.js';
-import { createCombat, stepCombat, phase, isParrying, STATE } from '../shared/combat-state.js';
+import { createCombat, stepCombat, phase, isParrying, hasArmor, chargeFraction, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
 import { attackHitboxes } from '../shared/hitbox.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
@@ -69,22 +69,55 @@ test('a heavy throws both fists, so it hits on either side of its line but not p
   assert.deepEqual(resolveHits([a, wide]), []);
 });
 
-test('a hit on a fighter charging a heavy damages and pushes but does not stun it', () => {
+// Starts b charging a heavy facing left and holds it until its armor is up.
+function chargeToArmor(b) {
+  stepCombat(b.cs, { pressed: BUTTONS.HEAVY, held: BUTTONS.HEAVY, aim: Math.PI });
+  while (!hasArmor(b.cs)) stepCombat(b.cs, { held: BUTTONS.HEAVY });
+}
+
+test('a hit on an armored charger damages and pushes but does not stun it', () => {
   const a = fighter(1, 1, 500, 500);
   const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500);
-  stepCombat(b.cs, { pressed: BUTTONS.HEAVY, held: BUTTONS.HEAVY, aim: Math.PI });
+  chargeToArmor(b);
+  assert.ok(chargeFraction(b.cs.t) >= COMBAT.HEAVY.ARMOR_FROM);
   jabActive(a);
   const [hit] = resolveHits([a, b]);
   assert.equal(hit.damage, COMBAT.JAB[0].damage);
   assert.equal(b.hp, PLAYER.BASE_HP - COMBAT.JAB[0].damage);
   assert.equal(b.cs.state, STATE.CHARGE, 'still charging');
+  assert.equal(b.cs.armorTaken, COMBAT.JAB[0].damage);
   assert.equal(b.cs.hitstop, 0);
   assert.equal(b.cs.combo, 0);
   assert.ok(b.body.kx > 0, 'pushed');
   assert.equal(a.cs.hitstop, COMBAT.JAB[0].hitstop, 'the attacker still freezes on the hit');
-  for (let i = 0; i < COMBAT.HEAVY.MIN_CHARGE; i++) stepCombat(b.cs, { held: BUTTONS.HEAVY });
   stepCombat(b.cs, { released: BUTTONS.HEAVY });
   assert.equal(b.cs.state, STATE.HEAVY, 'the heavy still fires on release');
+});
+
+test('an early charge, before the armor, is stunned', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500);
+  stepCombat(b.cs, { pressed: BUTTONS.HEAVY, held: BUTTONS.HEAVY, aim: Math.PI });
+  assert.equal(hasArmor(b.cs), false);
+  jabActive(a);
+  resolveHits([a, b]);
+  assert.equal(b.cs.state, STATE.HITSTUN);
+});
+
+test('the hit that takes the armor to its limit breaks it and stuns', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500);
+  chargeToArmor(b);
+  b.cs.armorTaken = COMBAT.HEAVY.ARMOR_LIMIT - COMBAT.JAB[0].damage - 1;
+  jabActive(a);
+  resolveHits([a, b]);
+  assert.equal(b.cs.state, STATE.CHARGE, 'one short of the limit: holds');
+  a.cs = createCombat();
+  a.hitIds.clear();
+  jabActive(a);
+  resolveHits([a, b]);
+  assert.equal(b.cs.state, STATE.HITSTUN, 'over the limit: broken');
+  assert.equal(b.cs.armorTaken, 0, 'a new charge starts with fresh armor');
 });
 
 test('a fired heavy in startup is stunned as usual', () => {

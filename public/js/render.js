@@ -1,5 +1,5 @@
 import { ARENA, PLAYER, RENDER, COMBAT, JUICE } from '../shared/constants.js';
-import { STATE, phase, chargeFraction, isParrying } from '../shared/combat-state.js';
+import { STATE, phase, chargeFraction, hasArmor, isParrying } from '../shared/combat-state.js';
 import { fists, attackHitboxes } from '../shared/hitbox.js';
 
 const COLORS = {
@@ -21,6 +21,7 @@ const COLORS = {
   parry: '#9be7ff',
   parryWhiff: 'rgba(155, 231, 255, 0.3)',
   stun: '#ffd166',
+  armor: '155, 231, 255', // rgb, parry blue; the shield fades as it takes damage
   burst: 'rgba(255, 255, 255, 0.5)',
   dashCharging: '#5c6b80',
   dashReady: '#9be7ff',
@@ -36,6 +37,7 @@ const COLORS = {
   hitbox: 'rgba(255, 60, 60, 0.55)', // filled while active, outlined in startup and recovery
 };
 const STUN_DOTS = 3;
+const ARMOR_ALPHA_MIN = 0.2; // the shield's opacity just before it breaks, as a share of fresh
 const INVULN_ALPHA = 0.55;
 const DASH_GHOSTS = [{ back: 0.9, alpha: 0.18 }, { back: 0.45, alpha: 0.32 }];
 
@@ -143,6 +145,19 @@ export function createRenderer(canvas) {
     ctx.stroke();
   }
 
+  // A shield bubble while hits can't stun: solid when fresh, fading toward the break.
+  function drawArmor(f) {
+    const left = 1 - f.cs.armorTaken / COMBAT.HEAVY.ARMOR_LIMIT;
+    const a = ARMOR_ALPHA_MIN + (1 - ARMOR_ALPHA_MIN) * left;
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, PLAYER.RADIUS + 14, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${COLORS.armor}, ${0.18 * a})`;
+    ctx.fill();
+    ctx.lineWidth = 2 + 3 * left;
+    ctx.strokeStyle = `rgba(${COLORS.armor}, ${0.95 * a})`;
+    ctx.stroke();
+  }
+
   function drawFighter(f, isMe) {
     const r = PLAYER.RADIUS;
     if (f.cs.state === STATE.DASH) {
@@ -204,6 +219,7 @@ export function createRenderer(canvas) {
         const k = chargeFraction(f.cs.t);
         const from = -Math.PI / 2;
         ring(f.x, f.y, r + 7, 4, k >= 1 ? COLORS.charged : COLORS.charge, from, from + Math.PI * 2 * Math.max(k, 0.02));
+        if (hasArmor(f.cs)) drawArmor(f);
         break;
       }
     }

@@ -34,6 +34,7 @@ export function createCombat() {
     jab: 0,        // index into COMBAT.JAB of the current (or last) jab
     chain: 0,      // ticks left in which the next jab continues the string
     charge: 0,     // ticks the current heavy was charged
+    armorTaken: 0, // damage taken while armored during this charge
     letGo: false,  // heavy released while charging (it fires once MIN_CHARGE is reached)
     launched: false, // in hitstun from a launching hit: the next wall it hits bounces it
     dashCooldown: 0,
@@ -90,6 +91,7 @@ function enter(cs, state, len = 0) {
   cs.t = 0;
   cs.len = len;
   cs.launched = false;
+  cs.armorTaken = 0;
   if (state !== STATE.IDLE) cs.chain = 0;
 }
 
@@ -143,6 +145,10 @@ const ACTIONS = {
     start: (cs) => enter(cs, STATE.PARRY, COMBAT.PARRY.active + COMBAT.PARRY.recovery),
   },
 };
+
+// Would a hit landing now not stun? Charging a heavy past ARMOR_FROM, until ARMOR_LIMIT damage.
+export const hasArmor = (cs) => cs.state === STATE.CHARGE
+  && chargeFraction(cs.t) >= COMBAT.HEAVY.ARMOR_FROM && cs.armorTaken < COMBAT.HEAVY.ARMOR_LIMIT;
 
 // Would a hit landing now be parried?
 export const isParrying = (cs) => cs.state === STATE.PARRY && cs.t < COMBAT.PARRY.active;

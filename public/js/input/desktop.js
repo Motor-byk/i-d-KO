@@ -8,7 +8,7 @@ const MOVE_KEYS = {
   KeyA: [-1, 0], ArrowLeft: [-1, 0],
   KeyD: [1, 0], ArrowRight: [1, 0],
 };
-const BUTTON_KEYS = { Space: BUTTONS.DASH, ShiftLeft: BUTTONS.PARRY, ShiftRight: BUTTONS.PARRY, KeyC: BUTTONS.SPIN, KeyV: BUTTONS.HEAVY };
+const BUTTON_KEYS = { Space: BUTTONS.DASH, ShiftLeft: BUTTONS.PARRY, ShiftRight: BUTTONS.PARRY, KeyC: BUTTONS.JAB, KeyX: BUTTONS.SPIN, KeyV: BUTTONS.HEAVY };
 const MOUSE_BUTTONS = { 0: BUTTONS.JAB, 2: BUTTONS.HEAVY };
 
 // Keyboard + mouse. Mouse buttons are caught on target (the match screen, so clicks reach

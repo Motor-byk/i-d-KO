@@ -213,12 +213,13 @@ Each step ends with `npm test` passing and the app runnable, then a focused comm
 32. [x] `chore: bot clients script` — scripts/bots.js with latency injection. Developer testing tool only (user decision): run by hand from the command line, connecting like ordinary players. Players can't add bots: no bot UI and no bot-specific server code.
 
 ## Review checkpoints
-After each major milestone, stop implementing and run three review subagents in parallel over the code built so far (focused on that milestone's diff):
+After each major milestone, stop implementing and run the review subagents in parallel over the code built so far (focused on that milestone's diff). Each report stays under 300 words:
 1. **Simplify agent** (general-purpose): reduce complexity, remove duplication and dead code, and simplify wherever behavior stays the same.
 2. **Bug agent** (general-purpose, `model: sonnet`): find correctness bugs, edge cases and crashes, each with a concrete failure scenario.
 3. **Networking agent** (general-purpose, when the milestone touches the network): act as a multiplayer game-server network designer and check transport, sync, prediction, lag comp, validation and room lifecycle.
+4. **Game tester agent** (general-purpose, `model: sonnet`, when gameplay changed): judge, critique and suggest improvements to movement, teamplay and attacks/combos. Its suggestions are summarized for the user, not applied: they're design calls.
 
-Then verify each finding, apply the real ones as their own atomic commits (`refactor: …` / `fix: …`), confirm `npm test` passes, and give the user a short summary before continuing.
+Then verify each simplify/bug/networking finding, apply the real ones as their own atomic commits (`refactor: …` / `fix: …`), confirm `npm test` passes, and give the user a short summary before continuing.
 
 | Milestone | After step | Networking agent? |
 |---|---|---|

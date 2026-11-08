@@ -46,6 +46,6 @@ node scripts/bots.js <code> <count>   # fills a room with bots (flags in the fil
 ## Workflow the user wants
 - Build in small steps with one atomic commit each (`feat:`, `fix:`, `refactor:`, `chore:`). Don't push unless asked.
 - Commit to the current branch, including `main`. Only create a branch when the user asks for one, whether for a small change or a milestone. Don't merge into `main` unless asked.
-- After each major milestone, stop and run three review subagents: simplify, bug check (Sonnet), and networking (when relevant). Then apply the verified findings as separate commits and summarize for the user. Small follow-ups skip the review.
+- After each major milestone, stop and run the review subagents: simplify, bug check (Sonnet), networking (when relevant), and game tester (Sonnet, when gameplay changed: judges, critiques and suggests improvements to movement, teamplay and attacks/combos). Each report stays under 300 words. Apply the verified simplify/bug/networking findings as separate commits; summarize the game tester's suggestions for the user without applying them, since they're design calls. Small follow-ups skip the review.
 - `PLAN.md` holds the full design and its **Progress** section. All planned milestones are built, so new work is user requests and fixes. Give each one a Progress entry saying what changed, what was checked and what wasn't.
 - Before changing behavior that looks wrong, search Progress for "kept on purpose" and "user decision". Its open decisions are the user's call.

@@ -85,7 +85,7 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
       attackers.set(attacker, { stringHits, dashCooldown });
     }
   }
-  const strongest = new Map(); // target -> the enemy hit that stuns it this tick
+  const strongest = new Map(); // target -> its strongest enemy hit this tick (pushes, and stuns unless charging)
   const results = hits.map(({ attacker, target, move }) => {
     const friendly = attacker.teamId === target.teamId;
     const parried = !friendly && parrying.has(target);
@@ -107,7 +107,6 @@ export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}
   });
   for (const [target, { attacker, move }] of strongest) {
     push(attacker, target, move.knockback, attacker.cs.dir);
-    // Charging a heavy can't be interrupted: the hit still damages and pushes, but doesn't stun.
     if (target.cs.state !== STATE.CHARGE) applyHit(target.cs, move);
   }
   return results;

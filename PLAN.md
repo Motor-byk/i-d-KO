@@ -120,7 +120,7 @@ Friend groups argue about where to eat, which movie is best, and so on. Voting i
 | Input | Behavior |
 |---|---|
 | **Jab** | 3-hit string, and the 3rd hit knocks back. Tap = auto-aim (nearest enemy in a ~60° facing cone). Drag = manual aim. |
-| **Heavy** | Drag to aim, hold to charge, release to fire. A charged hit launches the target; hitting a wall or pillar = wall bounce. |
+| **Heavy** | Drag to aim, hold to charge, release to fire. Hits taken while charging still damage and push, but can't stun (user decision). A charged hit launches the target; hitting a wall or pillar = wall bounce. |
 | **Dash** | Tap, in the joystick direction. Cancels jab recovery (not heavy: a heavy commits you). 2s cooldown, fully recharged by landing all 3 jabs of a string on enemies. Swept collision so it can't tunnel through pillars. |
 | **Parry** | Tap. 3–4 tick active window, and a successful parry stuns the attacker. Whiff = punishable recovery. |
 

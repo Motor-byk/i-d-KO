@@ -78,6 +78,10 @@
   - Checked: `npm test` (211 pass: phases, priority, string reset, dash-cancel, hits all around and nothing past the circle, decayed hitstun, a spin prediction replay). In Chrome, Q drew the orbiting fists and the ring. A scripted client spinning on a bot: every hit did 3, with hitstun 22, or 18 when it continued a combo. Reviewers: no server bugs. The touch jab-vs-spin check was fixed to match the facing, and the simplify cleanups were applied.
   - Found live: repeated spins land 24 times in a row on a bot. The spin is ~+7 on hit (22 hitstun + 3 hitstop vs 15 ticks left + 3 hitstop), so the next spin catches the target still stunned, and decay leaves only 0–2 free ticks (enough for a buffered parry or dash, not for a bot). Left as specified; see the tester's suggestions below.
   - Not checked: touch on a real phone (jab vs spin with the aim stick), a spin in a crowd.
+- **Balance changes, step 4 follow-up — two spins link, then you can break out (user decision):** spin hitstun 22 → 20, recovery 12 → 10, reach 25 → 22 (hitbox radius 52), hitstop 3 → 2. Damage stays 3 and knockback stays 150. Against a defender that does nothing, the 2nd spin lands with a tick to spare, and decay (20 → 16 hitstun) leaves 3 free ticks before the 3rd, so a parry or dash escapes. If the defender does nothing, the combo ends and the next two link again. Swept in a sim against the real `stepFighter`/`resolveHits`: stun 19 links with no tick to spare, and 21+ or a longer recovery shrinks the escape window.
+  - Knockback (user decision): 150 kept. Knockback loses `PLAYER.FRICTION` × DT (~73) per tick, so 150 pushes ~2.6 units, the jab's 120 ~1.6, and the clap's 400 ~30. A spin clears a crowd through its stun, not its push.
+  - Checked: `npm test` (212 pass, including a spammed spin chain that links twice and then leaves free ticks). In the sim the pattern held with knockback 100–150, starting 60–80 apart, with the attacker standing or walking in.
+  - Not checked: live in Chrome, touch, a real phone. No reviewers (a tuning follow-up).
 - **Balance changes: still to do (branch `balance-changes`, step 4 done; paused for the user to test before step 5).** Each step follows the workflow: build, `npm test`, check in Chrome against bots, commit, then the reviewers (simplify, bug check, networking for steps 4–5, game tester). Apply the verified simplify/bug/networking fixes as their own commits, write a Progress entry, summarize, and **stop for the user to test** before the next step. Decisions already settled with the user:
   - **Step 5, a heavy into a wall recoils you (`feat:`):** new constants `HEAVY.WALL_RECOIL_MIN: 350` and `WALL_RECOIL_MAX: 900` (scaled by charge), and `WALL_RECOIL_FRICTION: 900` (normal friction is 2200, so the momentum carries past recovery; the user wants to experiment with it).
     - In `stepFighter` (shared, so it's predicted), during the heavy's active frames, once per heavy: if a fist hitbox overlaps a wall or pillar (use `resolveCircle` from `shared/arena.js` on a copy of the fist point), set the fighter's knockback along the surface normal(s) and `cs.recoil = true`. It works even if the heavy also hits a player.
@@ -98,9 +102,8 @@
     - Slow walking while a full charge is held.
     - After step 3, recheck whether the shorter clap still pushes a charger away.
   - Step 4 (spin):
-    - Spin into spin is ~+7 on hit, a near-lock until the combo burst. Hitstun 22 → 16 and recovery 12 → 14 make it about +2, so the next spin can't link.
-    - Damage 3 → 4, reach 25 → 22 (radius 52), hitstop 3 → 2.
-    - One spin hits every nearby teammate with 150 knockback; halve friendly spin knockback (~75).
+    - Handled by the follow-up: the spin loop (now two spins link), reach 22 and hitstop 2. Damage stays 3 (user decision).
+    - One spin hits every nearby teammate with 150 knockback (~2.6 units); halve friendly spin knockback (~75).
     - A whiffed spin could recover 4 ticks longer, with dash-cancel only on hit.
     - Touch players lose the jab string whenever the aim stick isn't pushed. Alternatives: a bare tap jabs toward the move stick and the spin is a double tap, a long press, or its own button.
 - **Open decisions from the F review (user's call):**

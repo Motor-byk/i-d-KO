@@ -1,6 +1,7 @@
 import { COMBAT, BUTTONS } from './constants.js';
 import { stepBody } from './physics.js';
-import { bounceVelocity } from './arena.js';
+import { bounceVelocity, sweepCircle } from './arena.js';
+import { attackHitboxes } from './hitbox.js';
 import { lerp } from './math.js';
 
 // Combat timing, shared by the server and client prediction: what a fighter is doing, for how
@@ -38,6 +39,7 @@ export function createCombat() {
     armorTaken: 0, // damage taken while armored during this charge
     letGo: false,  // heavy released while charging (it fires once MIN_CHARGE is reached)
     launched: false, // in hitstun from a launching hit: the next wall it hits bounces it
+    recoil: false,   // pushed back off a wall by your own heavy: knockback decays slower until it stops
     dashCooldown: 0,
     stringHits: 0, // jabs of the current string that landed on an enemy, in order
     combo: 0,      // hits taken in the current combo (it lasts while in hitstun)
@@ -247,8 +249,31 @@ const WALK_SCALE = {
   [STATE.CHARGE]: COMBAT.HEAVY.CHARGE_WALK,
 };
 
+// On a heavy's first active tick, a fist hitbox touching a wall or pillar pushes the fighter back
+// off it (along the summed contact normals), harder with more charge. Once per heavy, and it
+// happens whether or not the heavy also hits someone. Each fist is swept out from the body, so a
+// fist tip sunk deep into a pillar still pushes off the face it went in through.
+function wallRecoil(cs, body) {
+  let nx = 0;
+  let ny = 0;
+  for (const { a, b, r } of attackHitboxes(cs, body.x, body.y)) {
+    for (const n of sweepCircle(a.x, a.y, b.x - a.x, b.y - a.y, r).normals) {
+      nx += n.x;
+      ny += n.y;
+    }
+  }
+  const len = Math.hypot(nx, ny);
+  if (!len) return;
+  const H = COMBAT.HEAVY;
+  const speed = lerp(H.WALL_RECOIL_MIN, H.WALL_RECOIL_MAX, chargeFraction(cs.charge));
+  body.kx = (nx / len) * speed;
+  body.ky = (ny / len) * speed;
+  cs.recoil = true;
+}
+
 // One tick of a fighter: combat timing, then movement. Hitstop freezes the body too.
 // A launched fighter flying into a wall or pillar fast enough bounces off it, once.
+// A heavy fisting a wall recoils you off it, sliding farther than a normal push.
 // input: { move: {x, y}, pressed, held, released, aim }. Returns what stepCombat returns.
 export function stepFighter(cs, body, input) {
   const frozen = cs.hitstop > 0;
@@ -261,8 +286,10 @@ export function stepFighter(cs, body, input) {
   const scale = WALK_SCALE[cs.state] ?? 0;
   const { kx, ky } = body;
   const dash = cs.state === STATE.DASH ? { x: Math.cos(cs.dir), y: Math.sin(cs.dir) } : null;
-  const normals = stepBody(body, { x: input.move.x * scale, y: input.move.y * scale }, dash);
   const H = COMBAT.HEAVY;
+  const friction = cs.recoil ? H.WALL_RECOIL_FRICTION : undefined;
+  const normals = stepBody(body, { x: input.move.x * scale, y: input.move.y * scale }, dash, friction);
+  if (cs.recoil && !body.kx && !body.ky) cs.recoil = false;
   // Only a real impact bounces: enough speed into the surface, not a slide along it.
   const impact = (n) => -(kx * n.x + ky * n.y) >= H.WALL_BOUNCE_MIN_SPEED;
   if (cs.launched && normals.some(impact)) {
@@ -273,6 +300,7 @@ export function stepFighter(cs, body, input) {
     cs.len += H.WALL_BOUNCE_HITSTUN;
     cs.hitstop = H.WALL_BOUNCE_HITSTOP;
   }
+  if (cs.state === STATE.HEAVY && cs.t === H.startup) wallRecoil(cs, body);
   return started;
 }
 
@@ -287,6 +315,7 @@ export function applyHit(cs, { hitstun, hitstop, launch = false }) {
   cs.comboT = comboT;
   cs.hitstop = Math.max(cs.hitstop, hitstop);
   cs.launched = launch;
+  cs.recoil = false;
 }
 
 // A parry landed: the parrier is free to act at once, the attacker is stunned. Both freeze briefly.

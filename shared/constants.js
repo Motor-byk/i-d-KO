@@ -97,6 +97,10 @@ export const COMBAT = {
     WALL_BOUNCE_RESTITUTION: 0.55,
     WALL_BOUNCE_HITSTUN: 14, // extra hitstun on bounce
     WALL_BOUNCE_HITSTOP: 3,
+    // A heavy whose fist hits a wall or pillar pushes you back off it, harder with more charge.
+    WALL_RECOIL_MIN: 350,
+    WALL_RECOIL_MAX: 900,
+    WALL_RECOIL_FRICTION: 900, // knockback decay while recoiling (normal is PLAYER.FRICTION), so it carries past recovery
   },
 
   DASH: {

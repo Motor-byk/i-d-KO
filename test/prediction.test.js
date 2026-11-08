@@ -31,7 +31,14 @@ function spinScript(n) {
   return { seq: n, tick: 0, move: n >= 16 ? { x: 0, y: -1 } : { x: 1, y: 0 }, aim: 0.5, buttons };
 }
 
-const SCRIPTS = [['jab, dash, heavy', jabDashHeavy], ['spin', spinScript]];
+// Walks left to the wall (player 1 spawns 140 from it), then fires a full heavy into it and slides off.
+function wallRecoilScript(n) {
+  let buttons = 0;
+  if (n >= 10 && n < 45) buttons = BUTTONS.HEAVY;
+  return { seq: n, tick: 0, move: n < 10 ? { x: -1, y: 0 } : { x: 0, y: 0 }, aim: Math.PI, buttons };
+}
+
+const SCRIPTS = [['jab, dash, heavy', jabDashHeavy], ['spin', spinScript], ['heavy wall recoil', wallRecoilScript]];
 
 for (const [name, script] of SCRIPTS) {
 test(`replaying unacked inputs over server state matches the server once it catches up (${name})`, () => {
@@ -70,6 +77,7 @@ test(`replaying unacked inputs over server state matches the server once it catc
   assert.ok(Math.hypot(body.x - server.body.x, body.y - server.body.y) < 0.1);
   assert.equal(cs.state, server.cs.state);
   assert.equal(cs.dashCooldown, server.cs.dashCooldown);
+  assert.equal(cs.recoil, server.cs.recoil);
 });
 }
 

@@ -473,3 +473,53 @@ test('a tapped heavy hits MIN_CHARGE + startup ticks after the press', () => {
   assert.equal(ticks, COMBAT.HEAVY.MIN_CHARGE + COMBAT.HEAVY.startup);
   assert.equal(ticks, 7);
 });
+
+// Charges a heavy for `charge` ticks at (x, y) aiming `aim`, then steps it to its first active tick.
+function heavyAt(x, y, aim, charge) {
+  const cs = createCombat();
+  const body = createBody(x, y);
+  const still = { move: { x: 0, y: 0 }, aim };
+  stepFighter(cs, body, { ...still, pressed: HEAVY, held: HEAVY });
+  for (let i = 1; i < charge; i++) stepFighter(cs, body, { ...still, held: HEAVY });
+  stepFighter(cs, body, { ...still, released: HEAVY });
+  while (phase(cs) !== 'active') stepFighter(cs, body, still);
+  return { cs, body, still };
+}
+
+test('a heavy into a wall or pillar recoils you off it, harder with more charge', () => {
+  const H = COMBAT.HEAVY;
+  const tap = heavyAt(100, 500, Math.PI, 0);
+  assert.equal(tap.cs.recoil, true);
+  assert.ok(Math.abs(tap.body.kx - H.WALL_RECOIL_MIN) < 1e-9 && tap.body.ky === 0, 'straight off the left wall');
+  const full = heavyAt(100, 500, Math.PI, H.MAX_CHARGE);
+  assert.ok(Math.abs(full.body.kx - H.WALL_RECOIL_MAX) < 1e-9);
+  // Hugging the pillar, the fist tip ends nearer its far side: still pushed back the way it came.
+  const pillar = heavyAt(ARENA.PILLARS[2].x - PLAYER.RADIUS, 500, 0, H.MAX_CHARGE);
+  assert.ok(pillar.body.kx < 0 && Math.abs(pillar.body.ky) < 1e-9, 'back off the center pillar');
+});
+
+test('a heavy aimed away from the wall does not recoil', () => {
+  const { cs, body } = heavyAt(100, 500, 0, COMBAT.HEAVY.MAX_CHARGE);
+  assert.equal(cs.recoil, false);
+  assert.equal(body.kx, 0);
+});
+
+test('a heavy recoils once, and the slower friction carries it past recovery', () => {
+  const { cs, body, still } = heavyAt(100, 500, Math.PI, COMBAT.HEAVY.MAX_CHARGE);
+  let kx = body.kx;
+  while (cs.state === STATE.HEAVY) {
+    stepFighter(cs, body, still);
+    assert.ok(body.kx < kx, 'only decays, never set again');
+    kx = body.kx;
+  }
+  assert.equal(cs.recoil, true);
+  assert.ok(body.kx > 0, 'still sliding once the heavy is over');
+  while (body.kx) stepFighter(cs, body, still);
+  assert.equal(cs.recoil, false, 'cleared once it stops');
+});
+
+test('getting hit ends the recoil', () => {
+  const { cs } = heavyAt(100, 500, Math.PI, COMBAT.HEAVY.MAX_CHARGE);
+  applyHit(cs, { hitstun: 10, hitstop: 0 });
+  assert.equal(cs.recoil, false);
+});

@@ -15,8 +15,9 @@ function approach(value, target, maxDelta) {
 }
 
 // Advances a body one tick. move: {x, y} with length <= 1. dash: unit direction or null;
-// while dashing, the dash overrides walking. Returns the contact normals hit this tick.
-export function stepBody(body, move, dash = null) {
+// while dashing, the dash overrides walking. friction: knockback decay (units / second^2).
+// Returns the contact normals hit this tick.
+export function stepBody(body, move, dash = null, friction = PLAYER.FRICTION) {
   if (dash) {
     body.vx = dash.x * COMBAT.DASH.speed;
     body.vy = dash.y * COMBAT.DASH.speed;
@@ -29,7 +30,7 @@ export function stepBody(body, move, dash = null) {
   // Knockback decays toward zero along its own direction.
   const k = Math.hypot(body.kx, body.ky);
   if (k > 0) {
-    const scale = Math.max(0, k - PLAYER.FRICTION * DT) / k;
+    const scale = Math.max(0, k - friction * DT) / k;
     body.kx *= scale;
     body.ky *= scale;
   }

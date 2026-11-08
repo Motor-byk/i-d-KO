@@ -34,8 +34,10 @@ function extension(cs) {
 const punchAngle = (dir, side, ext) => dir + side * PLAYER.FIST_SPREAD * (1 - Math.max(0, ext) * 0.8);
 
 // How far the clap's fists are angled off the aim line: half the sweep through startup, then in
-// to the line by the last active tick. Null in recovery, where its fists pull back like a punch's.
+// to the line by the last active tick. Null outside the clap's startup and active ticks (in its
+// recovery the fists pull back like a punch's).
 function clapSwing(cs) {
+  if (!isClap(cs)) return null;
   const { startup, active } = COMBAT.JAB[FINISHER];
   const i = cs.t - startup;
   if (i >= active) return null;
@@ -43,7 +45,7 @@ function clapSwing(cs) {
 }
 
 function fistAngle(cs, dir, side, ext) {
-  const swing = isClap(cs) ? clapSwing(cs) : null;
+  const swing = clapSwing(cs);
   return swing === null ? punchAngle(dir, side, ext) : dir + side * swing;
 }
 const fistDist = (ext, reach) => PLAYER.RADIUS + 2 + ext * reach;
@@ -60,7 +62,7 @@ export function fists(cs, x, y, aim) {
 
 // The current move's hitboxes, [] when not in a move: one capsule { a, b, r } per throwing fist,
 // along its path from the body's edge out to full extension. They only hit in the active phase,
-// and the clap's swing in toward the aim line over its active ticks (the attacker's hitIds stop double hits).
+// and the clap's fists swing in toward the aim line over its active ticks (the attacker's hitIds stop double hits).
 export function attackHitboxes(cs, x, y) {
   const m = moveTiming(cs);
   if (!m) return [];

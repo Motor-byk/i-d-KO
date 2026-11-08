@@ -69,14 +69,16 @@ test('a heavy throws both fists, so it hits on either side of its line but not p
   assert.deepEqual(resolveHits([a, wide]), []);
 });
 
+const CLAP = COMBAT.JAB[COMBAT.JAB.length - 1];
+
 // Puts f in the finisher (the clap) facing +x, i ticks into its active frames.
 function clapActive(f, i = 0) {
-  Object.assign(f.cs, { state: STATE.JAB, jab: COMBAT.JAB.length - 1, t: COMBAT.JAB[2].startup + i, dir: 0 });
+  Object.assign(f.cs, { state: STATE.JAB, jab: COMBAT.JAB.length - 1, t: CLAP.startup + i, dir: 0 });
 }
 
 // A target center at angle off the attacker's aim, near the clap's full reach.
 const clapTarget = (id, angle) => {
-  const d = PLAYER.RADIUS + 2 + COMBAT.JAB[2].reach + PLAYER.FIST_HITBOX_RADIUS + PLAYER.RADIUS - 6;
+  const d = PLAYER.RADIUS + 2 + CLAP.reach + PLAYER.FIST_HITBOX_RADIUS + PLAYER.RADIUS - 6;
   return fighter(id, 2, 500 + Math.cos(angle) * d, 500 + Math.sin(angle) * d);
 };
 
@@ -88,7 +90,7 @@ test('the clap swings its fists in from half the sweep to the aim line', () => {
   };
   const half = COMBAT.JAB_FINISHER_SWEEP / 2;
   angles(0).forEach((angle, i) => assert.ok(Math.abs(angle - [-half, half][i]) < 1e-9));
-  angles(COMBAT.JAB[2].active - 1).forEach((angle) => assert.ok(Math.abs(angle) < 1e-9));
+  angles(CLAP.active - 1).forEach((angle) => assert.ok(Math.abs(angle) < 1e-9));
 });
 
 test('the clap hits ~20 degrees off on its first active tick, never ~40 off, and not past its reach', () => {
@@ -98,11 +100,11 @@ test('the clap hits ~20 degrees off on its first active tick, never ~40 off, and
   const near = [clapTarget(2, 20 * deg), clapTarget(3, -20 * deg)];
   assert.equal(resolveHits([a, ...near]).length, 2, 'both fists hit on the first active tick');
   const wide = [clapTarget(4, 40 * deg), clapTarget(5, -40 * deg)];
-  for (let i = 0; i < COMBAT.JAB[2].active; i++) {
+  for (let i = 0; i < CLAP.active; i++) {
     clapActive(a, i);
     assert.deepEqual(resolveHits([a, ...wide]), []);
   }
-  clapActive(a, COMBAT.JAB[2].active - 1);
+  clapActive(a, CLAP.active - 1);
   const [{ b, r }] = attackHitboxes(a.cs, 500, 500);
   const past = fighter(6, 2, b.x + r + PLAYER.RADIUS + 1, 500);
   assert.deepEqual(resolveHits([a, past]), [], 'out of reach');

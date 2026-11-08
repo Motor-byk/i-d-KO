@@ -31,7 +31,10 @@ function spinScript(n) {
   return { seq: n, tick: 0, move: n >= 16 ? { x: 0, y: -1 } : { x: 1, y: 0 }, aim: 0.5, buttons };
 }
 
-for (const [name, script] of [['', jabDashHeavy], [' (spin)', spinScript]]) test(`replaying unacked inputs over server state matches the server once it catches up${name}`, () => {
+const SCRIPTS = [['jab, dash, heavy', jabDashHeavy], ['spin', spinScript]];
+
+for (const [name, script] of SCRIPTS) {
+test(`replaying unacked inputs over server state matches the server once it catches up (${name})`, () => {
   const match = soloMatch();
   const predictor = createPredictor();
   predictor.reconcile(me(match.snapshot()), -1);
@@ -68,6 +71,7 @@ for (const [name, script] of [['', jabDashHeavy], [' (spin)', spinScript]]) test
   assert.equal(cs.state, server.cs.state);
   assert.equal(cs.dashCooldown, server.cs.dashCooldown);
 });
+}
 
 test('a hit the client did not predict shows up as a correction and is replayed over', () => {
   const match = soloMatch();

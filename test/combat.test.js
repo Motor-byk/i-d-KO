@@ -164,6 +164,20 @@ test('the hit that takes the armor to its limit breaks it and stuns', () => {
   assert.equal(b.cs.armorTaken, 0, 'a new charge starts with fresh armor');
 });
 
+test('a full light string breaks fresh armor on its last hit, the clap', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 500 + PLAYER.RADIUS * 2 + 10, 500);
+  chargeToArmor(b);
+  COMBAT.JAB.forEach((move, jab) => {
+    a.hitIds.clear();
+    Object.assign(a.cs, { state: STATE.JAB, jab, t: move.startup, dir: 0, hitstop: 0 });
+    assert.equal(resolveHits([a, b]).length, 1);
+    b.body.x = 500 + PLAYER.RADIUS * 2 + 10; // undo the push
+    const last = jab === COMBAT.JAB.length - 1;
+    assert.equal(b.cs.state, last ? STATE.HITSTUN : STATE.CHARGE, `after hit ${jab + 1}`);
+  });
+});
+
 test('two hits in one tick that cross the armor limit together break it', () => {
   const a = fighter(1, 1, 500, 500);
   const c = fighter(3, 1, 500, 500 + PLAYER.RADIUS * 2 + 10);

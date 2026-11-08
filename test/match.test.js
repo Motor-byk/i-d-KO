@@ -1,15 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Match, validateInput, spawnPoints } from '../server/game/match.js';
-import { ARENA, PLAYER, BUTTONS, NET, RING, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
+import { ARENA, PLAYER, BUTTONS, BUTTON_MASK, NET, RING, TICK_RATE, SNAPSHOT_RATE } from '../shared/constants.js';
 import { startServer, call, nextEvent, roomUpdate, input, fakeMatch, startedMatch } from './helpers.js';
 
 test('validateInput rejects malformed input and normalizes the rest', () => {
   assert.ok(validateInput(input(1)));
+  assert.ok(validateInput(input(1, { buttons: BUTTON_MASK })), 'every button, spin included');
   for (const bad of [
     null, 'x', input(-1), input(1.5), input(1, { tick: NaN }),
     input(1, { move: { x: NaN, y: 0 } }), input(1, { move: { x: 1, y: 1 } }), input(1, { move: null }),
-    input(1, { aim: Infinity }), input(1, { buttons: 16 }), input(1, { buttons: -1 }), input(1, { buttons: 1.5 }),
+    input(1, { aim: Infinity }), input(1, { buttons: BUTTON_MASK + 1 }), input(1, { buttons: -1 }), input(1, { buttons: 1.5 }),
   ]) {
     assert.equal(validateInput(bad), null, JSON.stringify(bad));
   }

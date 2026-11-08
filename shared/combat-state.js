@@ -11,6 +11,7 @@ import { lerp } from './math.js';
 export const STATE = {
   IDLE: 'idle',
   JAB: 'jab',
+  SPIN: 'spin',   // an un-aimed light: hits all around, outside the jab string
   CHARGE: 'charge', // holding heavy
   HEAVY: 'heavy',   // heavy released: startup, active, recovery
   DASH: 'dash',
@@ -21,7 +22,7 @@ export const STATE = {
 };
 
 // When several actions are pressed on the same tick, the first one here wins the buffer.
-const ACTION_PRIORITY = [BUTTONS.DASH, BUTTONS.PARRY, BUTTONS.HEAVY, BUTTONS.JAB];
+const ACTION_PRIORITY = [BUTTONS.DASH, BUTTONS.PARRY, BUTTONS.HEAVY, BUTTONS.SPIN, BUTTONS.JAB];
 
 export function createCombat() {
   return {
@@ -49,6 +50,7 @@ export function createCombat() {
 // Timing and reach of the move being performed (no allocation), or null when not in a move.
 export function moveTiming(cs) {
   if (cs.state === STATE.JAB) return COMBAT.JAB[cs.jab];
+  if (cs.state === STATE.SPIN) return COMBAT.SPIN;
   return cs.state === STATE.HEAVY ? COMBAT.HEAVY : null;
 }
 
@@ -101,10 +103,10 @@ function enterAttack(cs, state) {
   cs.invuln = 0;
 }
 
-// Jab recovery can be cancelled into a dash once cancelAfter ticks of it have passed.
+// Jab and spin recovery can be cancelled into a dash once cancelAfter ticks of it have passed.
 // Heavy recovery can't: a heavy commits you.
 function canDashCancel(cs) {
-  if (cs.state !== STATE.JAB) return false;
+  if (cs.state !== STATE.JAB && cs.state !== STATE.SPIN) return false;
   const m = moveTiming(cs);
   return cs.t - m.startup - m.active >= COMBAT.DASH.cancelAfter;
 }
@@ -121,6 +123,14 @@ const ACTIONS = {
       enterAttack(cs, STATE.JAB);
       cs.jab = next;
       if (next === 0) cs.stringHits = 0;
+    },
+  },
+  // Stands alone: it ends the light string and earns no string credit.
+  [BUTTONS.SPIN]: {
+    canStart: whenIdle,
+    start(cs) {
+      enterAttack(cs, STATE.SPIN);
+      cs.stringHits = 0;
     },
   },
   [BUTTONS.HEAVY]: {
@@ -219,6 +229,7 @@ export function stepCombat(cs, input = {}) {
 const WALK_SCALE = {
   [STATE.IDLE]: 1,
   [STATE.JAB]: COMBAT.ATTACK_WALK,
+  [STATE.SPIN]: COMBAT.ATTACK_WALK,
   [STATE.CHARGE]: COMBAT.HEAVY.CHARGE_WALK,
 };
 

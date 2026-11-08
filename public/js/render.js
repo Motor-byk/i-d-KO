@@ -1,6 +1,6 @@
 import { ARENA, PLAYER, RENDER, COMBAT, JUICE } from '../shared/constants.js';
 import { STATE, phase, chargeFraction, hasArmor, isParrying } from '../shared/combat-state.js';
-import { fists, attackHitboxes } from '../shared/hitbox.js';
+import { fists, attackHitboxes, SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
 
 const COLORS = {
   void: '#0d0e12',
@@ -23,6 +23,7 @@ const COLORS = {
   stun: '#ffd166',
   armor: '155, 231, 255', // parry blue as rgb, so the shield's alpha can vary (globalAlpha is taken by invuln)
   burst: 'rgba(255, 255, 255, 0.5)',
+  spin: 'rgba(255, 255, 255, 0.25)', // the spin's reach
   dashCharging: '#5c6b80',
   dashReady: '#9be7ff',
   zone: 'rgba(239, 71, 111, 0.22)',  // outside the ring
@@ -170,6 +171,8 @@ export function createRenderer(canvas) {
       ctx.globalAlpha = 1;
     }
     if (f.cs.invuln > 0) ctx.globalAlpha = INVULN_ALPHA; // see-through: hits pass
+    // A faint ring where the spin reaches, until it's done hitting.
+    if (f.cs.state === STATE.SPIN && phase(f.cs) !== 'recovery') ring(f.x, f.y, SPIN_HITBOX_RADIUS, 2, COLORS.spin);
     // Fists first so the body overlaps them.
     ctx.fillStyle = f.color;
     ctx.strokeStyle = COLORS.outline;

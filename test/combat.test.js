@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { burstPush, resolveHits } from '../server/game/combat.js';
 import { createCombat, stepCombat, phase, isParrying, hasArmor, chargeFraction, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
-import { attackHitboxes } from '../shared/hitbox.js';
+import { attackHitboxes, SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
 
 const fighter = (id, teamId, x, y) => ({
@@ -327,4 +327,40 @@ test('parried and friendly hits do not count toward the string', () => {
   jabActive(a);
   resolveHits([a, mate]);
   assert.equal(a.cs.stringHits, 0);
+});
+
+test('a spin hits enemies all around it, stuns and pushes them away, and nothing past its circle', () => {
+  const a = fighter(1, 1, 500, 500);
+  stepCombat(a.cs, { pressed: BUTTONS.SPIN, aim: 0 });
+  while (phase(a.cs) !== 'active') stepCombat(a.cs, {});
+  const reach = SPIN_HITBOX_RADIUS + PLAYER.RADIUS;
+  const around = [0, 1, 2, 3].map((i) => {
+    const angle = (i * Math.PI) / 2 + 0.3;
+    return fighter(10 + i, 2, 500 + Math.cos(angle) * (reach - 1), 500 + Math.sin(angle) * (reach - 1));
+  });
+  const outside = fighter(20, 2, 500 - reach - 1, 500);
+  const hits = resolveHits([a, ...around, outside]);
+  assert.deepEqual(hits.map((h) => h.target.id).sort(), around.map((t) => t.id));
+  for (const t of around) {
+    assert.equal(t.hp, PLAYER.BASE_HP - COMBAT.SPIN.damage);
+    assert.equal(t.cs.state, STATE.HITSTUN);
+    assert.equal(t.cs.len, COMBAT.SPIN.hitstun);
+    const away = Math.atan2(t.body.y - 500, t.body.x - 500);
+    assert.ok(Math.abs(Math.atan2(t.body.ky, t.body.kx) - away) < 1e-9, 'pushed straight out');
+  }
+  assert.equal(outside.hp, PLAYER.BASE_HP);
+  assert.equal(a.cs.stringHits, 0, 'no string credit');
+});
+
+test('spin hitstun decays within a combo like any hit', () => {
+  const a = fighter(1, 1, 500, 500);
+  const b = fighter(2, 2, 560, 500);
+  b.cs.state = STATE.HITSTUN;
+  b.cs.len = 30;
+  b.cs.combo = 2;
+  stepCombat(a.cs, { pressed: BUTTONS.SPIN });
+  while (phase(a.cs) !== 'active') stepCombat(a.cs, {});
+  resolveHits([a, b]);
+  assert.equal(b.cs.combo, 3);
+  assert.equal(b.cs.len, Math.max(COMBAT.MIN_HITSTUN, Math.round(COMBAT.SPIN.hitstun * COMBAT.HITSTUN_DECAY ** 2)));
 });

@@ -387,3 +387,61 @@ test('a new string starts the count over', () => {
   landString(cs, [0]);
   assert.ok(cs.dashCooldown > 0);
 });
+
+const SPIN = { pressed: BUTTONS.SPIN };
+
+test('a spin starts from idle, goes through its phases at attack walk, and ends idle', () => {
+  const cs = createCombat();
+  assert.equal(stepCombat(cs, { ...SPIN, aim: 2 }), BUTTONS.SPIN);
+  assert.equal(cs.state, STATE.SPIN);
+  assert.equal(cs.dir, 2);
+  const m = COMBAT.SPIN;
+  const seen = [phase(cs), ...run(cs, total(m))];
+  assert.deepEqual(seen, [
+    ...Array(m.startup).fill('startup'),
+    ...Array(m.active).fill('active'),
+    ...Array(m.recovery).fill('recovery'),
+    STATE.IDLE,
+  ]);
+  const body = createBody(500, 500);
+  const spinning = createCombat();
+  stepCombat(spinning, SPIN);
+  stepFighter(spinning, body, { move: { x: 1, y: 0 } });
+  assert.ok(body.vx > 0 && body.vx <= PLAYER.MOVE_SPEED * COMBAT.ATTACK_WALK + 1e-9, 'walks slowly');
+});
+
+test('a spin wins over a jab pressed on the same tick, and only starts from idle', () => {
+  const cs = createCombat();
+  assert.equal(stepCombat(cs, { pressed: BUTTONS.JAB | BUTTONS.SPIN }), BUTTONS.SPIN);
+  const busy = createCombat();
+  stepCombat(busy, JAB);
+  assert.equal(stepCombat(busy, SPIN), 0, 'buffered while the jab runs');
+  assert.equal(busy.state, STATE.JAB);
+});
+
+test('a spin breaks the jab string and earns no string credit', () => {
+  const cs = createCombat();
+  stepCombat(cs, JAB);
+  applyLanded(cs, 0);
+  assert.equal(cs.stringHits, 1);
+  while (cs.state === STATE.JAB) stepCombat(cs, {});
+  assert.ok(cs.chain > 0, 'still in the chain window');
+  stepCombat(cs, SPIN);
+  assert.equal(cs.state, STATE.SPIN);
+  assert.equal(cs.stringHits, 0);
+  applyLanded(cs, 0);
+  assert.equal(cs.stringHits, 0, 'a spin hit counts for nothing');
+  while (cs.state === STATE.SPIN) stepCombat(cs, {});
+  stepCombat(cs, JAB);
+  assert.equal(cs.jab, 0, 'the next jab starts a new string');
+});
+
+test('spin recovery can be dash-cancelled like a jab', () => {
+  const cs = createCombat();
+  stepCombat(cs, SPIN);
+  const m = COMBAT.SPIN;
+  run(cs, m.startup + m.active - 1 + COMBAT.DASH.cancelAfter - 1);
+  assert.equal(stepCombat(cs, { pressed: BUTTONS.DASH }), 0, 'too early');
+  assert.equal(stepCombat(cs, {}), BUTTONS.DASH, 'fires once the cancel window opens');
+  assert.equal(cs.state, STATE.DASH);
+});

@@ -3,10 +3,11 @@ import { h } from '../ui/dom.js';
 import { buttonLatch } from './latch.js';
 
 // Top-right buttons, placed by TOUCH.BUTTON_SPOTS. tap: pressed once when touched; otherwise held while touched.
+// Light has no fixed bit: it's a jab while the aim stick is held, otherwise a spin (decided on touch).
 const CONTROLS = [
   { name: 'dash', label: 'Dash', bit: BUTTONS.DASH },
   { name: 'heavy', label: 'Heavy', bit: BUTTONS.HEAVY },
-  { name: 'jab', label: 'Light', bit: BUTTONS.JAB, tap: true },
+  { name: 'jab', label: 'Light', tap: true },
   { name: 'parry', label: 'Parry', bit: BUTTONS.PARRY },
 ];
 
@@ -65,13 +66,14 @@ export function touchInput() {
 
   function startButton(control, btnEl) {
     btnEl.classList.add('down');
-    if (control.tap) buttons.tap(control.bit);
-    else buttons.press(control.bit);
+    const bit = control.bit ?? (aimStick.value() ? BUTTONS.JAB : BUTTONS.SPIN);
+    if (control.tap) buttons.tap(bit);
+    else buttons.press(bit);
     return {
       move() {},
       up() {
         btnEl.classList.remove('down');
-        if (!control.tap) buttons.release(control.bit);
+        if (!control.tap) buttons.release(bit);
       },
     };
   }

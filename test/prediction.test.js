@@ -15,7 +15,7 @@ function soloMatch() {
 const me = (snap) => snap.fighters.find((f) => f.id === 1);
 
 // Walks right, jabs, dashes up, then heavy-charges for a while: movement and combat timing.
-function script(n) {
+function jabDashHeavy(n) {
   let buttons = 0;
   if (n === 10) buttons = BUTTONS.JAB;
   if (n === 20) buttons = BUTTONS.DASH;
@@ -23,7 +23,15 @@ function script(n) {
   return { seq: n, tick: 0, move: n >= 20 ? { x: Math.SQRT1_2, y: -Math.SQRT1_2 } : { x: 1, y: 0 }, aim: 0.5, buttons };
 }
 
-test('replaying unacked inputs over server state matches the server once it catches up', () => {
+// Spins while walking right, then dash-cancels its recovery up and spins again.
+function spinScript(n) {
+  let buttons = 0;
+  if (n === 5 || n === 40) buttons = BUTTONS.SPIN;
+  if (n === 16) buttons = BUTTONS.DASH;
+  return { seq: n, tick: 0, move: n >= 16 ? { x: 0, y: -1 } : { x: 1, y: 0 }, aim: 0.5, buttons };
+}
+
+for (const [name, script] of [['', jabDashHeavy], [' (spin)', spinScript]]) test(`replaying unacked inputs over server state matches the server once it catches up${name}`, () => {
   const match = soloMatch();
   const predictor = createPredictor();
   predictor.reconcile(me(match.snapshot()), -1);

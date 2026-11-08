@@ -10,9 +10,9 @@ const FINISHER = COMBAT.JAB.length - 1;
 // The finisher is a clap: both fists wind out wide in startup and swing in to the aim line.
 const isClap = (cs) => cs.state === STATE.JAB && cs.jab === FINISHER;
 
-// Which hands a move throws: the jab string alternates, the finisher and the heavy throw both.
+// Which hands a move throws: the jab string alternates, the finisher, spin and heavy throw both.
 function hands(cs) {
-  if (cs.state === STATE.HEAVY || isClap(cs)) return [true, true];
+  if (cs.state === STATE.HEAVY || cs.state === STATE.SPIN || isClap(cs)) return [true, true];
   return [cs.jab % 2 === 0, cs.jab % 2 === 1];
 }
 
@@ -23,7 +23,7 @@ function extension(cs) {
   if (!m) return [0, 0];
   let k;
   switch (phase(cs)) {
-    case 'startup': k = isClap(cs) ? (cs.t + 1) / m.startup : -0.1; break; // wind up (the clap reaches out wide)
+    case 'startup': k = isClap(cs) || cs.state === STATE.SPIN ? (cs.t + 1) / m.startup : -0.1; break; // wind up (the clap and spin reach out)
     case 'active': k = 1; break;
     default: k = 1 - (cs.t - m.startup - m.active) / m.recovery;
   }
@@ -44,7 +44,14 @@ function clapSwing(cs) {
   return (COMBAT.JAB_FINISHER_SWEEP / 2) * (1 - Math.max(0, i) / Math.max(1, active - 1));
 }
 
+// The spin's fists keep their rest spread and orbit the body once over its startup and active ticks.
+function spinAngle(cs, dir, side) {
+  const { startup, active } = COMBAT.SPIN;
+  return dir + side * PLAYER.FIST_SPREAD + 2 * Math.PI * Math.min(1, (cs.t + 1) / (startup + active));
+}
+
 function fistAngle(cs, dir, side, ext) {
+  if (cs.state === STATE.SPIN) return spinAngle(cs, dir, side);
   const swing = clapSwing(cs);
   return swing === null ? punchAngle(dir, side, ext) : dir + side * swing;
 }
@@ -60,12 +67,17 @@ export function fists(cs, x, y, aim) {
   return SIDES.map((side, i) => polar(x, y, fistAngle(cs, dir, side, ext[i]), fistDist(ext[i], reach)));
 }
 
+// Radius of the spin's hitbox, a circle around the body.
+export const SPIN_HITBOX_RADIUS = PLAYER.RADIUS + COMBAT.SPIN.reach;
+
 // The current move's hitboxes, [] when not in a move: one capsule { a, b, r } per throwing fist,
 // along its path from the body's edge out to full extension. They only hit in the active phase,
 // and the clap's fists swing in toward the aim line over its active ticks (the attacker's hitIds stop double hits).
+// The spin's is a single circle around the body (a capsule with both ends at the center).
 export function attackHitboxes(cs, x, y) {
   const m = moveTiming(cs);
   if (!m) return [];
+  if (cs.state === STATE.SPIN) return [{ a: { x, y }, b: { x, y }, r: SPIN_HITBOX_RADIUS }];
   const h = hands(cs);
   return SIDES.flatMap((side, i) => {
     if (!h[i]) return [];

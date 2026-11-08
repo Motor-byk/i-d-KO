@@ -33,8 +33,7 @@ const COLORS = {
   lagging: '#ffd166',
   floatOutline: 'rgba(0, 0, 0, 0.7)',
   hurtbox: 'rgba(120, 220, 255, 0.9)',
-  hitbox: 'rgba(255, 60, 60, 0.55)',      // active: hits now
-  hitboxIdle: 'rgba(255, 60, 60, 0.6)',   // startup/recovery: where it hits (outline)
+  hitbox: 'rgba(255, 60, 60, 0.55)', // filled while active, outlined in startup and recovery
 };
 const STUN_DOTS = 3;
 const INVULN_ALPHA = 0.55;
@@ -261,32 +260,25 @@ export function createRenderer(canvas) {
 
   // Debug view: every body's hurtbox, and each move's fist hitboxes (filled while active).
   function drawHitboxes(fighters) {
-    ctx.lineCap = 'round';
+    ctx.fillStyle = COLORS.hitbox;
     for (const f of fighters) {
       ring(f.x, f.y, PLAYER.RADIUS, 2, COLORS.hurtbox);
       const active = phase(f.cs) === 'active';
       for (const { a, b, r } of attackHitboxes(f.cs, f.x, f.y)) {
-        if (active) {
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.lineWidth = r * 2;
-          ctx.strokeStyle = COLORS.hitbox;
-          ctx.stroke();
-        } else {
-          // A capsule's outline: its two end circles joined by its sides.
-          const n = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2;
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, r, n - Math.PI, n);
-          ctx.arc(a.x, a.y, r, n, n + Math.PI);
-          ctx.closePath();
+        // A capsule: its two end circles joined by its sides.
+        const n = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, r, n - Math.PI, n);
+        ctx.arc(a.x, a.y, r, n, n + Math.PI);
+        ctx.closePath();
+        if (active) ctx.fill();
+        else {
+          ctx.strokeStyle = COLORS.hitbox; // ring() changes the stroke
           ctx.lineWidth = 1.5;
-          ctx.strokeStyle = COLORS.hitboxIdle;
           ctx.stroke();
         }
       }
     }
-    ctx.lineCap = 'butt';
   }
 
   function drawFloats(floats) {

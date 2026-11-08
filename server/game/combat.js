@@ -52,8 +52,8 @@ const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.gr
 // tick's hits, so a parry holds against several at once). Friendly fire ignores parries.
 // Several enemy hits on one target in the same tick all deal damage, but stun and push it
 // once, with the strongest of them, so they count as one combo step.
-// The attacker's fist hitboxes (shared/hitbox.js) are checked against seen(attacker, target): where the attacker saw the target (lag
-// compensation), the target's current position by default.
+// The attacker's fist hitboxes (shared/hitbox.js) are checked against seen(attacker, target):
+// where the attacker saw the target (lag compensation), its current position by default.
 // An enemy hit on an idle target keeps what it undid in target.grace for parryGrace().
 // Returns the hits as [{ attacker, target, damage, parried }].
 export function resolveHits(fighters, { tick = 0, seen = (a, t) => t.body } = {}) {

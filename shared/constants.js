@@ -171,7 +171,7 @@ export const RENDER = {
 
 // Menu screens (home and lobby). Real-time ms: these run outside the sim.
 export const UI = {
-  TIP_INTERVAL_MS: 7000, // how long each rotating tip stays up
+  TIP_INTERVAL_MS: 10000, // how long each rotating tip stays up
   TIP_FADE_MS: 300,      // fade out before the next tip; keep in sync with .tip in style.css
 };
 

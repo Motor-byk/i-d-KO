@@ -1,6 +1,7 @@
 import { ROOM } from '../../shared/constants.js';
 import { h } from './dom.js';
 import { helpButton } from './help.js';
+import { rotatingTip } from './tips.js';
 
 // actions: { addOption(name), removeOption(id), pickTeam(id|null), start(), leave() }
 // Returns { el, update(room), setError(msg) }. The skeleton is built once so typing isn't lost on updates.
@@ -12,6 +13,7 @@ export function lobbyScreen({ playerId, actions }) {
   const status = h('p.error');
   const startBtn = h('button.primary', { onclick: actions.start }, 'Start fight');
   const hostNote = h('p.muted');
+  const tip = rotatingTip();
 
   const input = h('input', { placeholder: 'Add an option (e.g. Tacos)', maxlength: ROOM.MAX_OPTION_LENGTH });
   const add = () => {
@@ -25,8 +27,8 @@ export function lobbyScreen({ playerId, actions }) {
   const el = h('main.screen.lobby', {},
     h('header.lobby-head', {},
       h('div', {}, h('div.muted', {}, 'Room'), codeEl),
-      shareBtn,
       helpButton(),
+      shareBtn,
       h('button.small.ghost', { onclick: actions.leave }, 'Leave'),
     ),
     h('div.row', {}, input, h('button', { onclick: add }, 'Add')),
@@ -35,6 +37,7 @@ export function lobbyScreen({ playerId, actions }) {
     startBtn,
     hostNote,
     status,
+    tip.el,
   );
 
   function update(room) {
@@ -74,7 +77,7 @@ export function lobbyScreen({ playerId, actions }) {
     hostNote.textContent = isHost ? 'Players who have not picked will spectate.' : `Waiting for ${host?.nickname ?? 'host'} to start…`;
   }
 
-  return { kind: 'lobby', el, update, setError: (msg) => { status.textContent = msg; } };
+  return { kind: 'lobby', el, update, setError: (msg) => { status.textContent = msg; }, destroy: tip.destroy };
 }
 
 function playerChip(p, room, playerId) {

@@ -176,3 +176,8 @@ button.ghost { background: transparent; color: var(--muted); }
 .help-controls { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
 .help-controls dt { font-weight: 700; }
 .help-controls dd { margin: 0; color: var(--muted); }
+
+/* Rotating tip at the bottom of the home and lobby screens. */
+.tip { text-align: center; margin-top: 12px; transition: opacity 300ms; }
+.tip.fading { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .tip { transition: none; } }

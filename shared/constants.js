@@ -169,6 +169,12 @@ export const RENDER = {
   NAME_FONT: 13,      // nickname above the HP bar
 };
 
+// Menu screens (home and lobby). Real-time ms: these run outside the sim.
+export const UI = {
+  TIP_INTERVAL_MS: 7000, // how long each rotating tip stays up
+  TIP_FADE_MS: 300,      // fade out before the next tip; keep in sync with .tip in style.css
+};
+
 // Client-only effects. Fonts and distances in world units, durations in ticks.
 export const JUICE = {
   DAMAGE_MIN: 1,         // HP lost between snapshots below this is the ring's burn, not a hit

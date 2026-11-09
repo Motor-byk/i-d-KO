@@ -1,6 +1,7 @@
 import { ROOM } from '../../shared/constants.js';
 import { h, logo } from './dom.js';
 import { helpButton } from './help.js';
+import { rotatingTip } from './tips.js';
 
 // onSubmit({ nickname, code }) returns a promise; code null means create a new room.
 export function homeScreen({ onSubmit, initialCode = '', error = '' }) {
@@ -19,6 +20,7 @@ export function homeScreen({ onSubmit, initialCode = '', error = '' }) {
     oninput: (e) => { e.target.value = e.target.value.toUpperCase(); },
   });
   const status = h('p.error', {}, error);
+  const tip = rotatingTip();
   const createBtn = h('button.primary', { onclick: () => submit(false) }, 'Create room');
   const joinBtn = h('button', { onclick: () => submit(true) }, 'Join');
 
@@ -47,8 +49,10 @@ export function homeScreen({ onSubmit, initialCode = '', error = '' }) {
       h('div.or', {}, 'or join one'),
       h('div.row', {}, code, joinBtn),
       status,
+      tip.el,
     ),
     setError: (msg) => { status.textContent = msg; },
+    destroy: tip.destroy,
   };
 }
 

@@ -1,6 +1,6 @@
 import { NET, DT, PLAYER, TICK_RATE, TICK_MS, SNAPSHOT_RATE, MAX_CATCHUP_TICKS } from '../../shared/constants.js';
 import { applyLanded, isParrying, moveFrames, phase, stepFighter } from '../../shared/combat-state.js';
-import { attackHitboxes, hitsBody } from '../../shared/hitbox.js';
+import { attackHitboxes, hitsBody } from '../../shared/attack-geometry.js';
 import { MAX_REWIND_TICKS, clampStamp } from '../../shared/rewind.js';
 import { resolveCircle } from '../../shared/arena.js';
 import { lerp, lerpAngle } from '../../shared/math.js';

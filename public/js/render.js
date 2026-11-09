@@ -1,6 +1,6 @@
 import { ARENA, PLAYER, RENDER, COMBAT, JUICE } from '../shared/constants.js';
 import { STATE, phase, chargeFraction, hasArmor, isParrying } from '../shared/combat-state.js';
-import { fists, attackHitboxes, SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
+import { fists, attackHitboxes, SPIN_HITBOX_RADIUS } from '../shared/attack-geometry.js';
 
 const COLORS = {
   void: '#0d0e12',

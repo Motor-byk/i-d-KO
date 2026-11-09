@@ -5,7 +5,7 @@ import {
   isParrying, STATE,
 } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
-import { SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
+import { SPIN_HITBOX_RADIUS } from '../shared/attack-geometry.js';
 import { COMBAT, BUTTONS, ARENA, PLAYER, DT } from '../shared/constants.js';
 
 const JAB = { pressed: BUTTONS.JAB };

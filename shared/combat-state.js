@@ -1,7 +1,7 @@
 import { COMBAT, BUTTONS, PLAYER } from './constants.js';
 import { stepBody } from './physics.js';
 import { bounceVelocity, sweepCircle } from './arena.js';
-import { attackHitboxes } from './hitbox.js';
+import { attackHitboxes } from './attack-geometry.js';
 import { lerp } from './math.js';
 
 // Combat timing, shared by the server and client prediction: what a fighter is doing, for how

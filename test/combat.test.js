@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { burstPush, resolveHits } from '../server/game/combat.js';
 import { createCombat, stepCombat, stepFighter, phase, isParrying, hasArmor, chargeFraction, STATE } from '../shared/combat-state.js';
 import { createBody } from '../shared/physics.js';
-import { attackHitboxes, fists, SPIN_HITBOX_RADIUS } from '../shared/hitbox.js';
+import { attackHitboxes, fists, SPIN_HITBOX_RADIUS } from '../shared/attack-geometry.js';
 import { COMBAT, PLAYER, BUTTONS } from '../shared/constants.js';
 
 const fighter = (id, teamId, x, y) => ({

@@ -1,6 +1,6 @@
 import { COMBAT } from '../../shared/constants.js';
 import { applyHit, applyLanded, applyParry, hasArmor, isParrying, moveFrames, phase, STATE } from '../../shared/combat-state.js';
-import { attackHitboxes, hitsBody } from '../../shared/hitbox.js';
+import { attackHitboxes, hitsBody } from '../../shared/attack-geometry.js';
 
 // Server-only hit detection and resolution. Fighters: { id, teamId, body, cs, hp, damageMult, alive, hitIds }.
 
@@ -35,7 +35,7 @@ const inGrace = (f, tick) => !!f.grace && tick - f.grace.tick <= COMBAT.PARRY.gr
 // Several enemy hits on one target in the same tick all deal damage, but stun and push it
 // once, with the strongest of them, so they count as one combo step. An armored target (charging
 // a heavy, hasArmor) takes the damage and push but no stun, until the damage breaks the armor.
-// The attacker's fist hitboxes (shared/hitbox.js) are checked against seen(attacker, target):
+// The attacker's fist hitboxes (shared/attack-geometry.js) are checked against seen(attacker, target):
 // where the attacker saw the target (lag compensation), its current position by default.
 // An enemy hit on an idle target keeps what it undid in target.grace for parryGrace().
 // Returns the hits as [{ attacker, target, damage, parried }].

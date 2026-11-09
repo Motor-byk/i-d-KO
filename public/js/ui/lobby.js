@@ -1,5 +1,6 @@
 import { ROOM } from '../../shared/constants.js';
 import { h } from './dom.js';
+import { helpButton } from './help.js';
 
 // actions: { addOption(name), removeOption(id), pickTeam(id|null), start(), leave() }
 // Returns { el, update(room), setError(msg) }. The skeleton is built once so typing isn't lost on updates.
@@ -25,6 +26,7 @@ export function lobbyScreen({ playerId, actions }) {
     h('header.lobby-head', {},
       h('div', {}, h('div.muted', {}, 'Room'), codeEl),
       shareBtn,
+      helpButton(),
       h('button.small.ghost', { onclick: actions.leave }, 'Leave'),
     ),
     h('div.row', {}, input, h('button', { onclick: add }, 'Add')),

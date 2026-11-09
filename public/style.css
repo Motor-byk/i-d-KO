@@ -152,3 +152,27 @@ button.ghost { background: transparent; color: var(--muted); }
   margin: 0; padding: 6px 8px; border-radius: 8px; pointer-events: none;
   background: rgba(0, 0, 0, 0.6); color: #9ef0c8; font: 11px/1.35 ui-monospace, monospace;
 }
+
+/* Rules and controls: a ? button and a modal dialog. */
+.help-btn {
+  width: 36px; height: 36px; min-height: 36px; padding: 0; flex: none;
+  border-radius: 50%; border: 2px solid var(--muted); background: transparent;
+  color: var(--muted); font-weight: 800; font-size: 1.05rem; line-height: 1;
+}
+.help-btn:hover { color: var(--accent); border-color: var(--accent); }
+.home { position: relative; }
+.home > .help-wrap { position: absolute; top: 16px; right: 16px; }
+.help {
+  width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+  padding: 0; border: 0; border-radius: var(--radius);
+  background: var(--panel); color: var(--text); color-scheme: dark;
+}
+.help::backdrop { background: rgba(0, 0, 0, 0.6); }
+.help-body { padding: 16px 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+.help-head { display: flex; align-items: center; justify-content: space-between; }
+.help h2 { margin: 0; font-size: 1.3rem; }
+.help h3 { margin: 12px 0 6px; color: var(--accent); font-size: 1rem; }
+.help p { margin: 0 0 8px; line-height: 1.45; }
+.help-controls { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+.help-controls dt { font-weight: 700; }
+.help-controls dd { margin: 0; color: var(--muted); }

@@ -19,13 +19,12 @@ The bigger team has the edge, but a heavily outnumbered team is a "dark horse" w
 |---|---|---|
 | Move | WASD / arrow keys | Drag anywhere on the left half |
 | Aim | Mouse | Drag anywhere on the right half |
-| Light | Left click / C (a jab string ending in a clap) | Tap while aiming |
+| Light | Left click / C | Tap while aiming |
 | Spin | X | Tap Light without aiming |
 | Heavy | Right click / V, hold to charge | Hold to charge |
 | Dash | Space, in the direction you're moving | Tap |
 | Parry | Shift, just before a hit lands | Tap |
 
-The **?** button on the home and lobby screens shows the same rules and controls in the game.
 
 ## Run locally
 
